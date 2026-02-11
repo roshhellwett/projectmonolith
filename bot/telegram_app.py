@@ -1,8 +1,7 @@
 import logging
-from telegram.ext import ApplicationBuilder
-
+from telegram.ext import ApplicationBuilder, CommandHandler
 from core.config import BOT_TOKEN
-from bot.user_handlers import register_user_handlers
+from bot.status import status
 
 logger = logging.getLogger("TELEGRAM")
 
@@ -11,32 +10,26 @@ _app = None
 
 def get_bot():
     if _app is None:
-        raise RuntimeError("Telegram not initialized")
+        raise RuntimeError("Telegram not started yet")
     return _app.bot
-
-
-async def init_telegram():
-    global _app
-
-    logger.info("BUILDING TELEGRAM APP")
-
-    _app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    register_user_handlers(_app)
-
-    logger.info("HANDLERS REGISTERED")
 
 
 async def start_telegram():
     global _app
 
-    logger.info("STARTING TELEGRAM")
+    logger.info("Starting Telegram App")
+
+    _app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    # Register Handlers
+    _app.add_handler(CommandHandler("status", status))
 
     await _app.initialize()
     await _app.start()
-    await _app.bot.initialize()
-
-    # START POLLING MANUALLY (SAFE)
+    
+    # IMPORTANT: Start receiving updates (polling) for commands to work
     await _app.updater.start_polling()
 
-    logger.info("TELEGRAM BOT READY")
+    logger.info("Telegram READY & POLLING")
+
+    return _app

@@ -23,18 +23,6 @@ class Notification(Base):
 
 
 # =========================
-# 👤 SUBSCRIBERS TABLE
-# =========================
-class Subscriber(Base):
-    __tablename__ = "subscribers"
-
-    id = Column(Integer, primary_key=True, index=True)
-
-    telegram_id = Column(String, unique=True, index=True, nullable=False)
-    active = Column(Boolean, default=True)
-
-
-# =========================
 # ⚙ SYSTEM FLAGS TABLE
 # =========================
 class SystemFlag(Base):

@@ -1,25 +1,28 @@
 import re
 from datetime import datetime
 
-def extract_date(text, pdf_url=None):
-    patterns = [
-        r'\d{1,2}[-/ ](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ ]?\d{2,4}',
-        r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}'
-    ]
 
-    for p in patterns:
-        m = re.search(p, text or "")
-        if m:
-            try:
-                return datetime.strptime(m.group(), "%d %b %Y")
-            except:
-                pass
+DATE_PATTERNS = [
+    r"\d{2}-\d{2}-\d{4}",  # DD-MM-YYYY
+    r"\d{2}/\d{2}/\d{4}",  # DD/MM/YYYY
+    r"\d{4}-\d{2}-\d{2}",  # YYYY-MM-DD
+]
 
-    # PDF filename date fallback
-    if pdf_url:
-        m = re.search(r'20\d{2}', pdf_url)
-        if m:
-            return datetime(int(m.group()), 1, 1)
+
+def extract_date(text: str):
+
+    if not text:
+        return None
+
+    for pattern in DATE_PATTERNS:
+        match = re.search(pattern, text)
+        if match:
+            date_str = match.group()
+            # Try multiple formats
+            for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
+                try:
+                    return datetime.strptime(date_str, fmt)
+                except ValueError:
+                    continue
 
     return None
-#@roshhellwett makaut tele bot

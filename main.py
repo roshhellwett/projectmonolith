@@ -1,44 +1,49 @@
 import asyncio
 import logging
+import sys
 
+from core.logger import setup_logger
 from database.init_db import init_db
-from bot.telegram_app import init_telegram, start_telegram, get_bot
+from bot.telegram_app import start_telegram
 from pipeline.ingest_pipeline import start_pipeline
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
-)
 
 logger = logging.getLogger("MAIN")
 
-
 async def main():
+    setup_logger()
+    logger.info("🚀 TELEACADEMIC CHANNEL BOT STARTING")
 
-    logger.info("🚀 TELEACADEMIC BOT STARTING")
+    # ===== DATABASE INIT =====
+    try:
+        init_db()
+    except Exception as e:
+        logger.critical(f"DATABASE INIT FAILED: {e}")
+        sys.exit(1)
 
-    # ===== INIT DATABASE =====
-    init_db()
-    logger.info("DATABASE READY")
+    # ===== START TELEGRAM FIRST =====
+    try:
+        await start_telegram()
+    except Exception as e:
+        logger.critical(f"TELEGRAM START FAILED: {e}")
+        sys.exit(1)
 
-    # ===== INIT TELEGRAM (BUILD APP) =====
-    await init_telegram()
+    # ===== START PIPELINE BACKGROUND =====
+    pipeline_task = asyncio.create_task(start_pipeline())
 
-    # ===== START TELEGRAM =====
-    await start_telegram()
+    logger.info("SYSTEM READY")
 
-    logger.info("TELEGRAM READY")
-
-    # ===== START PIPELINE AFTER TELEGRAM READY =====
-    asyncio.create_task(start_pipeline())
-
-    logger.info("PIPELINE BACKGROUND TASK STARTED")
-
-    # ===== KEEP APP ALIVE =====
-    while True:
-        await asyncio.sleep(3600)
-
+    # ===== KEEP PROCESS ALIVE =====
+    try:
+        # Wait on the pipeline task.
+        await pipeline_task
+    except asyncio.CancelledError:
+        logger.info("Bot stopping...")
+    except Exception as e:
+        logger.critical(f"PIPELINE CRASHED: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
