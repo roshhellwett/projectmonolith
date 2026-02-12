@@ -1,12 +1,12 @@
 import os
 import logging
 from telegram.ext import ApplicationBuilder, CommandHandler
-from admin_bot.handlers import update_system, send_db_backup
+# Added health_check to the import list
+from admin_bot.handlers import update_system, send_db_backup, health_check
 
 logger = logging.getLogger("ADMIN_BOT")
 
 async def start_admin_bot():
-    # Make sure to add ADMIN_BOT_TOKEN to your .env file
     token = os.getenv("ADMIN_BOT_TOKEN")
     if not token:
         logger.error("ADMIN_BOT_TOKEN missing in .env!")
@@ -17,6 +17,8 @@ async def start_admin_bot():
     # Register management commands
     app.add_handler(CommandHandler("update", update_system))
     app.add_handler(CommandHandler("backup", send_db_backup))
+    # NEW: Register the health check command
+    app.add_handler(CommandHandler("health", health_check))
 
     await app.initialize()
     await app.start()

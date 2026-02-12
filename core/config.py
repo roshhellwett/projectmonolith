@@ -7,42 +7,32 @@ load_dotenv()
 # TELEGRAM
 # ==============================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+SEARCH_BOT_TOKEN = os.getenv("SEARCH_BOT_TOKEN")
+ADMIN_BOT_TOKEN = os.getenv("ADMIN_BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN missing in .env")
 
-if not CHANNEL_ID:
-    raise ValueError("CHANNEL_ID missing in .env")
-
 # ==============================
 # DATABASE
 # ==============================
 DATABASE_URL = os.getenv("DATABASE_URL")
-
 if not DATABASE_URL:
-    print("⚠ DATABASE_URL not set — Using Local SQLite")
     DATABASE_URL = "sqlite:///makaut.db"
-else:
-    # Fix for SQLAlchemy 1.4+ removing 'postgres://' support
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # ==============================
-# PIPELINE
+# PIPELINE & ADMIN
 # ==============================
 try:
     SCRAPE_INTERVAL = int(os.getenv("SCRAPE_INTERVAL", "300"))
-except ValueError:
-    SCRAPE_INTERVAL = 300
-
-    # Add this near the other os.getenv calls
-try:
     ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 except ValueError:
+    SCRAPE_INTERVAL = 300
     ADMIN_ID = 0
 
 # ==============================
-# LOGGING
+# GEMINI API KEYS (Multi-Key)
 # ==============================
+GEMINI_API_KEYS = os.getenv("GEMINI_API_KEY", "") # Reads your comma-separated string
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

@@ -5,73 +5,78 @@ import psutil
 import time
 from telegram import Update
 from telegram.ext import ContextTypes
-from core.config import ADMIN_ID  # Ensure ADMIN_ID is defined in your config
+from core.config import ADMIN_ID
+
+# Import the processor module directly to access live global variables
+import scraper.pdf_processor as pdf_proc
 
 logger = logging.getLogger("ADMIN_HANDLERS")
 
 async def update_system(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Pulls the latest code from GitHub and restarts the entire triple-bot system.
-    """
+    """Pulls latest changes from GitHub and performs a hot-swap restart."""
     if update.effective_user.id != ADMIN_ID:
-        logger.warning(f"Unauthorized update attempt by ID: {update.effective_user.id}")
         return
-
-    await update.message.reply_text("📥 <b>Admin:</b> Pulling latest changes from GitHub...")
     
-    # Execute git pull
+    await update.message.reply_text("📥 <b>Admin:</b> Pulling latest changes from GitHub...")
     try:
         os.system("git pull origin main")
         await update.message.reply_text("✅ Code updated. Restarting system...")
-        
-        # Hot-swap restart: This triggers the run_bot.sh loop to reload the new code
+        # Restarting the python process
         os.execv(sys.executable, ['python3'] + sys.argv)
     except Exception as e:
         logger.error(f"Update failed: {e}")
         await update.message.reply_text(f"❌ Update failed: {e}")
 
 async def send_db_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Sends the current makaut.db file directly to your private Admin chat.
-    """
+    """Sends the SQLite database file to the Admin."""
     if update.effective_user.id != ADMIN_ID:
         return
-
+        
     db_path = "makaut.db"
     if os.path.exists(db_path):
         await update.message.reply_document(
             document=open(db_path, 'rb'), 
-            filename=f"makaut_backup_{int(time.time())}.db",
-            caption="📂 Here is your latest database backup."
+            caption="📂 <b>Database Backup</b>",
+            parse_mode='HTML'
         )
     else:
-        await update.message.reply_text("❌ Database file (makaut.db) not found.")
+        await update.message.reply_text("❌ Database file not found.")
 
 async def health_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Provides a real-time report of the laptop's CPU, RAM, and Bot status.
-    """
+    """Provides a real-time report of system metrics and Sequential API status."""
     if update.effective_user.id != ADMIN_ID:
         return
 
-    # Gather system metrics using psutil
+    # 1. Gather System Metrics
     cpu_usage = psutil.cpu_percent(interval=1)
-    ram = psutil.virtual_memory()
-    ram_usage = ram.percent
-    
-    # Calculate uptime (approximate based on process start)
-    uptime_seconds = int(time.time() - psutil.Process(os.getpid()).create_time())
+    ram_usage = psutil.virtual_memory().percent
+    process_start = psutil.Process(os.getpid()).create_time()
+    uptime_seconds = int(time.time() - process_start)
     uptime_str = time.strftime('%Hh %Mm %Ss', time.gmtime(uptime_seconds))
 
+    # 2. Sequential Key Monitoring (Live Data)
+    total_keys = len(pdf_proc.ALL_KEYS)
+    exhausted_count = len(pdf_proc.BLACKLISTED_KEYS)
+    # Adding 1 because index starts at 0 (e.g., Index 0 is Key #1)
+    active_key_num = pdf_proc.current_key_index + 1
+    
+    key_status = (
+        f"<b>🔑 Gemini API Pool:</b> {total_keys - exhausted_count}/{total_keys} Available\n"
+        f"🎯 <b>Current Lifeline:</b> Key #{active_key_num}\n"
+    )
+    
+    if exhausted_count > 0:
+        key_status += f"⚠️ <i>{exhausted_count} keys cooling down (24h).</i>\n"
+
+    # 3. Final Status Message
     status_msg = (
         "<b>🖥️ System Health Report</b>\n\n"
+        f"{key_status}\n"
         f"<b>⏱ Uptime:</b> {uptime_str}\n"
-        f"<b>📊 CPU Usage:</b> {cpu_usage}%\n"
-        f"<b>🧠 RAM Usage:</b> {ram_usage}%\n\n"
-        "<b>🤖 Active Services:</b>\n"
-        "✅ Broadcast Bot: <i>Active</i>\n"
-        "✅ Search Bot: <i>Active</i>\n"
-        "✅ Scraper Pipeline: <i>Active</i>\n\n"
+        f"<b>📊 CPU:</b> {cpu_usage}% | <b>🧠 RAM:</b> {ram_usage}%\n\n"
+        "<b>🤖 Services:</b>\n"
+        "✅ Broadcast & Search: Active\n"
+        "✅ Scraper Pipeline: Active\n\n"
         "<i>Running 24/7 on Linux Mint</i>"
     )
     
