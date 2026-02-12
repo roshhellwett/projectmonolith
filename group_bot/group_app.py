@@ -12,7 +12,8 @@ async def start_group_bot():
         logger.error("GROUP_BOT_TOKEN missing!")
         return
 
-    app = ApplicationBuilder().token(token).build()
+    # FIX: Increased timeouts to prevent system-wide startup crash
+    app = ApplicationBuilder().token(token).read_timeout(30).connect_timeout(30).build()
 
     async def group_monitor_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not update.message or not update.message.text:

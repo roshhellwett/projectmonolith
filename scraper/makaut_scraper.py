@@ -38,7 +38,7 @@ async def build_item(title, url, source_name, date_context=None):
     if not real_date and ".pdf" in url.lower():
         real_date = await get_date_from_pdf(url)
 
-    if real_date and real_date.year == TARGET_YEAR: [cite: 89, 90]
+    if real_date and real_date.year == TARGET_YEAR:
         return {
             "title": title.strip(),
             "source": source_name,
@@ -53,7 +53,7 @@ async def build_item(title, url, source_name, date_context=None):
 async def parse_generic_links(base_url, source_name):
     data = []
     headers = {"User-Agent": random.choice(USER_AGENTS)}
-    verify = not any(domain in base_url for domain in SSL_VERIFY_EXEMPT) [cite: 94]
+    verify = not any(domain in base_url for domain in SSL_VERIFY_EXEMPT)
     
     try:
         async with httpx.AsyncClient(timeout=30.0, verify=verify) as client:
@@ -72,11 +72,10 @@ async def parse_generic_links(base_url, source_name):
                 if item: data.append(item)
     except Exception as e:
         logger.error(f"Scrape Failed: {base_url} | {e}")
-        raise e # Raise to let scrape_source handle health
+        raise e 
     return data
 
 async def scrape_source(source_key, source_config):
-    """Isolated exception handler for source-specific failures."""
     try:
         results = await parse_generic_links(source_config["url"], source_config["source"])
         source_health[source_key] = 0

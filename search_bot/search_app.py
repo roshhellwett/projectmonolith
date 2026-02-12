@@ -5,15 +5,13 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 from search_bot.handlers import get_latest_results, search_by_keyword
 
 logger = logging.getLogger("SEARCH_BOT")
-
-# Supreme Fast Filters
 FAST_FILTERS = [["/latest", "BCA", "CSE"], ["Exam", "Result", "Form"]]
 
 async def start_search_bot():
     token = os.getenv("SEARCH_BOT_TOKEN")
     if not token: return
 
-    app = ApplicationBuilder().token(token).build()
+    app = ApplicationBuilder().token(token).read_timeout(30).connect_timeout(30).build()
     reply_markup = ReplyKeyboardMarkup(FAST_FILTERS, resize_keyboard=True)
     
     async def start_cmd(update, context):
@@ -24,12 +22,12 @@ async def start_search_bot():
         )
 
     async def latest_cmd(update, context):
-        result_text = get_latest_results()
+        result_text = await get_latest_results() # Added await
         await update.message.reply_text(result_text, parse_mode="HTML", disable_web_page_preview=True)
 
     async def handle_msg(update, context):
         query = update.message.text
-        result_text = search_by_keyword(query)
+        result_text = await search_by_keyword(query) # Added await
         await update.message.reply_text(result_text, parse_mode="HTML", disable_web_page_preview=True)
 
     app.add_handler(CommandHandler("start", start_cmd))
