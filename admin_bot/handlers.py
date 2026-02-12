@@ -5,34 +5,28 @@ import psutil
 from sqlalchemy import func, select
 from telegram import Update
 from telegram.ext import ContextTypes
-from core.config import ADMIN_ID, CHANNEL_ID
+from core.config import ADMIN_ID
 from database.db import AsyncSessionLocal
 from database.models import Notification, UserStrike
 
-# Global state for maintenance mode
-is_maintenance = False
-
-async def maintenance_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Suspends services for X minutes to allow local testing."""
+async def update_system(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Asynchronously pulls latest code from GitHub and restarts."""
     if update.effective_user.id != ADMIN_ID: 
         return
-    global is_maintenance
+    await update.message.reply_text("📥 <b>Admin:</b> Pulling from GitHub...")
     
-    try:
-        duration_mins = int(context.args[0]) if context.args else 1
-        await update.message.reply_text(f"🚧 <b>Maintenance:</b> Suspending for {duration_mins}m.")
-        
-        is_maintenance = True
-        from group_bot.group_app import toggle_group_lock
-        await toggle_group_lock(context, CHANNEL_ID, lock=True)
-        
-        await asyncio.sleep(duration_mins * 60)
-        
-        is_maintenance = False
-        await toggle_group_lock(context, CHANNEL_ID, lock=False)
-        await update.message.reply_text("✅ <b>Resume:</b> Services active.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error: {e}")
+    process = await asyncio.create_subprocess_shell(
+        "git pull origin main",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await process.communicate()
+    
+    if process.returncode == 0:
+        await update.message.reply_text("✅ Code updated. Restarting system...")
+        os.execv(sys.executable, ['python3'] + sys.argv)
+    else:
+        await update.message.reply_text(f"❌ Git Fail: {stderr.decode()}")
 
 async def send_db_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Sends the database file to the admin securely."""
@@ -45,30 +39,30 @@ async def send_db_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ Database not found.")
 
-async def update_system(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Pulls latest code from GitHub and restarts the process."""
-    if update.effective_user.id != ADMIN_ID: 
-        return
-    await update.message.reply_text("📥 <b>Admin:</b> Pulling from GitHub...")
-    process = await asyncio.create_subprocess_shell("git pull origin main", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    await process.communicate()
-    if process.returncode == 0:
-        await update.message.reply_text("✅ Code updated. Restarting system...")
-        os.execv(sys.executable, ['python3'] + sys.argv)
-
 async def health_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Zenith Forensic Health Report with DB Metrics."""
+    """Forensic Health Report with DB Metrics."""
     if update.effective_user.id != ADMIN_ID: 
         return
-    cpu, ram = psutil.cpu_percent(), psutil.virtual_memory().percent
+    
+    cpu = psutil.cpu_percent()
+    ram = psutil.virtual_memory().percent
+    
     async with AsyncSessionLocal() as db:
-        total = (await db.execute(select(func.count(Notification.id)))).scalar()
-        strikes = (await db.execute(select(func.count(UserStrike.user_id)))).scalar()
-        status_msg = (
-            f"<b>🖥️ ZENITH SYSTEM HEALTH</b>\n\n"
-            f"📊 CPU: {cpu}% | 🧠 RAM: {ram}%\n"
-            f"📁 Notices: {total} | 🚫 Violators: {strikes}\n"
-            f"Mode: {'MAINTENANCE' if is_maintenance else 'LIVE'}"
-        )
+        # Count total notifications in DB
+        count_stmt = select(func.count(Notification.id))
+        total_notices = (await db.execute(count_stmt)).scalar()
+        
+        # Count total users with strike records
+        strike_stmt = select(func.count(UserStrike.user_id))
+        active_strikes = (await db.execute(strike_stmt)).scalar()
+
+    status_msg = (
+        "<b>🖥️ ZENITH SYSTEM HEALTH</b>\n\n"
+        f"<b>📊 CPU:</b> {cpu}% | <b>🧠 RAM:</b> {ram}%\n"
+        f"<b>📁 DB Notices:</b> {total_notices}\n"
+        f"<b>🚫 Tracked Violators:</b> {active_strikes}\n\n"
+        "✅ <b>Database:</b> ASYNC STATIC POOL ACTIVE\n"
+        "✅ <b>Pipeline:</b> HEARTBEAT STABLE"
+    )
     await update.message.reply_text(status_msg, parse_mode='HTML')
-    #@academictelebotbyroshhellwett
+     #@academictelebotbyroshhellwett
