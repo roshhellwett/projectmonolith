@@ -46,10 +46,10 @@ async def health_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uptime = time.strftime('%Hh %Mm', time.gmtime(time.time() - psutil.Process().create_time()))
 
     status_msg = (
-        "<b>🖥️ System Health (Supreme)</b>\n\n"
+        "<b>🖥️ SYSTEM HEALTH</b>\n\n"
         f"<b>⏱ Uptime:</b> {uptime}\n"
         f"<b>📊 CPU:</b> {cpu}% | <b>🧠 RAM:</b> {ram}%\n\n"
-        "✅ <b>Mode:</b> 2026 Async Gatekeeper\n"
-        "✅ <b>Services:</b> All Active"
+        "✅ <b>Mode:</b> ASYNC MODE\n"
+        "✅ <b>Services:</b> All ACTIVE"
     )
     await update.message.reply_text(status_msg, parse_mode='HTML')

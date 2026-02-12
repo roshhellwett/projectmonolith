@@ -14,7 +14,7 @@ setup_logger()
 logger = logging.getLogger("MAIN")
 
 async def main():
-    logger.info("🚀 TELEACADEMIC QUAD-BOT SYSTEM STARTING")
+    logger.info("🚀 QUAD-BOT SYSTEM STARTING")
 
     # 1. Database Initialization (Updated to Async)
     try:

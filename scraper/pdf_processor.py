@@ -10,7 +10,7 @@ from core.config import SSL_VERIFY_EXEMPT
 logger = logging.getLogger("PDF_PROCESSOR")
 
 def _process_pdf_sync(pdf_bytes):
-    """Synchronous CPU-bound PDF parsing."""
+    """Synchronous CPU-bound PDF parsing executed in a separate thread."""
     try:
         with pdfplumber.open(pdf_bytes) as pdf:
             if not pdf.pages:
@@ -40,8 +40,8 @@ def _process_pdf_sync(pdf_bytes):
         return None
 
 async def get_date_from_pdf(pdf_url):
-    """Asynchronous wrapper for PDF downloading and parsing[cite: 98]."""
-    # Determine SSL verification 
+    """Asynchronous wrapper for PDF downloading and thread-safe parsing."""
+    # Targeted SSL verification
     verify = not any(domain in pdf_url for domain in SSL_VERIFY_EXEMPT)
     
     try:
@@ -52,9 +52,8 @@ async def get_date_from_pdf(pdf_url):
             
             pdf_bytes = io.BytesIO(response.content)
             
-            # FIX: Offload CPU-bound task to thread to prevent loop blocking [cite: 100]
-            loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(None, _process_pdf_sync, pdf_bytes)
+            # FIX: Offload CPU-bound task to thread to prevent event loop blocking
+            return await asyncio.to_thread(_process_pdf_sync, pdf_bytes)
 
     except Exception as e:
         logger.error(f"PDF Download Error: {pdf_url} | {e}")

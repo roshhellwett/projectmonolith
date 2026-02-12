@@ -4,7 +4,7 @@ from database.models import Notification
 from pipeline.message_formatter import format_search_result
 
 async def get_latest_results(limit=10):
-    """Async fetch of recent notices."""
+    """Async fetch of recent notices with proper session management."""
     async with AsyncSessionLocal() as db:
         stmt = select(Notification).order_by(Notification.published_date.desc()).limit(limit)
         result = await db.execute(stmt)
@@ -12,7 +12,7 @@ async def get_latest_results(limit=10):
         return format_search_result(notices)
 
 async def search_by_keyword(query, limit=10):
-    """Async case-insensitive keyword search."""
+    """Async case-insensitive keyword search with proper session management."""
     async with AsyncSessionLocal() as db:
         stmt = select(Notification).filter(
             Notification.title.ilike(f"%{query}%")

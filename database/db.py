@@ -5,12 +5,16 @@ from core.config import DATABASE_URL
 
 logger = logging.getLogger("DATABASE")
 
-# Convert standard sqlite URL to async version for aiosqlite
-IF_SQLITE = "sqlite" in DATABASE_URL
-ASYNC_DB_URL = DATABASE_URL.replace("sqlite:///", "sqlite+aiosqlite:///") if IF_SQLITE else DATABASE_URL
+# FIX: Force the async driver even if the user provides a standard sqlite URL 
+if DATABASE_URL.startswith("sqlite:///"):
+    ASYNC_DB_URL = DATABASE_URL.replace("sqlite:///", "sqlite+aiosqlite:///")
+elif DATABASE_URL.startswith("sqlite://"):
+    ASYNC_DB_URL = DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
+else:
+    ASYNC_DB_URL = DATABASE_URL
 
 # ===== ASYNC ENGINE =====
-# pool_pre_ping ensures the connection is alive before use [cite: 60]
+# pool_pre_ping ensures the connection is alive before use 
 engine = create_async_engine(
     ASYNC_DB_URL,
     pool_pre_ping=True,
@@ -19,7 +23,7 @@ engine = create_async_engine(
 )
 
 # ===== ASYNC SESSION FACTORY =====
-# This produces sessions that support the 'async with' protocol
+# This produces sessions that support the 'async with' protocol 
 AsyncSessionLocal = sessionmaker(
     engine, 
     class_=AsyncSession, 
@@ -27,4 +31,4 @@ AsyncSessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
-logger.info("DATABASE ENGINE READY")
+logger.info(f"DATABASE ENGINE READY (ASYNC MODE: {ASYNC_DB_URL.split('+')[0]})")
