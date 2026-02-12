@@ -4,16 +4,24 @@ import unicodedata
 from group_bot.word_list import BANNED_WORDS, SPAM_DOMAINS
 
 def _run_regex_sync(text):
-    """Synchronous regex engine for heavy word lists."""
+    """Zenith Deep Scan Engine: Flattens text to catch bypass attempts."""
+    if not text:
+        return False, None
+
+    # 1. Unicode Normalization
     normalized_text = unicodedata.normalize("NFKD", text).lower()
     
-    # Forensic Abuse Detection using Word Boundaries
-    abuse_pattern = r"(?i)\b(" + "|".join(re.escape(word) for word in BANNED_WORDS) + r")\b"
-    
-    if re.search(abuse_pattern, normalized_text):
-        return True, "Abusive/Inappropriate Language"
+    # 2. De-Noising: Remove all symbols and spaces (e.g., f.u.c.k -> fuck)
+    # Supports English, Hindi, and Bengali character ranges
+    noise_free = re.sub(r'[^a-zA-Z0-9\u0900-\u097F\u0980-\u09FF\s]', '', normalized_text)
+    collapsed_text = noise_free.replace(" ", "")
 
-    # Smart Link Protection 
+    # 3. Substring Forensic Match
+    for word in BANNED_WORDS:
+        if word.lower() in collapsed_text:
+            return True, "Abusive/Inappropriate Language"
+
+    # 4. Smart Link Protection
     if "makaut" not in normalized_text:
         for domain in SPAM_DOMAINS:
             if domain in normalized_text:
@@ -22,9 +30,6 @@ def _run_regex_sync(text):
     return False, None
 
 async def is_inappropriate(text: str) -> (bool, str):
-    """Async wrapper for the multi-lingual forensic filter."""
     if not text:
         return False, None
-    
-    # Offload heavy regex matching to a separate thread
     return await asyncio.to_thread(_run_regex_sync, text)

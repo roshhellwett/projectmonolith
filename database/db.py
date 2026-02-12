@@ -1,11 +1,11 @@
 import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import StaticPool
 from core.config import DATABASE_URL
 
 logger = logging.getLogger("DATABASE")
 
-# Security Fix: Force the async driver internally 
 if DATABASE_URL.startswith("sqlite:///"):
     ASYNC_DB_URL = DATABASE_URL.replace("sqlite:///", "sqlite+aiosqlite:///")
 elif DATABASE_URL.startswith("sqlite://"):
@@ -13,15 +13,15 @@ elif DATABASE_URL.startswith("sqlite://"):
 else:
     ASYNC_DB_URL = DATABASE_URL
 
-# Async Engine with health checks
+# UPGRADE: StaticPool handles concurrent async access for SQLite professionally
 engine = create_async_engine(
     ASYNC_DB_URL,
-    pool_pre_ping=True,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
     future=True,
     echo=False
 )
 
-# Mandatory Async Session Factory
 AsyncSessionLocal = sessionmaker(
     engine, 
     class_=AsyncSession, 
