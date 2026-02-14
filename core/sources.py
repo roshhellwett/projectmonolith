@@ -1,19 +1,10 @@
+# Zenith Supreme Sources Registry
+# Focused exclusively on high-value academic notifications (Exams, Results, Forms).
+
 URLS = {
-    "announcements": {
-        "url": "https://makautwb.ac.in/page.php?id=340",
-        "priority": 1,
-        "source": "MAKAUT WB"
-    },
-
-    "vacancies": {
-        "url": "https://makautwb.ac.in/page.php?id=211",
-        "priority": 3,
-        "source": "MAKAUT WB"
-    },
-
     "exam_notices": {
-        "url": "https://www.makautexam.net/announcement.html",
-        "priority": 2,
+        "url": "https://www.makautexam.net/",  # Pointing to the main page with the Latest Announcements widget
+        "priority": 1,
         "source": "MAKAUT EXAM"
     }
 }
