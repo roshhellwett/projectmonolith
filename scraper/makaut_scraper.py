@@ -28,37 +28,28 @@ COOLDOWN_SECONDS = 1800  # 30 Minutes
 
 def _parse_html_sync(html_content, source_config):
     """
-    CPU-BOUND TASK: Runs inside a thread to avoid blocking the event loop.
-    Parses HTML and extracts raw links.
+    CPU-BOUND TASK: Universal Link Extractor.
+    Scans the entire page without getting trapped in HTML tables.
     """
     soup = BeautifulSoup(html_content, "html.parser")
     items = []
     
-    # STRATEGY 1: Table Row Scan (Best for MAKAUT tables)
-    rows = soup.find_all("tr")
-    if len(rows) > 5:
-        for row in rows:
-            link = row.find("a", href=True)
-            if link:
-                full_row_text = row.get_text(" ", strip=True)
-                full_url = urljoin(source_config["url"], link["href"])
-                items.append({
-                    "text": link.get_text(strip=True),
-                    "url": full_url,
-                    "context": full_row_text
-                })
-    
-    # STRATEGY 2: Fallback (Div/List based sites)
-    if not items:
-        container = soup.find("div", {"id": "content"}) or soup.body
-        for a in container.find_all("a", href=True):
-            full_url = urljoin(source_config["url"], a["href"])
-            context = a.parent.get_text(strip=True) if a.parent else ""
-            items.append({
-                "text": a.get_text(strip=True),
-                "url": full_url,
-                "context": context
-            })
+    # Grab EVERY link on the page
+    for a in soup.find_all("a", href=True):
+        full_url = urljoin(source_config["url"], a["href"])
+        
+        # Get the link text, and the parent's text (in case date is outside the link)
+        link_text = a.get_text(" ", strip=True)
+        parent_text = a.parent.get_text(" ", strip=True) if a.parent else ""
+        
+        # Combine them to ensure we don't miss the date
+        final_text = f"{parent_text} {link_text}".strip() if parent_text else link_text
+        
+        items.append({
+            "text": final_text,
+            "url": full_url,
+            "context": parent_text
+        })
             
     return items
 
@@ -71,20 +62,27 @@ async def build_item(raw_data, source_name):
     if not title or not url: return None
     
     # 1. Forensic Noise Filtering
-    BLOCKLIST = ["about us", "contact", "home", "back", "gallery", "archive", "click here"]
-    if len(title) < 3 or any(k in title.lower() for k in BLOCKLIST): 
+    BLOCKLIST = ["about us", "contact", "home", "back", "gallery", "archive", "click here", "apply now", "visit"]
+    if len(title) < 5 or any(k in title.lower() for k in BLOCKLIST): 
         return None
 
-    # 2. Date Discovery (Title -> Context -> PDF)
+    # 2. GHOST FILTER: Reject explicitly old academic years in the text
+    # This stops old PDFs with new metadata from tricking the bot
+    OLD_YEARS = ["2019", "2020", "2021", "2022", "2023"]
+    # If it mentions an old year, and does NOT mention the current year, drop it.
+    if any(y in title for y in OLD_YEARS) and str(TARGET_YEARS[0]) not in title:
+        return None
+
+    # 3. Date Discovery (Title -> Context -> PDF)
     real_date = extract_date(title) 
     if not real_date and context:
         real_date = extract_date(context)
     
-    # 3. Deep Scan (PDF Header Analysis)
+    # 4. Deep Scan (PDF Header Analysis)
     if not real_date and ".pdf" in url.lower():
         real_date = await get_date_from_pdf(url)
 
-    # 4. Validity Check (Dynamic Year Window)
+    # 5. Validity Check (Dynamic Year Window)
     if real_date and real_date.year in TARGET_YEARS:
         return {
             "title": title.strip(),
@@ -142,4 +140,4 @@ async def scrape_source(source_key, source_config):
             "next_try": time.time() + wait_time
         }
         return []
-            #@academictelebotbyroshhellwett
+#@academictelebotbyroshhellwett
