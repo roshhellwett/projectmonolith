@@ -1,9 +1,8 @@
-# 🎓 AcademicTeleBot  
 ## Enterprise Academic Intelligence & Moderation Infrastructure
 
 **AcademicTeleBot** is a distributed, production-grade academic automation ecosystem engineered for **high-volume student networks**, **real-time institutional intelligence**, and **autonomous moderation at scale**.
 
-Built using asynchronous microservice principles, the platform combines **intelligent data ingestion**, **forensic document analysis**, and **high-throughput messaging orchestration** to deliver mission-critical academic notifications with near-zero latency.
+Built using asynchronous microservice principles, the platform combines **intelligent data ingestion**, **forensic document analysis**, and **high-throughput messaging orchestration** to deliver mission-critical academic notifications with near-zero latency...
 
 ---
 
@@ -163,14 +162,6 @@ AcademicTeleBot aims to evolve into a **unified academic intelligence platform**
 - Institutional early-warning systems  
 
 ---
-
-## 📜 License
-Specify your license here (MIT / Apache 2.0 / Proprietary).
-
----
-
-## 🤝 Contributing
-Contributions, suggestions, and architecture discussions are welcome.
 
 ---
 ### 💬 Telegram Group
