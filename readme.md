@@ -52,8 +52,8 @@ Zenith is built using a **multi-tenant, async-first microservices approach**, al
 
 ## 🤝 Access
 
-- 🤖 Telegram Group Bot Access: **@zenithgroupbot**
-- 🤖 Telegram Group Bot Access: **@zenithcodexbot**  
+- 🤖 Telegram Zenith Group BOT Access: **@zenithgroupbot**
+- 🤖 Telegram Zenith AI BOT Access: **@zenithcodexbot**  
 
 ---
 
