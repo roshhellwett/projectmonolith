@@ -35,7 +35,7 @@ Zenith includes multiple categories of bots designed for daily user productivity
 
 ## 🏗️ Architecture
 
-Zenith is built using a **multi-tenant, async-first microservices approach**, allowing multiple bots to operate efficiently under a unified infrastructure.
+Zenith is built using a **multi-tenant, async-first microservices approach**, allowing multiple bots to operate efficiently under a unified infrastructure...
 
 ### Core Technology Stack
 
