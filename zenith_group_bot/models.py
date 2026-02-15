@@ -1,10 +1,6 @@
 from sqlalchemy import Column, Integer, BigInteger, DateTime, UniqueConstraint, String, Boolean
 from sqlalchemy.orm import declarative_base
-from datetime import datetime, timezone
-
-def utc_now():
-    # Returns a naive UTC datetime to prevent asyncpg Timezone DataErrors
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+from utils.time_util import utc_now
 
 Base = declarative_base()
 

@@ -1,11 +1,12 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select, delete, update
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from cachetools import TTLCache
 
 from zenith_group_bot.models import Base, GroupStrike, NewMember, GroupSettings
 from core.config import DATABASE_URL, DB_POOL_SIZE
+from utils.time_util import utc_now
 
 engine = create_async_engine(DATABASE_URL, pool_size=DB_POOL_SIZE, max_overflow=20, pool_pre_ping=True)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -13,12 +14,12 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 settings_cache = TTLCache(maxsize=1000, ttl=300)      
 quarantine_cache = TTLCache(maxsize=50000, ttl=3600)  
 
-def utc_now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
 async def init_group_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+async def dispose_group_engine():
+    await engine.dispose()
 
 class SettingsRepo:
     @staticmethod
@@ -56,7 +57,6 @@ class SettingsRepo:
 
     @staticmethod
     async def set_active_status(chat_id: int, is_active: bool):
-        """Scenario 2: Pauses container if bot is kicked."""
         async with AsyncSessionLocal() as session:
             stmt = select(GroupSettings).where(GroupSettings.chat_id == chat_id)
             record = (await session.execute(stmt)).scalar_one_or_none()
@@ -68,7 +68,6 @@ class SettingsRepo:
 
     @staticmethod
     async def migrate_chat_id(old_id: int, new_id: int):
-        """Scenario 3: Smoothly migrates all data when a group upgrades to a Supergroup."""
         async with AsyncSessionLocal() as session:
             await session.execute(update(GroupSettings).where(GroupSettings.chat_id == old_id).values(chat_id=new_id))
             await session.execute(update(GroupStrike).where(GroupStrike.chat_id == old_id).values(chat_id=new_id))

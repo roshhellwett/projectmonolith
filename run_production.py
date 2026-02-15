@@ -1,31 +1,26 @@
 import asyncio
-import logging
 from core.task_manager import supervised_task
+from core.logger import setup_logger
 from zenith_group_bot.group_app import start_group_bot
+from zenith_group_bot.repository import dispose_group_engine
 
-# ==========================================
-# 1. BASE LOGGING CONFIGURATION
-# ==========================================
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-# ==========================================
-# 2. SILENCE THE NETWORK SPAM
-# ==========================================
-# This stops httpx from printing "HTTP Request: POST..." every 2 seconds
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
+logger = setup_logger("PRODUCTION")
 
 async def main():
-    logging.info("🚀 ZENITH SUPREME EDITION: CLUSTER START")
-    
-    # Launch the supervisor engine which manages the Group Bot microservice
-    await asyncio.gather(
-        supervised_task("GROUP_MONITOR", start_group_bot)
-    )
+    logger.info("🚀 ZENITH SUPREME EDITION: CLUSTER START")
+    try:
+        await asyncio.gather(
+            supervised_task("GROUP_MONITOR", start_group_bot)
+        )
+    except asyncio.CancelledError:
+        logger.info("🛑 Task Gather Cancelled.")
+    finally:
+        logger.info("🛑 Executing Graceful Cloud Shutdown Sequence...")
+        await dispose_group_engine()
+        logger.info("✅ Disconnected from database safely.")
 
 if __name__ == "__main__":
-    # Start the asyncio event loop
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Process Interrupted. Exiting.")

@@ -12,38 +12,31 @@ async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     bot_username = context.bot.username
 
-    # Scenario 9: The Command Spammer (Silently delete non-admin attempts)
     member = await context.bot.get_chat_member(chat_id, user_id)
     if member.status not in ["administrator", "creator"]:
         try: await update.message.delete()
         except: pass
         return
 
-    # Scenario 5: The Impatient Setup (Prevent Hostile Takeovers)
     existing = await SettingsRepo.get_settings(chat_id)
     if existing and existing.is_active and existing.owner_id != user_id:
-        return await update.message.reply_text(f"⚠️ This group is already configured and secured by Owner ID: {existing.owner_id}.")
+        return await update.message.reply_text(f"⚠️ This group is secured by Owner ID: {existing.owner_id}.")
 
-    # Scenario 1: The Powerless Bot (Check permissions before setup)
     try:
         bot_member = await context.bot.get_chat_member(chat_id, context.bot.id)
         if bot_member.status != "administrator":
-            return await update.message.reply_text("❌ I cannot be configured. Please promote me to Administrator first.")
-        
-        # Check specific rights required for the engine
+            return await update.message.reply_text("❌ Missing Permissions. Promote me to Administrator.")
         if not bot_member.can_delete_messages or not bot_member.can_restrict_members:
-            return await update.message.reply_text("❌ Missing Permissions! Edit my Admin rights and grant me: \n• **Delete Messages**\n• **Ban Users**", parse_mode="Markdown")
+            return await update.message.reply_text("❌ Ensure I have: \n• **Delete Messages**\n• **Ban Users**", parse_mode="Markdown")
     except Exception as e:
         logger.error(f"Failed to check permissions: {e}")
-        return await update.message.reply_text("❌ Error checking permissions. Ensure I am an admin.")
+        return await update.message.reply_text("❌ Error checking permissions.")
 
-    # 2. Register initial blank container
     await SettingsRepo.upsert_settings(chat_id, user_id, update.effective_chat.title)
 
-    # 3. Send Deep Link Button
-    keyboard = [[InlineKeyboardButton("⚙️ Configure Zenith (Private DM)", url=f"https://t.me/{bot_username}?start=setup_{chat_id}")]]
+    keyboard = [[InlineKeyboardButton("⚙️ Configure Zenith Group BOT (Private DM)", url=f"[https://t.me/](https://t.me/){bot_username}?start=setup_{chat_id}")]]
     await update.message.reply_text(
-        "🛡️ <b>Zenith Supreme Configuration</b>\n\nClick below to securely configure my settings for this group in our private chat.",
+        "🛡️ <b>Zenith Group BOT Configuration</b>\n\nClick below to securely configure my settings.",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="HTML"
     )
@@ -53,16 +46,18 @@ async def cmd_start_dm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     args = context.args
     if args and args[0].startswith("setup_"):
-        chat_id = int(args[0].split("_")[1])
+        # Bug Fix: Malicious or accidental Deep-link Injection Guard
+        try:
+            chat_id = int(args[0].split("_")[1])
+        except (IndexError, ValueError):
+            return await update.message.reply_text("❌ Invalid setup configuration link.")
         
         settings = await SettingsRepo.get_settings(chat_id)
-        
-        # Scenario 10: Time Traveler (Clicked an old deep link for a deleted group)
         if not settings:
-            return await update.message.reply_text("⏳ This setup session has expired or the group was unregistered.")
+             return await update.message.reply_text("⏳ This setup session has expired or the group was unregistered.")
             
         if settings.owner_id != update.effective_user.id:
-            return await update.message.reply_text("❌ Authentication failed. You do not own this setup session.")
+            return await update.message.reply_text("❌ Authentication failed. You do not own this session.")
 
         keyboard = [
             [InlineKeyboardButton("Abuse Detection Only", callback_data=f"feat_abuse_{chat_id}")],
@@ -75,14 +70,13 @@ async def cmd_start_dm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         tutorial = (
-            "👋 <b>Welcome to Zenith Supreme!</b>\n"
+            "👋 <b>Welcome to Zenith Open Source Projects!</b>\n"
             "I am an enterprise-grade group moderation bot designed to stop spam, raids, and abuse.\n\n"
             "<b>🛠️ How to setup your group in 4 steps:</b>\n"
             "1️⃣ Add me to your Telegram group.\n"
-            "2️⃣ Promote me to <b>Administrator</b> <i>(I require permission to Delete Messages and Ban Users)</i>.\n"
+            "2️⃣ Promote me to <b>Administrator</b>.\n"
             "3️⃣ Type <code>/setup</code> in your group chat.\n"
             "4️⃣ Click the secure button I generate to configure your custom settings here.\n\n"
-            "<i>Note: I will remain completely inactive in your group until you finish the setup!</i>"
         )
         await update.message.reply_text(tutorial, parse_mode="HTML")
 
@@ -94,7 +88,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("feat_"):
         _, feature_type, chat_id = data.split("_")
         
-        # Scenario 10: Check if data still exists
         if not await SettingsRepo.get_settings(int(chat_id)):
             return await query.edit_message_text("⏳ Menu expired. Group data not found.")
             
@@ -115,10 +108,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         settings = await SettingsRepo.upsert_settings(int(chat_id), query.from_user.id, None, strength=strength_type, is_active=True)
         
         await query.edit_message_text(
-            f"✅ <b>Setup Complete!</b>\n\nZenith is now actively monitoring <b>{settings.group_name}</b> with <b>{settings.features.upper()}</b> filtering at <b>{strength_type.upper()}</b> strength.\n\n<i>(Type /deletegroup here anytime to uninstall.)</i>",
+            f"✅ <b>Setup Complete!</b>\n\nZenith is actively monitoring <b>{settings.group_name}</b>.",
             parse_mode="HTML"
         )
-        try: await context.bot.send_message(int(chat_id), "✅ <b>Zenith Configuration Complete.</b>\nAll security systems are online.", parse_mode="HTML")
+        try: await context.bot.send_message(int(chat_id), "✅ <b>Zenith Group BOT Configuration Complete.</b>\nAll security systems are online.", parse_mode="HTML")
         except: pass
 
     elif data.startswith("del_"):
@@ -126,14 +119,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         success = await SettingsRepo.wipe_group_container(chat_id, query.from_user.id)
         if success:
             await query.edit_message_text("🗑️ Container wiped successfully. All data erased.")
-            try: await context.bot.send_message(chat_id, "⚠️ Zenith has been unregistered by the admin. Security systems offline.")
+            try: await context.bot.send_message(chat_id, "⚠️ Zenith Group BOT has been unregistered. Security offline.")
             except: pass
         else:
-            await query.edit_message_text("❌ Failed to wipe data. Menu expired or authentication error.")
+            await query.edit_message_text("❌ Failed to wipe data.")
 
 async def cmd_deletegroup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private": return
     groups = await SettingsRepo.get_owned_groups(update.effective_user.id)
-    if not groups: return await update.message.reply_text("You don't have any active Zenith setups.")
+    if not groups: return await update.message.reply_text("You don't have any active setups.")
     keyboard = [[InlineKeyboardButton(f"🗑️ Wipe {g.group_name}", callback_data=f"del_{g.chat_id}")] for g in groups]
     await update.message.reply_text("Select a group container to completely erase:", reply_markup=InlineKeyboardMarkup(keyboard))

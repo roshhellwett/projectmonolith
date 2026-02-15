@@ -54,7 +54,7 @@ async def handle_new_members(update: Update, context: ContextTypes.DEFAULT_TYPE)
     chat_id = update.effective_chat.id
     for member in update.message.new_chat_members:
         if member.id == context.bot.id:
-            msg = "🛡️ <b>Zenith Supreme has arrived.</b>\n\nTo activate:\n1. Promote me to <b>Administrator</b>.\n2. Type <code>/setup</code>"
+            msg = "🛡️ <b>Zenith Group BOT has arrived.</b>\n\nTo activate:\n1. Promote me to <b>Administrator</b>.\n2. Type <code>/setup</code>"
             await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML")
             return 
 
