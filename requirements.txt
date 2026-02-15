@@ -10,3 +10,4 @@ beautifulsoup4==4.12.3
 groq==0.13.1
 pydub==0.25.1
 PyMuPDF==1.25.3
+pyaudioop
