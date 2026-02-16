@@ -1,28 +1,77 @@
+import uvicorn
 import asyncio
-from core.task_manager import supervised_task
+from fastapi import FastAPI, Request, Response
+from telegram import Update
+from core.config import WEBHOOK_URL, PORT, WEBHOOK_SECRET
 from core.logger import setup_logger
-from zenith_group_bot.group_app import start_group_bot, stop_group_bot
+from zenith_group_bot.group_app import setup_group_app
 from zenith_group_bot.repository import dispose_group_engine
+from run_ai_bot import setup_ai_app, ai_worker, dispose_db_engine
 
-logger = setup_logger("PRODUCTION")
+logger = setup_logger("MONOLITH")
+app = FastAPI()
 
-async def main():
-    logger.info("🚀 ZENITH SUPREME EDITION: CLUSTER START")
-    try:
-        await asyncio.gather(
-            supervised_task("GROUP_MONITOR", start_group_bot)
+# Global Bot Instances
+group_bot_app = None
+ai_bot_app = None
+ai_worker_tasks = []
+
+@app.on_event("startup")
+async def on_startup():
+    global group_bot_app, ai_bot_app, ai_worker_tasks
+    logger.info("🚀 PROJECT MONOLITH: INITIALIZING FASTAPI WEBHOOK ECOSYSTEM")
+
+    # 1. Setup Applications
+    group_bot_app = await setup_group_app()
+    ai_bot_app = await setup_ai_app()
+
+    # 2. Start Lifecycles
+    await group_bot_app.initialize()
+    await group_bot_app.start()
+    if ai_bot_app:
+        await ai_bot_app.initialize()
+        await ai_bot_app.start()
+
+    # 3. Register Webhooks with Telegram
+    if WEBHOOK_URL:
+        await group_bot_app.bot.set_webhook(
+            url=f"{WEBHOOK_URL}/webhook/group/{WEBHOOK_SECRET}",
+            secret_token=WEBHOOK_SECRET
         )
-    except asyncio.CancelledError:
-        logger.info("🛑 Task Gather Cancelled.")
-    finally:
-        logger.info("🛑 Executing Graceful Cloud Shutdown Sequence...")
-        await stop_group_bot() # Cleanly halts Telegram polling
-        await dispose_group_engine()
-        logger.info("✅ Disconnected from database safely.")
+        if ai_bot_app:
+            await ai_bot_app.bot.set_webhook(
+                url=f"{WEBHOOK_URL}/webhook/ai/{WEBHOOK_SECRET}",
+                secret_token=WEBHOOK_SECRET
+            )
+        logger.info(f"📡 Webhooks registered to: {WEBHOOK_URL}")
+
+    # 4. Spin up AI Workers
+    ai_worker_tasks = [asyncio.create_task(ai_worker()) for _ in range(5)]
+
+@app.post("/webhook/group/{secret}")
+async def group_webhook(secret: str, request: Request):
+    if secret != WEBHOOK_SECRET: return Response(status_code=403)
+    data = await request.json()
+    await group_bot_app.update_queue.put(Update.de_json(data, group_bot_app.bot))
+    return Response(status_code=200)
+
+@app.post("/webhook/ai/{secret}")
+async def ai_webhook(secret: str, request: Request):
+    if secret != WEBHOOK_SECRET: return Response(status_code=403)
+    data = await request.json()
+    await ai_bot_app.update_queue.put(Update.de_json(data, ai_bot_app.bot))
+    return Response(status_code=200)
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    logger.info("🛑 SHUTTING DOWN MONOLITH...")
+    for task in ai_worker_tasks: task.cancel()
+    if group_bot_app: await group_bot_app.stop()
+    if ai_bot_app: 
+        await ai_bot_app.stop()
+        await dispose_db_engine()
+    await dispose_group_engine()
+    logger.info("✅ Disconnected from database safely.")
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Process Interrupted. Exiting.")
-        
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

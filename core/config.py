@@ -7,7 +7,12 @@ GROUP_BOT_TOKEN = os.getenv("GROUP_BOT_TOKEN", "")
 AI_BOT_TOKEN = os.getenv("AI_BOT_TOKEN", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-# Strict Postgres Async Driver Enforcement
+# 🚀 WEBHOOK CONFIGURATION
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
+PORT = int(os.getenv("PORT", 8080))
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "zenith_secure_path_777")
+
+# --- LEAVING DATABASE_URL AS IT IS IN YOUR CORE ---
 if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
@@ -15,4 +20,4 @@ if DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", 15)) # Increased for higher concurrency
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", 15))

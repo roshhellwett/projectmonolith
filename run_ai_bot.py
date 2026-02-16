@@ -16,7 +16,9 @@ logger = setup_logger("AI_BOT")
 # 🚀 SECURITY: Bounded Queue to prevent OOM DDOS
 task_queue = asyncio.Queue(maxsize=100) 
 
-async def worker(app_context):
+async def ai_worker():
+    """Independent worker loop for AI processing."""
+    logger.info("👷 AI Worker Pool: Online")
     while True:
         try:
             update, context, placeholder_msg, text, history_text = await task_queue.get()
@@ -40,7 +42,6 @@ async def worker(app_context):
                         chat_id=placeholder_msg.chat_id, message_id=placeholder_msg.message_id, 
                         text=plain_text, disable_web_page_preview=True
                     )
-
             except Exception as e:
                 logger.error(f"Worker Error: {e}")
                 try: await context.bot.edit_message_text(chat_id=placeholder_msg.chat_id, message_id=placeholder_msg.message_id, text="❌ An error occurred connecting to the AI.")
@@ -86,46 +87,19 @@ async def cmd_zenith(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = f"Please analyze this: {history_text}"
         history_text = None
 
-    # 🚀 SRE Backpressure Logic
     try:
         placeholder = await msg.reply_text("⏳ Thinking...")
         task_queue.put_nowait((update, context, placeholder, text, history_text))
     except asyncio.QueueFull:
         await msg.reply_text("🚨 Zenith AI is currently at maximum capacity. Please try again in a few seconds.")
 
-async def main():
+# 🚀 NEW: Expose app setup for Monolith Router
+async def setup_ai_app():
     if not AI_BOT_TOKEN:
         logger.error("AI_BOT_TOKEN is missing!")
-        return
-
+        return None
     app = ApplicationBuilder().token(AI_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("zenith", cmd_zenith))
     app.add_handler(InlineQueryHandler(inline_query))
-    
-    workers = [asyncio.create_task(worker(app)) for _ in range(5)]
-
-    logger.info("🧠 ZENITH AI TEXT AGENT: ONLINE")
-    try:
-        await app.initialize()
-        await app.start()
-        await app.updater.start_polling()
-        await asyncio.Event().wait()
-    except asyncio.CancelledError:
-        pass
-    finally:
-        logger.info("🛑 Shutting down AI Bot Engine...")
-        for w in workers: w.cancel()
-        await app.updater.stop()
-        await app.stop()
-        await app.shutdown()
-        
-        # Shutdown Singleton Clients safely
-        from zenith_ai_bot.search import _http_client
-        if _http_client: await _http_client.aclose()
-        await dispose_db_engine()
-
-if __name__ == "__main__":
-    try: asyncio.run(main())
-    except KeyboardInterrupt: logger.info("Process Interrupted.")
-    
+    return app

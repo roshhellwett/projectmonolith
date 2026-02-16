@@ -183,32 +183,21 @@ async def group_monitor_handler(update: Update, context: ContextTypes.DEFAULT_TY
     except Exception as e:
         logger.error(f"POISON PILL CAUGHT: {e}\n{traceback.format_exc()}")
 
-async def start_group_bot():
-    global _group_app
+# 🚀 REFACTORED FOR WEBHOOK MONOLITH
+async def setup_group_app():
+    """Builds the PTB application but does not start polling."""
     token = os.getenv("GROUP_BOT_TOKEN")
     await init_group_db()
 
-    _group_app = ApplicationBuilder().token(token).build()
+    app = ApplicationBuilder().token(token).build()
     
-    _group_app.add_handler(CommandHandler("start", cmd_start_dm))
-    _group_app.add_handler(CommandHandler("setup", cmd_setup))
-    _group_app.add_handler(CommandHandler("deletegroup", cmd_deletegroup))
-    _group_app.add_handler(CommandHandler("forgive", cmd_forgive))
-    _group_app.add_handler(CallbackQueryHandler(button_handler))
-    _group_app.add_handler(ChatMemberHandler(my_chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
-    _group_app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_members))
-    _group_app.add_handler(MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND) & (~filters.StatusUpdate.ALL), group_monitor_handler))
+    app.add_handler(CommandHandler("start", cmd_start_dm))
+    app.add_handler(CommandHandler("setup", cmd_setup))
+    app.add_handler(CommandHandler("deletegroup", cmd_deletegroup))
+    app.add_handler(CommandHandler("forgive", cmd_forgive))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(ChatMemberHandler(my_chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_members))
+    app.add_handler(MessageHandler(filters.ChatType.GROUPS & (~filters.COMMAND) & (~filters.StatusUpdate.ALL), group_monitor_handler))
 
-    await _group_app.initialize()
-    await _group_app.start()
-    await _group_app.updater.start_polling()
-    
-    logger.info("ZENITH SUPREME SAAS: ALL 20 SHIELDS ONLINE")
-    await asyncio.Event().wait()
-
-async def stop_group_bot():
-    global _group_app
-    if _group_app:
-        await _group_app.updater.stop()
-        await _group_app.stop()
-        await _group_app.shutdown()
+    return app
