@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
@@ -26,7 +26,6 @@ class SubscriptionRepo:
     async def redeem_key(user_id: int, key_string: str) -> tuple[bool, str]:
         async with AsyncSessionLocal() as session:
             async with session.begin():
-                # 🛡️ PESSIMISTIC ROW LOCKING (Double-Spend Protection)
                 res = await session.execute(select(ActivationKey).where(ActivationKey.key_string == key_string).with_for_update())
                 key = res.scalar_one_or_none()
                 
@@ -36,14 +35,13 @@ class SubscriptionRepo:
                 key.is_used = True
                 key.used_by = user_id
                 
-                # Retrieve and lock user subscription row
                 res = await session.execute(select(Subscription).where(Subscription.user_id == user_id).with_for_update())
                 sub = res.scalar_one_or_none()
                 
-                now = datetime.utcnow()
+                # 🚀 SRE FIX: Strict UTC Awareness
+                now = datetime.now(timezone.utc)
                 add_on = timedelta(days=key.duration_days)
                 
-                # 🛡️ THE TIME STACKER LOGIC
                 if sub and sub.expires_at > now:
                     sub.expires_at += add_on 
                 else:
@@ -58,9 +56,11 @@ class SubscriptionRepo:
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(Subscription).where(Subscription.user_id == user_id))
             sub = res.scalar_one_or_none()
-            if not sub or sub.expires_at < datetime.utcnow():
+            
+            now = datetime.now(timezone.utc)
+            if not sub or sub.expires_at < now:
                 return 0
-            return (sub.expires_at - datetime.utcnow()).days
+            return (sub.expires_at - now).days
 
 async def dispose_crypto_engine():
     await engine.dispose()
