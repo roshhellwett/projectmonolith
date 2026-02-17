@@ -85,7 +85,7 @@ def get_welcome_msg(name: str, is_pro: bool = False, days_left: int = 0):
         )
 
     return (
-        f"<b>ZENITH TERMINAL v2.0 — {tier_name}</b>\n"
+        f"<b>ZENITH OPEN SOURCE PROJECTS v2.0 — {tier_name}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"Welcome, <b>{name}</b>.\n\n"
         f"{tier_detail}\n\n"
