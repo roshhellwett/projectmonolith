@@ -1,34 +1,33 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 def get_main_dashboard(is_pro: bool = False):
-    """The high-tech dashboard for all users."""
-    status_text = "💎 Zenith Pro Status" if is_pro else "🔓 Unlock Pro Access"
-    radar_text = "⚡ Live Pro Radar" if is_pro else "📡 Live Free Radar"
+    """The clean, institutional dashboard for all users."""
+    status_text = "🟢 Zenith Pro: Active" if is_pro else "🔒 Upgrade to Zenith Pro"
+    radar_text = "⚡ Live On-Chain Radar (Pro)" if is_pro else "📊 Live On-Chain Radar (Standard)"
     
     keyboard = [
         [InlineKeyboardButton(radar_text, callback_data="ui_whale_radar")],
-        [InlineKeyboardButton("🛡️ Smart Contract Audit", callback_data="ui_audit")],
-        [InlineKeyboardButton("📈 DexScreener Pulse", callback_data="ui_volume")],
+        [InlineKeyboardButton("🔍 Smart Contract Audit", callback_data="ui_audit")],
+        [InlineKeyboardButton("📈 DEX Volume Pulse", callback_data="ui_volume")],
         [InlineKeyboardButton(status_text, callback_data="ui_pro_info")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
 def get_back_button():
-    """Returns a keyboard with just the back button."""
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="ui_main_menu")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Return to Main Menu", callback_data="ui_main_menu")]])
 
 def get_welcome_msg(name: str):
     return (
-        f"🌌 <b>Welcome to Zenith Whale, {name}.</b>\n\n"
-        "I am an institutional-grade blockchain intelligence terminal. I monitor the mempool and on-chain liquidity 24/7 to provide you with an asymmetric market edge.\n\n"
-        "<b>🟢 FREE TIER CAPABILITIES:</b>\n"
-        "• <b>Dolphin Alerts:</b> Delayed tracking of mid-tier transfers ($50k+).\n"
-        "• <b>Masked Routing:</b> Transaction flow is visible, but wallet addresses are obfuscated.\n"
-        "• <b>Surface Audit:</b> Basic contract security checks.\n\n"
-        "<b>💎 ZENITH PRO CAPABILITIES:</b>\n"
-        "• <b>Whale Alerts:</b> Zero-latency, real-time push notifications for $1M+ movements.\n"
-        "• <b>Unmasked Wallets:</b> Direct Etherscan/Solscan tracking links.\n"
-        "• <b>One-Click Trading:</b> Instant DEX swap execution links.\n"
-        "• <b>Deep-Scan Audits:</b> Unlimited honeypot, mint, and tax analysis.\n\n"
-        "<i>Initialize a module below to begin operations.</i>"
+        f"<b>Welcome to Zenith, {name}.</b>\n\n"
+        "Zenith is an advanced on-chain analytics terminal. We monitor network mempools, track institutional capital routing, and audit smart contracts in real time to provide actionable market asymmetry.\n\n"
+        "<b>📊 STANDARD TIER (Current)</b>\n"
+        "• <b>Network Alerts:</b> Delayed tracking of mid-cap transfers ($50k+).\n"
+        "• <b>Data Masking:</b> Transaction routing is visible, but exact wallet addresses and hashes are redacted.\n"
+        "• <b>Basic Audits:</b> Surface-level contract vulnerability checks.\n\n"
+        "<b>⚡ PRO TIER (Requires Activation)</b>\n"
+        "• <b>Institutional Alerts:</b> Zero-latency push notifications for major capital movements ($1M+).\n"
+        "• <b>Full Transparency:</b> Unredacted wallet addresses and direct block explorer links.\n"
+        "• <b>Execution Integration:</b> One-click routing to decentralized exchanges (DEX) for instant trade execution.\n"
+        "• <b>Deep-Scan Audits:</b> Comprehensive bytecode decompilation, tax analysis, and honeypot detection.\n\n"
+        "<i>Select a module below to initialize your terminal.</i>"
     )
