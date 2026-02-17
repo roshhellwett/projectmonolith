@@ -4,13 +4,15 @@ Zenith is a multi-bot Telegram platform that delivers real-time blockchain intel
 
 ---
 
+
+
 ## 🤖 Bots
 
 | Bot | Purpose |
 |-----|---------|
-| **Zenith Crypto Bot** | On-chain analytics, token security scans, whale tracking, price alerts, portfolio P&L |
-| **Zenith Group Bot** | Automated group moderation — abuse filtering, spam detection, flood control |
-| **Zenith AI Bot** | AI assistant powered by Groq LLM with web search and YouTube transcript analysis |
+| [**Zenith Crypto Bot**](https://t.me/zenithwhalebot) | On-chain analytics, token security scans, whale tracking, price alerts, portfolio P&L |
+| [**Zenith Group Bot**](https://t.me/zenithgroupbot) | Automated group moderation — abuse filtering, spam detection, flood control |
+| [**Zenith AI Bot**](https://t.me/zenithcodexbot) | AI assistant powered by Groq LLM with web search and YouTube transcript analysis |
 
 ---
 
