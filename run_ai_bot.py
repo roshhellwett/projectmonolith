@@ -1,4 +1,3 @@
-import os
 import re
 import asyncio
 from fastapi import APIRouter, Request, Response
@@ -9,6 +8,7 @@ from core.logger import setup_logger
 from core.config import AI_BOT_TOKEN, WEBHOOK_URL, WEBHOOK_SECRET
 from zenith_ai_bot.llm_engine import process_ai_query
 from zenith_ai_bot.utils import check_ai_rate_limit, sanitize_telegram_html, dispose_db_engine
+from zenith_ai_bot.search import close_http_client
 
 
 logger = setup_logger("SVC_AI")
@@ -143,6 +143,7 @@ async def stop_service():
         await bot_app.stop()
         await bot_app.shutdown()
     await dispose_db_engine()
+    await close_http_client()
 
 # 🚀 The Bot's Personal Webhook Router
 @router.post("/webhook/ai/{secret}")

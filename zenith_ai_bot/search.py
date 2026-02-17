@@ -35,3 +35,9 @@ async def perform_web_search(query: str) -> str:
     except Exception as e:
         logger.error(f"Search API failed: {e}")
         return ""
+
+async def close_http_client():
+    global _http_client
+    if _http_client:
+        await _http_client.aclose()
+        _http_client = None

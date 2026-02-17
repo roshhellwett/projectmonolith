@@ -14,6 +14,20 @@ async def init_crypto_db():
         await conn.run_sync(CryptoBase.metadata.create_all)
 
 class SubscriptionRepo:
+
+    @staticmethod
+    async def get_all_active_users():
+        async with AsyncSessionLocal() as session:
+            now = datetime.now(timezone.utc)
+
+            res = await session.execute(
+                select(Subscription.user_id).where(
+                    Subscription.expires_at > now
+                )
+            )
+
+            return [r[0] for r in res.all()]
+
     @staticmethod
     async def generate_key(days: int) -> str:
         new_key = f"ZENITH-{uuid.uuid4().hex[:8].upper()}-{uuid.uuid4().hex[:4].upper()}"

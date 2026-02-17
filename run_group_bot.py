@@ -1,4 +1,3 @@
-import os
 from fastapi import APIRouter, Request, Response
 from telegram import Update
 from core.config import WEBHOOK_URL, WEBHOOK_SECRET
