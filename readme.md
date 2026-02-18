@@ -1,4 +1,10 @@
-# PROJECT MONOLITH IS A BUNDLE TELEGRAM BOT PACK
+![Repo Size](https://img.shields.io/github/repo-size/roshhellwett/projectmonolith?style=for-the-badge)
+![Stars](https://img.shields.io/github/stars/roshhellwett/projectmonolith?style=for-the-badge)
+![Forks](https://img.shields.io/github/forks/roshhellwett/projectmonolith?style=for-the-badge)
+![Issues](https://img.shields.io/github/issues/roshhellwett/projectmonolith?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+
+# PROJECT MONOLITH 
 
 Zenith is a multi-bot Telegram platform that delivers real-time blockchain intelligence, automated content moderation, and AI-powered conversations — all running on a single monolithic FastAPI gateway.
 
@@ -43,21 +49,6 @@ Zenith is a multi-bot Telegram platform that delivers real-time blockchain intel
 | Smart Money Alerts | **Real-time** with full details, contract addresses, and trade links |
 | New Pair Scanner | Full pool addresses, Etherscan tx links, DexScreener charts |
 | Gas Fee Optimizer | Current gas + priority tiers + trading recommendations |
-
-### 🔑 Activation & Renewal
-
-**First time:** Admin generates a key with `/keygen 30`, user activates with:
-```
-/activate ZENITH-XXXX-XXXX
-```
-
-**Renewal:** User pays → sends their Telegram ID → admin runs:
-```
-/extend 123456789 30
-```
-No new key needed. Days are added to the existing subscription. User is notified automatically.
-
-**Expiry:** Users receive a warning 3 days before expiry and a notification when Pro access ends. All data (alerts, portfolio, wallets) is preserved for when they renew.
 
 ---
 
@@ -130,81 +121,6 @@ No new key needed. Days are added to the existing subscription. User is notified
 ```
 /activate ZENITH-XXXX-XXXX
 ```
-
-**Renewal:** User pays → sends their Telegram ID → admin runs:
-```
-/extend 123456789 30
-```
-No new key needed. Days are added to the existing subscription. User is notified automatically.
-
-**Expiry:** Users receive a warning 3 days before expiry and a notification when Pro access ends. All data is preserved for when they renew.
-
-**Shared Subscription:** One Pro key unlocks all 3 bots — Crypto, AI, and Group.
-
----
-
-## 📡 Commands Reference
-
-### Crypto Bot
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Open the Zenith terminal dashboard |
-| `/audit 0x...` | Run a real security scan on any ERC-20 contract |
-| `/alert BTC above 100000` | Set a price alert (Pro: 25, Free: 1) |
-| `/alerts` | View your active price alerts |
-| `/delalert [ID]` | Remove a price alert |
-| `/track 0x... [label]` | Track a wallet for transaction alerts (Pro only) |
-| `/wallets` | View tracked wallets |
-| `/untrack 0x...` | Stop tracking a wallet |
-| `/addtoken ETH 2500 1.5` | Add a position to your portfolio |
-| `/portfolio` | View portfolio with live P&L |
-| `/removetoken ETH` | Remove a position |
-| `/market` | View market sentiment dashboard |
-| `/gas` | Check Ethereum gas prices |
-| `/activate [KEY]` | Activate Pro subscription |
-| `/keygen [DAYS]` | Generate activation key (admin only) |
-| `/extend [UID] [DAYS]` | Renew a user's Pro (admin only) |
-
-### AI Bot
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Open the AI dashboard with feature buttons |
-| `/ask [question]` | Chat with the AI (Free: 10/day, Pro: 100/day) |
-| `/persona` | Switch AI personality (Pro: 6 personas) |
-| `/research [topic]` | Deep multi-pass research with synthesized report (Pro only) |
-| `/summarize [URL/text]` | Summarize articles, YouTube videos, or documents (Pro only) |
-| `/code [prompt]` | Generate, debug, or explain code (Pro only) |
-| `/imagine [prompt]` | Craft optimized prompts for AI image generators (Pro only) |
-| `/history` | View your conversation history (Pro only) |
-| `/clear` | Clear your chat history (Pro only) |
-| `/activate [KEY]` | Activate Pro subscription |
-| `/keygen [DAYS]` | Generate activation key (admin only) |
-| `/extend [UID] [DAYS]` | Renew a user's Pro (admin only) |
-
-### Group Bot
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Open the admin dashboard (DM only) |
-| `/setup` | Configure moderation settings (use in group) |
-| `/forgive` | Clear a user's strikes (reply or provide user ID) |
-| `/reset` | Wipe all group data and reconfigure |
-| `/addword [word]` | Add a custom banned word/phrase (Pro only) |
-| `/delword [word]` | Remove a custom banned word (Pro only) |
-| `/wordlist` | View all custom banned words (Pro only) |
-| `/antiraid on/off` | Toggle anti-raid lockdown shield (Pro only) |
-| `/analytics` | View moderation stats — 24h/7d breakdown (Pro only) |
-| `/auditlog [count]` | View recent moderation actions (Pro only) |
-| `/schedule HH:MM [msg]` | Schedule a daily recurring message in UTC (Pro only) |
-| `/schedules` | View all active scheduled messages (Pro only) |
-| `/delschedule [ID]` | Remove a scheduled message (Pro only) |
-| `/welcome [msg]` | Set custom welcome message with variables (Pro only) |
-| `/welcomeoff` | Disable custom welcome message (Pro only) |
-| `/activate [KEY]` | Activate Pro subscription |
-| `/keygen [DAYS]` | Generate activation key (admin only) |
-| `/extend [UID] [DAYS]` | Renew a user's Pro (admin only) |
 
 ---
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Text, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Text, Enum, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 import enum
 
@@ -26,9 +26,9 @@ class AdminAuditLog(AdminBase):
     __tablename__ = "admin_audit_log"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    admin_user_id = Column(Integer, nullable=False)
+    admin_user_id = Column(BigInteger, nullable=False)
     action = Column(Enum(ActionType), nullable=False)
-    target_user_id = Column(Integer, nullable=True)
+    target_user_id = Column(BigInteger, nullable=True)
     details = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
