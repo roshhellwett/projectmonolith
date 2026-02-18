@@ -1,4 +1,4 @@
-# PROJECT MONOLITH
+# PROJECT MONOLITH IS A BUNDLE TELEGRAM BOT PACK
 
 Zenith is a multi-bot Telegram platform that delivers real-time blockchain intelligence, automated content moderation, and AI-powered conversations — all running on a single monolithic FastAPI gateway.
 
@@ -31,7 +31,7 @@ Zenith is a multi-bot Telegram platform that delivers real-time blockchain intel
 | Wallet Tracker | ❌ Locked |
 | Top Gainers/Losers | ❌ Locked |
 
-### ⚡ Pro (49Rs/month)
+### ⚡ Pro (Included In Bundle/month)
 
 | Feature | Limits |
 |---------|--------|
@@ -76,7 +76,7 @@ No new key needed. Days are added to the existing subscription. User is notified
 | Image Prompt Crafter | ❌ Locked |
 | Chat History | ❌ Locked |
 
-### ⚡ Pro (49Rs/month)
+### ⚡ Pro (Include In Bundle/month)
 
 | Feature | Limits |
 |---------|--------|
@@ -110,7 +110,7 @@ No new key needed. Days are added to the existing subscription. User is notified
 | Custom Welcome | ❌ Locked |
 | Audit Log | ❌ Locked |
 
-### ⚡ Pro (49Rs/month)
+### ⚡ Pro (Included In Bundle/month)
 
 | Feature | Limits |
 |---------|--------|
@@ -207,6 +207,16 @@ No new key needed. Days are added to the existing subscription. User is notified
 | `/extend [UID] [DAYS]` | Renew a user's Pro (admin only) |
 
 ---
+
+## Pricing
+
+```bash
+
+150.00 Rs - 1 Month Bundle
+
+300.00 Rs - 3 Month Bundle
+
+```
 
 ## 📦 Architecture
 
