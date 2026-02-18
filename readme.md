@@ -241,11 +241,11 @@ projectmonolith/
 └── utils/                     # Shared utilities
 ```
 
+## 📄 License
+
+MIT
+
 ---
 
 © 2026 [Zenith Open Source Projects](https://zenithopensourceprojects.vercel.app/). All Rights Reserved.  
 Zenith is a Open Source Project Idea's by @roshhellwett
-
-## 📄 License
-
-MIT
