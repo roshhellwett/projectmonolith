@@ -12,6 +12,7 @@ PORT = int(os.getenv("PORT", 8080))
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
 CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN", "")
+SUPPORT_BOT_TOKEN = os.getenv("SUPPORT_BOT_TOKEN", "")
 ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", 0))
 ETH_RPC_URL = os.getenv("ETH_RPC_URL", "")
 SOLANA_RPC_URL = os.getenv("SOLANA_RPC_URL", "")

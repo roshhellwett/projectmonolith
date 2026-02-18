@@ -3,10 +3,17 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
+from core.validators import validate_custom_word
+from core.animation import send_typing_action
 from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_group_bot.repository import (
     SettingsRepo, CustomWordRepo, ScheduleRepo,
     WelcomeRepo, AuditLogRepo,
+)
+from zenith_group_bot.ui import (
+    get_confirm_add_word, get_confirm_delete_word,
+    get_word_limit_msg, get_pro_feature_msg,
+    get_confirm_forgive, get_confirm_reset,
 )
 
 logger = setup_logger("GRP_PRO")
@@ -53,30 +60,45 @@ async def cmd_addword(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         return await update.message.reply_text(
             "📝 <b>Custom Word Filter</b>\n\n"
-            "<b>Usage:</b> <code>/addword [WORD]</code>\n"
-            "<b>Example:</b> <code>/addword scam</code>\n\n"
-            "Added words will trigger automatic deletion.",
+            "<b>Usage:</b> <code>/addword [WORD]</code>\n\n"
+            "<b>Example:</b>\n"
+            "<code>/addword scam</code>\n\n"
+            "Added words will trigger automatic deletion.\n\n"
+            "<i>💡 Tip: Use phrases like 'free money' to catch scammers</i>",
             parse_mode="HTML",
         )
 
     word = " ".join(context.args).lower().strip()
-    if len(word) > 100:
-        return await update.message.reply_text("⚠️ Word/phrase must be under 100 characters.")
+    
+    validation = validate_custom_word(word)
+    if not validation.is_valid:
+        return await update.message.reply_text(
+            f"⚠️ <b>Invalid Word</b>\n\n{validation.error_message}",
+            parse_mode="HTML"
+        )
+    
+    word = validation.sanitized_value
 
     count = await CustomWordRepo.count_words(chat_id)
-    if count >= 200:
-        return await update.message.reply_text("⚠️ Maximum 200 custom words reached.")
+    limit = 200
+    if count >= limit:
+        msg = get_word_limit_msg(count, limit)
+        return await update.message.reply_text(msg, parse_mode="HTML")
 
     added = await CustomWordRepo.add_word(chat_id, word, user_id)
     if added:
         await update.message.reply_text(
             f"✅ <b>Word Added</b>\n\n"
-            f"<code>{html.escape(word)}</code> will now trigger message deletion.\n"
+            f"<code>{html.escape(word)}</code> will now trigger message deletion.\n\n"
             f"<i>Total custom words: {count + 1}/200</i>",
             parse_mode="HTML",
         )
     else:
-        await update.message.reply_text("⚠️ This word is already in the filter.")
+        await update.message.reply_text(
+            "⚠️ <b>Already Added</b>\n\n"
+            "This word is already in the filter.",
+            parse_mode="HTML",
+        )
 
 
 async def cmd_delword(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -85,12 +107,40 @@ async def cmd_delword(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not context.args:
-        return await update.message.reply_text("Usage: <code>/delword [WORD]</code>", parse_mode="HTML")
+        return await update.message.reply_text(
+            "📝 <b>Remove Custom Word</b>\n\n"
+            "<b>Usage:</b> <code>/delword [WORD]</code>\n\n"
+            "<b>Example:</b>\n"
+            "<code>/delword scam</code>",
+            parse_mode="HTML"
+        )
 
     word = " ".join(context.args).lower().strip()
+    
+    validation = validate_custom_word(word)
+    if not validation.is_valid:
+        return await update.message.reply_text(
+            f"⚠️ <b>Invalid Word</b>\n\n{validation.error_message}",
+            parse_mode="HTML"
+        )
+    
+    word = validation.sanitized_value
+    
     removed = await CustomWordRepo.remove_word(chat_id, word)
-    msg = "✅ Word removed from filter." if removed else "⚠️ Word not found in filter."
-    await update.message.reply_text(msg)
+    
+    if removed:
+        await update.message.reply_text(
+            f"✅ <b>Word Removed</b>\n\n"
+            f"<code>{html.escape(word)}</code> is no longer filtered.",
+            parse_mode="HTML"
+        )
+    else:
+        await update.message.reply_text(
+            "⚠️ <b>Word Not Found</b>\n\n"
+            "This word is not in your filter list.\n\n"
+            "Use <code>/wordlist</code> to see all filtered words.",
+            parse_mode="HTML"
+        )
 
 
 async def cmd_wordlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,21 +188,39 @@ async def cmd_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not (0 <= hour <= 23) or not (0 <= minute <= 59):
             raise ValueError()
     except (ValueError, IndexError):
-        return await update.message.reply_text("⚠️ Invalid time format. Use <code>HH:MM</code> (e.g., 14:30)", parse_mode="HTML")
+        return await update.message.reply_text(
+            "⚠️ <b>Invalid Time Format</b>\n\n"
+            "Use <code>HH:MM</code> in 24-hour format.\n\n"
+            "<b>Examples:</b>\n"
+            "• 09:00 (9 AM)\n"
+            "• 14:30 (2:30 PM)\n"
+            "• 23:59 (11:59 PM)",
+            parse_mode="HTML"
+        )
 
     message_text = " ".join(context.args[1:])
     if len(message_text) > 1000:
-        return await update.message.reply_text("⚠️ Message must be under 1000 characters.")
+        return await update.message.reply_text(
+            "⚠️ <b>Message Too Long</b>\n\n"
+            "Message must be under 1000 characters.",
+            parse_mode="HTML"
+        )
 
     count = await ScheduleRepo.count_schedules(chat_id)
-    if count >= 10:
-        return await update.message.reply_text("⚠️ Maximum 10 scheduled messages per group.")
+    limit = 10
+    if count >= limit:
+        return await update.message.reply_text(
+            "⚠️ <b>Schedule Limit Reached</b>\n\n"
+            f"You've reached the maximum of {limit} scheduled messages.\n\n"
+            "Delete some to add more.",
+            parse_mode="HTML"
+        )
 
     sid = await ScheduleRepo.add_schedule(chat_id, user_id, message_text, hour, minute)
     await update.message.reply_text(
         f"✅ <b>Message Scheduled</b>\n\n"
         f"⏰ <b>Time:</b> {hour:02d}:{minute:02d} UTC (daily)\n"
-        f"📝 <b>Message:</b> {html.escape(message_text[:100])}...\n"
+        f"📝 <b>Message:</b> {html.escape(message_text[:100])}...\n\n"
         f"<b>ID:</b> <code>{sid}</code>\n\n"
         f"<i>Delete with</i> <code>/delschedule {sid}</code>",
         parse_mode="HTML",

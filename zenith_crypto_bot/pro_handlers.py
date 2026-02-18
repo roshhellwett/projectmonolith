@@ -5,13 +5,29 @@ from telegram.error import BadRequest, RetryAfter
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
+from core.validators import (
+    validate_ethereum_address,
+    validate_price,
+    validate_token_symbol,
+    validate_wallet_label,
+)
+from core.animation import (
+    send_typing_action,
+    edit_with_stages,
+    create_confirm_keyboard,
+)
 from zenith_crypto_bot.repository import SubscriptionRepo, PriceAlertRepo, WalletTrackerRepo, WatchlistRepo
 from zenith_crypto_bot.market_service import (
     get_prices, resolve_token_id, search_token, get_token_security,
     get_wallet_recent_txns, get_wallet_token_txns,
     get_fear_greed_index, get_top_movers, get_gas_prices, get_new_pairs,
 )
-from zenith_crypto_bot.ui import get_back_button, get_alerts_keyboard, get_wallets_keyboard
+from zenith_crypto_bot.ui import (
+    get_back_button, get_alerts_keyboard, get_wallets_keyboard,
+    get_confirm_delete_alert, get_confirm_delete_alert_msg,
+    get_confirm_untrack_msg, get_confirm_untrack_wallet,
+    get_limit_reached_card, get_already_tracked_msg, get_pro_feature_msg,
+)
 
 logger = setup_logger("PRO_HANDLERS")
 
@@ -27,25 +43,40 @@ async def cmd_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>Examples:</b>\n"
             "• <code>/alert BTC above 100000</code>\n"
             "• <code>/alert ETH below 2000</code>\n"
-            "• <code>/alert SOL above 250</code>",
+            "• <code>/alert SOL above 250</code>\n\n"
+            "<i>💡 Tip: Use comma separators for large numbers, e.g., 100,000</i>",
             parse_mode="HTML",
         )
 
     symbol = context.args[0].upper()
     direction = context.args[1].lower()
+    
     if direction not in ("above", "below"):
-        return await update.message.reply_text("⚠️ Direction must be <code>above</code> or <code>below</code>.", parse_mode="HTML")
+        return await update.message.reply_text(
+            "⚠️ <b>Invalid Direction</b>\n\n"
+            "Direction must be <code>above</code> or <code>below</code>.\n\n"
+            "<b>Example:</b> <code>/alert BTC above 100000</code>",
+            parse_mode="HTML"
+        )
 
-    try:
-        target_price = float(context.args[2].replace(",", ""))
-    except ValueError:
-        return await update.message.reply_text("⚠️ Invalid price value.")
+    target_price_str = context.args[2].replace(",", "")
+    
+    price_validation = validate_price(target_price_str)
+    if not price_validation.is_valid:
+        return await update.message.reply_text(
+            f"⚠️ <b>Invalid Price</b>\n\n"
+            f"{price_validation.error_message}\n\n"
+            "<b>Example:</b> <code>/alert BTC above 100000</code>",
+            parse_mode="HTML"
+        )
+    
+    target_price = float(price_validation.sanitized_value)
 
     count = await PriceAlertRepo.count_user_alerts(user_id)
     limit = 25 if is_pro else 1
     if count >= limit:
-        tier_msg = "Upgrade to <b>Zenith Pro</b> for up to 25 alerts." if not is_pro else "Maximum 25 alerts reached."
-        return await update.message.reply_text(f"⚠️ Alert limit reached ({count}/{limit}). {tier_msg}", parse_mode="HTML")
+        msg, kb = get_limit_reached_card("Price Alerts", count, limit, is_pro)
+        return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
     token_id = resolve_token_id(symbol)
     prices = await get_prices([token_id])
@@ -55,7 +86,12 @@ async def cmd_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
             token_id = found["id"]
             symbol = found["symbol"]
         else:
-            return await update.message.reply_text(f"⚠️ Token <code>{html.escape(symbol)}</code> not found.", parse_mode="HTML")
+            return await update.message.reply_text(
+                f"⚠️ <b>Token Not Found</b>\n\n"
+                f"Token <code>{html.escape(symbol)}</code> was not found.\n\n"
+                "Try a different symbol or check for typos.",
+                parse_mode="HTML"
+            )
 
     await PriceAlertRepo.create_alert(user_id, token_id, symbol, target_price, direction)
     icon = "📈" if direction == "above" else "📉"
@@ -68,13 +104,31 @@ async def cmd_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    alerts = await PriceAlertRepo.get_user_alerts(update.effective_user.id)
+    await send_typing_action(update, context)
+    
+    user_id = update.effective_user.id
+    is_pro = await SubscriptionRepo.is_pro(user_id)
+    alerts = await PriceAlertRepo.get_user_alerts(user_id)
+    
     if not alerts:
         return await update.message.reply_text(
-            "🔔 <b>Price Alerts</b>\n\nNo active alerts. Create one with:\n<code>/alert BTC above 100000</code>",
+            "🔔 <b>Price Alerts</b>\n\n"
+            "No active alerts.\n\n"
+            "<b>Create one:</b>\n"
+            "<code>/alert BTC above 100000</code>",
             parse_mode="HTML",
         )
-    await update.message.reply_text("🔔 <b>Your Active Alerts</b>", reply_markup=get_alerts_keyboard(alerts), parse_mode="HTML")
+    
+    msg = await update.message.reply_text(
+        "⏳ <i>Loading your alerts...</i>",
+        parse_mode="HTML"
+    )
+    
+    await msg.edit_text(
+        "🔔 <b>Your Active Alerts</b>",
+        reply_markup=get_alerts_keyboard(alerts, is_pro),
+        parse_mode="HTML"
+    )
 
 
 async def cmd_delalert(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -94,31 +148,48 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_pro = await SubscriptionRepo.is_pro(user_id)
 
     if not is_pro:
-        return await update.message.reply_text(
-            "🔒 <b>Pro Feature: Wallet Tracker</b>\n\n"
-            "Track whale wallets and get instant alerts when they trade.\n"
-            "Upgrade to <b>Zenith Pro</b> to unlock.\n\n"
-            "<code>/activate [YOUR_KEY]</code>",
-            parse_mode="HTML",
-        )
+        msg, kb = get_pro_feature_msg("Wallet Tracker")
+        return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
     if not context.args:
         return await update.message.reply_text(
             "👁️ <b>Wallet Tracker</b>\n\n"
             "<b>Format:</b> <code>/track [ADDRESS] [LABEL]</code>\n\n"
-            "<b>Example:</b>\n<code>/track 0x28C6c06298d514Db089934071355E5743bf21d60 Binance14</code>",
+            "<b>Example:</b>\n"
+            "<code>/track 0x28C6c06298d514Db089934071355E5743bf21d60 Binance14</code>\n\n"
+            "<i>💡 Tip: Label helps you identify the wallet (e.g., Whale, Exchange, DeFi)</i>",
             parse_mode="HTML",
         )
 
     address = context.args[0].strip()
-    if not (address.startswith("0x") and len(address) == 42):
-        return await update.message.reply_text("⚠️ Invalid Ethereum address format.")
+    
+    address_validation = validate_ethereum_address(address)
+    if not address_validation.is_valid:
+        return await update.message.reply_text(
+            f"⚠️ <b>Invalid Address</b>\n\n"
+            f"{address_validation.error_message}\n\n"
+            "<b>Example:</b>\n"
+            "<code>0x28C6c06298d514Db089934071355E5743bf21d60</code>",
+            parse_mode="HTML"
+        )
+    
+    address = address_validation.sanitized_value
 
-    label = " ".join(context.args[1:])[:50] if len(context.args) > 1 else "Unnamed Wallet"
+    label = " ".join(context.args[1:]) if len(context.args) > 1 else "Unnamed Wallet"
+    label_validation = validate_wallet_label(label)
+    if not label_validation.is_valid:
+        return await update.message.reply_text(
+            f"⚠️ <b>Invalid Label</b>\n\n"
+            f"{label_validation.error_message}",
+            parse_mode="HTML"
+        )
+    label = label_validation.sanitized_value
 
     count = await WalletTrackerRepo.count_user_wallets(user_id)
-    if count >= 5:
-        return await update.message.reply_text("⚠️ Maximum 5 tracked wallets. Remove one with /untrack.")
+    limit = 5
+    if count >= limit:
+        msg, kb = get_limit_reached_card("Tracked Wallets", count, limit, is_pro)
+        return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
     added = await WalletTrackerRepo.add_wallet(user_id, address, label)
     if added:
@@ -130,25 +201,77 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML",
         )
     else:
-        await update.message.reply_text("⚠️ This wallet is already being tracked.")
+        existing_label = "Unnamed Wallet"
+        await update.message.reply_text(
+            get_already_tracked_msg(existing_label),
+            parse_mode="HTML"
+        )
 
 
 async def cmd_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    wallets = await WalletTrackerRepo.get_user_wallets(update.effective_user.id)
+    await send_typing_action(update, context)
+    
+    user_id = update.effective_user.id
+    is_pro = await SubscriptionRepo.is_pro(user_id)
+    wallets = await WalletTrackerRepo.get_user_wallets(user_id)
+    
     if not wallets:
         return await update.message.reply_text(
-            "👁️ <b>Wallet Tracker</b>\n\nNo tracked wallets. Start with:\n<code>/track 0x... MyLabel</code>",
+            "👁️ <b>Wallet Tracker</b>\n\n"
+            "No tracked wallets.\n\n"
+            "<b>Track a wallet:</b>\n"
+            "<code>/track 0x... MyLabel</code>",
             parse_mode="HTML",
         )
-    await update.message.reply_text("👁️ <b>Your Tracked Wallets</b>", reply_markup=get_wallets_keyboard(wallets), parse_mode="HTML")
+    
+    msg = await update.message.reply_text(
+        "⏳ <i>Loading wallets...</i>",
+        parse_mode="HTML"
+    )
+    
+    await msg.edit_text(
+        "👁️ <b>Your Tracked Wallets</b>",
+        reply_markup=get_wallets_keyboard(wallets, is_pro),
+        parse_mode="HTML"
+    )
 
 
 async def cmd_untrack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        return await update.message.reply_text("Usage: <code>/untrack [ADDRESS]</code>", parse_mode="HTML")
-    removed = await WalletTrackerRepo.remove_wallet(update.effective_user.id, context.args[0].strip())
-    msg = "✅ Wallet removed." if removed else "⚠️ Wallet not found."
-    await update.message.reply_text(msg)
+        return await update.message.reply_text(
+            "👁️ <b>Untrack Wallet</b>\n\n"
+            "<b>Usage:</b> <code>/untrack [ADDRESS]</code>\n\n"
+            "<b>Example:</b>\n"
+            "<code>/untrack 0x28C6c06298d514Db089934071355E5743bf21d60</code>",
+            parse_mode="HTML"
+        )
+    
+    address = context.args[0].strip()
+    
+    address_validation = validate_ethereum_address(address)
+    if not address_validation.is_valid:
+        return await update.message.reply_text(
+            f"⚠️ <b>Invalid Address</b>\n\n"
+            f"{address_validation.error_message}",
+            parse_mode="HTML"
+        )
+    
+    address = address_validation.sanitized_value
+    removed = await WalletTrackerRepo.remove_wallet(update.effective_user.id, address)
+    
+    if removed:
+        await update.message.reply_text(
+            "✅ <b>Wallet Untracked</b>\n\n"
+            "You will no longer receive alerts for this wallet.",
+            parse_mode="HTML"
+        )
+    else:
+        await update.message.reply_text(
+            "⚠️ <b>Wallet Not Found</b>\n\n"
+            "This wallet is not in your tracking list.\n\n"
+            "Use <code>/wallets</code> to see your tracked wallets.",
+            parse_mode="HTML"
+        )
 
 
 async def cmd_addtoken(update: Update, context: ContextTypes.DEFAULT_TYPE):
