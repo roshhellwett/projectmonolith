@@ -174,8 +174,52 @@ class TicketRepo:
                 updated_at=utc_now(),
                 resolved_at=utc_now(),
                 last_admin_reply_at=utc_now(),
-                user_replied="false",
-                reminder_sent="false",
+                user_replied=False,
+                reminder_sent=False,
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            ticket_cache.pop(f"ticket_{ticket_id}", None)
+            return result.rowcount > 0
+
+    @staticmethod
+    @db_retry
+    async def set_in_progress(ticket_id: int) -> bool:
+        async with AsyncSessionLocal() as session:
+            stmt = update(SupportTicket).where(
+                SupportTicket.id == ticket_id,
+                SupportTicket.status.in_(["open", "in_progress"])
+            ).values(
+                status="in_progress",
+                updated_at=utc_now(),
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            ticket_cache.pop(f"ticket_{ticket_id}", None)
+            return result.rowcount > 0
+
+    @staticmethod
+    @db_retry
+    async def close_ticket(ticket_id: int) -> bool:
+        async with AsyncSessionLocal() as session:
+            stmt = update(SupportTicket).where(SupportTicket.id == ticket_id).values(
+                status="closed",
+                updated_at=utc_now(),
+                resolved_at=utc_now(),
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            ticket_cache.pop(f"ticket_{ticket_id}", None)
+            return result.rowcount > 0
+
+    @staticmethod
+    @db_retry
+    async def reopen_ticket(ticket_id: int) -> bool:
+        async with AsyncSessionLocal() as session:
+            stmt = update(SupportTicket).where(SupportTicket.id == ticket_id).values(
+                status="open",
+                updated_at=utc_now(),
+                resolved_at=None,
             )
             result = await session.execute(stmt)
             await session.commit()
@@ -188,9 +232,10 @@ class TicketRepo:
         async with AsyncSessionLocal() as session:
             stmt = update(SupportTicket).where(SupportTicket.id == ticket_id).values(
                 user_reply=user_reply,
-                user_replied="true",
-                status="in_progress",
+                user_replied=True,
+                status="open",
                 updated_at=utc_now(),
+                resolved_at=None,
             )
             result = await session.execute(stmt)
             await session.commit()
@@ -205,7 +250,7 @@ class TicketRepo:
             stmt = select(SupportTicket).where(
                 SupportTicket.last_admin_reply_at.isnot(None),
                 SupportTicket.last_admin_reply_at < cutoff,
-                SupportTicket.user_replied == "false",
+                SupportTicket.user_replied == False,
                 SupportTicket.status == "resolved",
             )
             return (await session.execute(stmt)).scalars().all()
@@ -220,8 +265,8 @@ class TicketRepo:
                 SupportTicket.last_admin_reply_at.isnot(None),
                 SupportTicket.last_admin_reply_at < cutoff,
                 SupportTicket.last_admin_reply_at > cutoff_24,
-                SupportTicket.user_replied == "false",
-                SupportTicket.reminder_sent == "false",
+                SupportTicket.user_replied == False,
+                SupportTicket.reminder_sent == False,
                 SupportTicket.status == "resolved",
             )
             return (await session.execute(stmt)).scalars().all()
@@ -231,7 +276,7 @@ class TicketRepo:
     async def mark_reminder_sent(ticket_id: int) -> bool:
         async with AsyncSessionLocal() as session:
             stmt = update(SupportTicket).where(SupportTicket.id == ticket_id).values(
-                reminder_sent="true",
+                reminder_sent=True,
             )
             result = await session.execute(stmt)
             await session.commit()
@@ -273,10 +318,11 @@ class TicketRepo:
             stmt = update(SupportTicket).where(
                 SupportTicket.id == ticket_id,
                 SupportTicket.user_id == user_id,
-                SupportTicket.status.in_(["open", "in_progress"]),
+                SupportTicket.status.in_(["open", "in_progress", "resolved"]),
             ).values(
                 status="closed",
                 updated_at=utc_now(),
+                resolved_at=utc_now(),
             )
             result = await session.execute(stmt)
             await session.commit()

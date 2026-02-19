@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, DateTime, String, Text, Enum
+from sqlalchemy import Column, Integer, BigInteger, DateTime, String, Text, Enum, Boolean
 from sqlalchemy.orm import declarative_base
 from utils.time_util import utc_now
 import enum
@@ -34,8 +34,8 @@ class SupportTicket(Base):
     user_reply = Column(Text, nullable=True)
     rating = Column(Integer, nullable=True)
     last_admin_reply_at = Column(DateTime, nullable=True)
-    user_replied = Column(String(10), default="false")
-    reminder_sent = Column(String(10), default="false")
+    user_replied = Column(Boolean, default=False)
+    reminder_sent = Column(Boolean, default=False)
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     resolved_at = Column(DateTime, nullable=True)

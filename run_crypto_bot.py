@@ -9,8 +9,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 from telegram.error import RetryAfter, BadRequest, Forbidden
 
 from core.logger import setup_logger
-from core.config import CRYPTO_BOT_TOKEN, WEBHOOK_URL, WEBHOOK_SECRET
-from core.task_manager import fire_and_forget
+from core.config import CRYPTO_BOT_TOKEN, WEBHOOK_URL, WEBHOOK_SECRET, ADMIN_USER_ID
 from zenith_crypto_bot.repository import (
     init_crypto_db, dispose_crypto_engine, SubscriptionRepo,
     PriceAlertRepo, WalletTrackerRepo,
@@ -628,8 +627,8 @@ async def start_service():
         try:
             path = f"{webhook_base}/webhook/crypto/{WEBHOOK_SECRET}"
             await bot_app.bot.set_webhook(url=path, secret_token=WEBHOOK_SECRET, allowed_updates=Update.ALL_TYPES)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to set webhook: {e}")
 
     track_task(asyncio.create_task(safe_loop("dispatcher", alert_dispatcher)))
     track_task(asyncio.create_task(safe_loop("watcher", active_blockchain_watcher)))

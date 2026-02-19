@@ -9,7 +9,6 @@ from telegram.error import RetryAfter, BadRequest, Forbidden
 
 from core.logger import setup_logger
 from core.config import SUPPORT_BOT_TOKEN, WEBHOOK_URL, WEBHOOK_SECRET, is_owner
-from core.task_manager import fire_and_forget
 from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_support_bot.repository import (
     init_support_db, dispose_support_engine, TicketRepo, FAQRepo,
@@ -30,7 +29,7 @@ from zenith_support_bot.user_handlers import (
     handle_ticket_reply_callback, handle_ticket_reply_message,
     handle_ticket_close_callback,
 )
-from zenith_support_bot.notifications import set_notification_bot
+from zenith_support_bot.notifications import set_notification_bot, notify_admin_new_ticket
 from zenith_support_bot.scheduler import start_ticket_scheduler, stop_ticket_scheduler
 
 logger = setup_logger("SUPPORT")
@@ -127,6 +126,10 @@ async def cmd_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("<i>Creating ticket...</i>", parse_mode="HTML")
     
     ticket = await TicketRepo.create_ticket(user_id, username, subject, description)
+    
+    asyncio.create_task(notify_admin_new_ticket(
+        ticket.id, user_id, username, subject, description
+    ))
     
     ai_response = None
     if is_pro or is_owner_user:
@@ -630,8 +633,8 @@ async def start_service():
         try:
             path = f"{webhook_base}/webhook/support/{WEBHOOK_SECRET}"
             await bot_app.bot.set_webhook(url=path, secret_token=WEBHOOK_SECRET, allowed_updates=Update.ALL_TYPES)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to set webhook: {e}")
 
     track_task(asyncio.create_task(safe_loop("auto_close", auto_close_stale_tickets)))
     

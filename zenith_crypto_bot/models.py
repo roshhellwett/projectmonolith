@@ -25,6 +25,8 @@ class ActivationKey(CryptoBase):
     duration_days = Column(Integer, nullable=False)
     is_used = Column(Boolean, default=False)
     used_by = Column(BigInteger, nullable=True)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 

@@ -60,10 +60,11 @@ class SubscriptionRepo:
             return free_subscribers, pro_subscribers
 
     @staticmethod
-    async def generate_key(days: int) -> str:
+    async def generate_key(days: int, validity_days: int = 365) -> str:
         new_key = f"ZENITH-{uuid.uuid4().hex[:8].upper()}-{uuid.uuid4().hex[:4].upper()}"
         async with AsyncSessionLocal() as session:
-            session.add(ActivationKey(key_string=new_key, duration_days=days))
+            expires_at = datetime.now(timezone.utc) + timedelta(days=validity_days)
+            session.add(ActivationKey(key_string=new_key, duration_days=days, expires_at=expires_at))
             await session.commit()
         return new_key
 
@@ -75,8 +76,14 @@ class SubscriptionRepo:
                 key = res.scalar_one_or_none()
                 if not key or key.is_used:
                     return False, "❌ <b>Activation Failed:</b> Invalid or already used key."
+                
+                if key.expires_at and key.expires_at <= datetime.now(timezone.utc):
+                    return False, "❌ <b>Activation Failed:</b> This key has expired."
+                
                 key.is_used = True
                 key.used_by = user_id
+                key.used_at = datetime.now(timezone.utc)
+                
                 res = await session.execute(select(Subscription).where(Subscription.user_id == user_id).with_for_update())
                 sub = res.scalar_one_or_none()
                 now = datetime.now(timezone.utc)
@@ -134,6 +141,25 @@ class SubscriptionRepo:
                     f"<b>User:</b> <code>{user_id}</code>\n"
                     f"<b>Added:</b> {days} days\n"
                     f"<b>New Expiry:</b> {new_expiry.strftime('%d %b %Y %H:%M UTC')}"
+                )
+
+    @staticmethod
+    async def revoke_subscription(user_id: int) -> tuple[bool, str]:
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                res = await session.execute(select(Subscription).where(Subscription.user_id == user_id).with_for_update())
+                sub = res.scalar_one_or_none()
+                if not sub:
+                    return False, "⚠️ No subscription found for this user."
+                
+                past_date = datetime(2000, 1, 1, tzinfo=timezone.utc)
+                sub.expires_at = past_date
+                
+                return True, (
+                    f"✅ <b>Subscription Revoked</b>\n\n"
+                    f"<b>User:</b> <code>{user_id}</code>\n"
+                    f"<b>Status:</b> Revoked\n"
+                    f"<b>Previous expiry:</b> Set to past date"
                 )
 
     @staticmethod

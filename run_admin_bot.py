@@ -11,7 +11,8 @@ from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_admin_bot.repository import (
     init_admin_db, AdminRepo, BotRegistryRepo, MonitoringRepo, dispose_admin_engine,
 )
-from zenith_support_bot.repository import FAQRepo, CannedRepo
+from zenith_support_bot.repository import FAQRepo, CannedRepo, TicketRepo
+from zenith_support_bot.notifications import notify_user_on_admin_reply
 from zenith_admin_bot.ui import (
     get_admin_main_menu, get_back_button, get_admin_dashboard,
     format_system_overview, format_key_management, format_user_management,
@@ -76,6 +77,8 @@ def admin_only(func):
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
     await update.message.reply_text(
         get_admin_dashboard(),
         reply_markup=get_admin_main_menu(),
@@ -88,6 +91,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_keygen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         days = int(context.args[0]) if context.args else 30
+        days = max(1, min(days, 365))
     except ValueError:
         await update.message.reply_text(
             "⚠️ Invalid day count. Usage: <code>/keygen [DAYS]</code>",
@@ -128,6 +132,7 @@ async def cmd_extend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) > 1:
         try:
             days = int(context.args[1])
+            days = max(1, min(days, 365))
         except ValueError:
             await update.message.reply_text("⚠️ Invalid day count.")
             return
@@ -151,8 +156,8 @@ async def cmd_extend(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to notify user {target_user_id}: {e}")
 
     await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -173,8 +178,7 @@ async def cmd_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Invalid user ID.")
         return
 
-    from datetime import datetime, timedelta, timezone
-    success, msg = await SubscriptionRepo.extend_subscription(target_user_id, -9999)
+    success, msg = await SubscriptionRepo.revoke_subscription(target_user_id)
     await AdminRepo.log_action(
         ADMIN_USER_ID, "revoke", target_user_id=target_user_id,
         details="Revoked subscription"
@@ -192,7 +196,8 @@ async def cmd_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
                 parse_mode="HTML",
             )
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to notify user {target_user_id}: {e}")
             pass
 
     await update.message.reply_text(msg, parse_mode="HTML")
@@ -305,8 +310,9 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="HTML",
                 )
                 success_count += 1
-            except Exception:
+            except Exception as e:
                 fail_count += 1
+                logger.warning(f"Broadcast failed for {user_id}: {e}")
 
             await asyncio.sleep(0.05)
 
@@ -396,6 +402,92 @@ async def cmd_ticket_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @admin_only
+async def cmd_ticket_resolve(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "⚠️ <b>Usage:</b> <code>/resolve [TICKET_ID] [response]</code>\n\n"
+            "Example: <code>/resolve 5 The issue has been fixed.</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        ticket_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("⚠️ Invalid ticket ID.")
+        return
+
+    response = " ".join(context.args[1:])
+
+    success = await TicketRepo.set_admin_response(ticket_id, response)
+    if success:
+        ticket = await TicketRepo.get_ticket(ticket_id)
+        if ticket:
+            await notify_user_on_admin_reply(
+                user_id=ticket.user_id,
+                ticket_id=ticket_id,
+                subject=ticket.subject,
+                admin_response=response,
+            )
+        await update.message.reply_text(
+            f"✅ <b>Ticket Resolved</b>\n\nTicket #{ticket_id} has been resolved.\n\n📬 User has been notified.",
+            parse_mode="HTML",
+        )
+    else:
+        await update.message.reply_text("⚠️ Ticket not found.")
+
+
+@admin_only
+async def cmd_ticket_inprogress(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text(
+            "⚠️ <b>Usage:</b> <code>/inprogress [TICKET_ID]</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        ticket_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("⚠️ Invalid ticket ID.")
+        return
+
+    success = await TicketRepo.set_in_progress(ticket_id)
+    if success:
+        await update.message.reply_text(
+            f"✅ <b>Ticket In-Progress</b>\n\nTicket #{ticket_id} is now being worked on.",
+            parse_mode="HTML",
+        )
+    else:
+        await update.message.reply_text("⚠️ Ticket not found.")
+
+
+@admin_only
+async def cmd_ticket_close_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text(
+            "⚠️ <b>Usage:</b> <code>/close [TICKET_ID]</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        ticket_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("⚠️ Invalid ticket ID.")
+        return
+
+    success = await TicketRepo.close_ticket(ticket_id)
+    if success:
+        await update.message.reply_text(
+            f"✅ <b>Ticket Closed</b>\n\nTicket #{ticket_id} has been closed.",
+            parse_mode="HTML",
+        )
+    else:
+        await update.message.reply_text("⚠️ Ticket not found or cannot be closed.")
+
+
+@admin_only
 async def cmd_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
@@ -460,6 +552,7 @@ async def cmd_bulk_keygen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         count = int(context.args[0])
         days = int(context.args[1])
+        days = max(1, min(days, 365))
     except ValueError:
         await update.message.reply_text("⚠️ Invalid numbers.")
         return
@@ -845,6 +938,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if len(parts) >= 4:
                 count = int(parts[2])
                 days = int(parts[3])
+                days = max(1, min(days, 365))
                 keys = await MonitoringRepo.generate_bulk_keys(count, days)
                 await AdminRepo.log_action(
                     ADMIN_USER_ID, "keygen_bulk", details=f"Generated {count} keys for {days} days"
@@ -887,6 +981,9 @@ async def start_service():
     bot_app.add_handler(CommandHandler("botlist", cmd_botlist))
     bot_app.add_handler(CommandHandler("tickets", cmd_tickets))
     bot_app.add_handler(CommandHandler("ticket", cmd_ticket_detail))
+    bot_app.add_handler(CommandHandler("resolve", cmd_ticket_resolve))
+    bot_app.add_handler(CommandHandler("inprogress", cmd_ticket_inprogress))
+    bot_app.add_handler(CommandHandler("close", cmd_ticket_close_admin))
     bot_app.add_handler(CommandHandler("search", cmd_search))
     bot_app.add_handler(CommandHandler("groups", cmd_groups_list))
     bot_app.add_handler(CommandHandler("gsearch", cmd_group_search))

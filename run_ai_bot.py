@@ -9,7 +9,7 @@ from telegram.ext import (
 )
 
 from core.logger import setup_logger
-from core.config import AI_BOT_TOKEN, WEBHOOK_URL, WEBHOOK_SECRET
+from core.config import AI_BOT_TOKEN, WEBHOOK_URL, WEBHOOK_SECRET, ADMIN_USER_ID
 from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_ai_bot.repository import (
     init_ai_db, dispose_ai_engine, ConversationRepo, UsageRepo,
@@ -470,8 +470,8 @@ async def stop_service():
                 parse_mode="HTML",
             )
             task_queue.task_done()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Error in worker: {e}")
 
     if bot_app:
         await bot_app.stop()

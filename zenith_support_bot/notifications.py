@@ -1,6 +1,7 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application
 from core.logger import setup_logger
+from core.config import ADMIN_USER_ID
 
 logger = setup_logger("SUPPORT_NOTIFY")
 
@@ -113,4 +114,51 @@ async def notify_ticket_auto_closed(user_id: int, ticket_id: int, subject: str):
 
     except Exception as e:
         logger.error(f"Failed to notify user {user_id} about auto-close: {e}")
+        return False
+
+
+async def notify_admin_new_ticket(ticket_id: int, user_id: int, username: str, subject: str, description: str, priority: str = "normal"):
+    if not bot_instance or not ADMIN_USER_ID:
+        logger.warning("Bot instance or ADMIN_USER_ID not set for admin notifications")
+        return False
+
+    try:
+        priority_emoji = {
+            "low": "🟢",
+            "normal": "🟡",
+            "high": "🟠",
+            "urgent": "🔴",
+        }
+        emoji = priority_emoji.get(priority, "🟡")
+
+        keyboard = [
+            [InlineKeyboardButton("🎫 View Ticket", callback_data=f"ticket_view_{ticket_id}")],
+            [InlineKeyboardButton("✅ Resolve", callback_data=f"ticket_resolve_{ticket_id}")],
+            [InlineKeyboardButton("🔄 Take to In-Progress", callback_data=f"ticket_inprogress_{ticket_id}")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        desc_preview = description[:300] + "..." if len(description) > 300 else description
+
+        message = (
+            f"{emoji} <b>🎫 NEW SUPPORT TICKET</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"<b>Ticket #{ticket_id}</b>\n"
+            f"<b>Subject:</b> {subject}\n"
+            f"<b>Priority:</b> {priority.upper()}\n"
+            f"<b>From:</b> @{username} (ID: {user_id})\n\n"
+            f"<b>Description:</b>\n{desc_preview}"
+        )
+
+        await bot_instance.send_message(
+            chat_id=ADMIN_USER_ID,
+            text=message,
+            reply_markup=reply_markup,
+            parse_mode="HTML",
+        )
+        logger.info(f"Admin notification sent for new ticket {ticket_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to notify admin about ticket {ticket_id}: {e}")
         return False

@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from core.logger import setup_logger
 from core.config import ADMIN_USER_ID, WEBHOOK_URL
 from zenith_admin_bot.repository import BotRegistryRepo, MonitoringRepo
@@ -10,15 +10,33 @@ alert_queue = asyncio.Queue(maxsize=100)
 background_tasks = set()
 bot_app = None
 
+bot_app_references = {
+    "AI": None,
+    "Crypto": None,
+    "Group": None,
+    "Support": None,
+    "Admin": None,
+}
+
+last_alert_time = {}
+ALERT_COOLDOWN = 3600
+
 
 def track_task(task):
     background_tasks.add(task)
     task.add_done_callback(background_tasks.discard)
 
 
-def set_bot_app(app):
+def set_bot_app(app, bot_name="Admin"):
     global bot_app
     bot_app = app
+    if bot_name in bot_app_references:
+        bot_app_references[bot_name] = app
+
+
+def register_bot_app(bot_name, app):
+    bot_app_references[bot_name] = app
+    logger.info(f"Registered {bot_name} bot app for monitoring")
 
 
 async def safe_loop(name, coro):
@@ -57,38 +75,54 @@ async def check_bot_health():
 
 async def check_single_bot(bot):
     status = "healthy"
+    previous_status = bot.health_status
+    
+    target_app = bot_app_references.get(bot.bot_name)
+    
+    if target_app is None:
+        target_app = bot_app
+    
     try:
-        if bot.bot_name == "AI" and bot_app:
-            me = await bot_app.bot.get_me()
-            status = "healthy"
-        elif bot.bot_name == "Crypto" and bot_app:
-            me = await bot_app.bot.get_me()
-            status = "healthy"
-        elif bot.bot_name == "Group" and bot_app:
-            me = await bot_app.bot.get_me()
-            status = "healthy"
-        elif bot.bot_name == "Support" and bot_app:
-            me = await bot_app.bot.get_me()
+        if target_app:
+            me = await target_app.bot.get_me()
             status = "healthy"
         else:
             status = "unknown"
+            logger.warning(f"No app reference for bot: {bot.bot_name}")
     except Exception as e:
-        logger.error(f"Bot {bot.bot_name} health check failed: {e}")
+        logger.warning(f"Bot {bot.bot_name} health check failed: {e}")
         status = "error"
 
     await BotRegistryRepo.update_health_status(bot.bot_name, status)
 
+    now = datetime.now(timezone.utc)
+    alert_key = f"bot_down_{bot.bot_name}"
+    last_alert = last_alert_time.get(alert_key, None)
+
     if status == "error" and bot.status != "inactive":
-        await queue_alert(
-            f"🚨 <b>BOT DOWN ALERT</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"<b>Bot:</b> {bot.bot_name}\n"
-            f"<b>Status:</b> Error - not responding\n"
-            f"<b>Time:</b> {datetime.now().strftime('%d %b %Y %H:%M UTC')}"
-        )
+        if last_alert is None or (now - last_alert).total_seconds() > ALERT_COOLDOWN:
+            await queue_alert(
+                f"🚨 <b>BOT DOWN ALERT</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"<b>Bot:</b> {bot.bot_name}\n"
+                f"<b>Status:</b> Error - not responding\n"
+                f"<b>Time:</b> {datetime.now().strftime('%d %b %Y %H:%M UTC')}"
+            )
+            last_alert_time[alert_key] = now
+
+    if previous_status == "error" and status == "healthy" and bot.status != "inactive":
+        if last_alert is None or (now - last_alert).total_seconds() > ALERT_COOLDOWN:
+            await queue_alert(
+                f"✅ <b>BOT RECOVERED</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"<b>Bot:</b> {bot.bot_name}\n"
+                f"<b>Status:</b> Back online\n"
+                f"<b>Time:</b> {datetime.now().strftime('%d %b %Y %H:%M UTC')}"
+            )
+            last_alert_time[alert_key] = now
 
 
 async def monitor_subscriptions():
-    previous_expiring = 0
+    previous_expiring = None
+    first_run = True
 
     while True:
         await asyncio.sleep(3600)
@@ -96,11 +130,19 @@ async def monitor_subscriptions():
             stats = await MonitoringRepo.get_subscription_stats()
             current_expiring = stats.get("expiring_within_7_days", 0)
 
-            if current_expiring > previous_expiring and previous_expiring > 0:
+            if first_run:
+                if current_expiring > 0:
+                    await queue_alert(
+                        f"⚠️ <b>SUBSCRIPTION ALERT</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"<b>{current_expiring} subscription(s)</b> expiring within 7 days!\n\n"
+                        f"<i>Consider running a retention campaign.</i>"
+                    )
+                first_run = False
+            elif current_expiring > previous_expiring and previous_expiring is not None and previous_expiring > 0:
                 diff = current_expiring - previous_expiring
                 await queue_alert(
                     f"⚠️ <b>REVENUE ALERT</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                    f"<b>{diff} subscription(s)</b> expiring within 7 days!\n"
+                    f"<b>{diff} new subscription(s)</b> expiring within 7 days!\n"
                     f"<b>Total at risk:</b> {current_expiring}\n\n"
                     f"<i>Consider running a retention campaign.</i>"
                 )
@@ -120,7 +162,7 @@ async def queue_alert(message: str):
 
 
 async def start_monitoring(app):
-    set_bot_app(app)
+    set_bot_app(app, "Admin")
     await BotRegistryRepo.register_bot("AI")
     await BotRegistryRepo.register_bot("Crypto")
     await BotRegistryRepo.register_bot("Group")

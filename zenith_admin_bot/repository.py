@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timezone, timedelta
 from typing import Optional
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -88,7 +88,7 @@ class BotRegistryRepo:
             if existing:
                 existing.token_hash = token_hash
                 existing.status = BotStatus.ACTIVE
-                existing.registered_at = datetime.utcnow()
+                existing.registered_at = datetime.now(timezone.utc)
                 await session.commit()
                 return existing
             else:
@@ -129,7 +129,7 @@ class BotRegistryRepo:
             stmt = select(BotRegistry).where(BotRegistry.bot_name == bot_name)
             bot = (await session.execute(stmt)).scalar_one_or_none()
             if bot:
-                bot.last_health_check = datetime.utcnow()
+                bot.last_health_check = datetime.now(timezone.utc)
                 bot.health_status = status
                 if status == "error":
                     bot.status = BotStatus.ERROR
@@ -182,7 +182,8 @@ class MonitoringRepo:
 
         try:
             return await TicketRepo.get_ticket_stats()
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to get ticket stats: {e}")
             return {"total": 0, "open": 0, "in_progress": 0, "resolved": 0, "closed": 0}
 
     @staticmethod

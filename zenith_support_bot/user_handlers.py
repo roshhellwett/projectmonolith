@@ -157,6 +157,10 @@ async def handle_ticket_close_callback(update: Update, context: ContextTypes.DEF
         await query.edit_message_text("⛔ This ticket is already closed.")
         return
     
+    if ticket.status not in ["open", "in_progress", "resolved"]:
+        await query.edit_message_text("⛔ This ticket cannot be closed.")
+        return
+    
     success = await TicketRepo.close_ticket(ticket_id, update.effective_user.id)
     
     if success:
