@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession

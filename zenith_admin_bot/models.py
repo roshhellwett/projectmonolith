@@ -41,7 +41,7 @@ class AdminAuditLog(AdminBase):
     action = Column(Enum(ActionType), nullable=False)
     target_user_id = Column(BigInteger, nullable=True)
     details = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class BotRegistry(AdminBase):
@@ -51,6 +51,6 @@ class BotRegistry(AdminBase):
     bot_name = Column(String(100), nullable=False, unique=True)
     token_hash = Column(String(64), nullable=True)
     status = Column(Enum(BotStatus), default=BotStatus.ACTIVE, nullable=False)
-    registered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    last_health_check = Column(DateTime, nullable=True)
+    registered_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_health_check = Column(DateTime(timezone=True), nullable=True)
     health_status = Column(String(20), default="unknown")
