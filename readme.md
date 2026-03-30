@@ -131,5 +131,4 @@ Zenith is a multi-bot Telegram platform that delivers real-time blockchain intel
 
 ---
 
-© 2026 [Zenith Open Source Projects](https://zenithopensourceprojects.vercel.app/). All Rights Reserved.  
-Zenith is a Open Source Project Idea's by @roshhellwett
+© 2026 [Zenith Open Source Projects](https://zenithopensourceprojects.vercel.app/). All Rights Reserved. Zenith is a Open Source Project Idea's by @roshhellwett
