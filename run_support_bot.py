@@ -615,9 +615,9 @@ async def start_service():
     bot_app.add_handler(CommandHandler("addfaq", wrap_addfaq))
     bot_app.add_handler(CommandHandler("delfaq", wrap_delfaq))
     
-    bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
     bot_app.add_handler(CallbackQueryHandler(handle_ticket_reply_callback, pattern=r"^ticket_reply_"))
     bot_app.add_handler(CallbackQueryHandler(handle_ticket_close_callback, pattern=r"^ticket_close_user_"))
+    bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
     
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ticket_reply_message))
     

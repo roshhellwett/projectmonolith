@@ -1,6 +1,6 @@
-import os
 import httpx
 from typing import Optional
+from core.config import SERPER_API_KEY
 from core.logger import setup_logger
 
 logger = setup_logger("SEARCH_TOOL")
@@ -15,7 +15,7 @@ def get_http_client() -> httpx.AsyncClient:
 
 
 async def perform_web_search(query: str, num_results: int = 2) -> str:
-    api_key = os.getenv("SERPER_API_KEY")
+    api_key = SERPER_API_KEY
     if not api_key:
         return ""
 
@@ -44,7 +44,7 @@ async def perform_web_search(query: str, num_results: int = 2) -> str:
 
 
 async def perform_deep_research(topic: str) -> str:
-    api_key = os.getenv("SERPER_API_KEY")
+    api_key = SERPER_API_KEY
     if not api_key:
         return ""
 

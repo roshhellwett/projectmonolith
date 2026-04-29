@@ -200,20 +200,6 @@ class TicketRepo:
 
     @staticmethod
     @db_retry
-    async def close_ticket(ticket_id: int) -> bool:
-        async with AsyncSessionLocal() as session:
-            stmt = update(SupportTicket).where(SupportTicket.id == ticket_id).values(
-                status="closed",
-                updated_at=utc_now(),
-                resolved_at=utc_now(),
-            )
-            result = await session.execute(stmt)
-            await session.commit()
-            ticket_cache.pop(f"ticket_{ticket_id}", None)
-            return result.rowcount > 0
-
-    @staticmethod
-    @db_retry
     async def reopen_ticket(ticket_id: int) -> bool:
         async with AsyncSessionLocal() as session:
             stmt = update(SupportTicket).where(SupportTicket.id == ticket_id).values(

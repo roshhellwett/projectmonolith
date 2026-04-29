@@ -1,9 +1,9 @@
-import os
 from typing import Optional
 from groq import AsyncGroq
 from zenith_ai_bot.prompts import PERSONAS, RESEARCH_PROMPT, SUMMARIZE_PROMPT, CODE_PROMPT, IMAGINE_PROMPT
 from zenith_ai_bot.search import perform_web_search, perform_deep_research
 from zenith_ai_bot.youtube import get_youtube_transcript
+from core.config import GROQ_API_KEY
 from core.logger import setup_logger
 
 logger = setup_logger("LLM_ENGINE")
@@ -13,7 +13,7 @@ _groq_client: Optional[AsyncGroq] = None
 def get_groq_client() -> AsyncGroq:
     global _groq_client
     if _groq_client is None:
-        _groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"), max_retries=2)
+        _groq_client = AsyncGroq(api_key=GROQ_API_KEY, max_retries=2)
     return _groq_client
 
 

@@ -183,8 +183,8 @@ def check_rate_limiting():
     return False
 
 
-():
-    print_headerdef check_security_headers("Checking Security Headers")
+def check_security_headers():
+    print_header("Checking Security Headers")
     
     main_file = Path("main.py")
     if not main_file.exists():

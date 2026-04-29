@@ -2,11 +2,9 @@
 # 🔐 SECURITY (CRITICAL)
 # ==========================================
 .env
-.env.*
-*.env
+!.env.example
 secrets.json
-config.py
-zenith_group_bot/word_list.py  # Optional: If you want your ban list private
+/config.py
 
 # ==========================================
 # 🐍 PYTHON BASICS

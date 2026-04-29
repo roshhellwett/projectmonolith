@@ -1,4 +1,4 @@
-import os
+from core.config import GROQ_API_KEY
 from typing import Optional
 from groq import AsyncGroq
 from core.logger import setup_logger
@@ -24,7 +24,7 @@ You have access to general troubleshooting knowledge for common issues. For comp
 def get_groq_client() -> AsyncGroq:
     global _groq_client
     if _groq_client is None:
-        _groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"), max_retries=2)
+        _groq_client = AsyncGroq(api_key=GROQ_API_KEY, max_retries=2)
     return _groq_client
 
 

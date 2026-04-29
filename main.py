@@ -1,12 +1,14 @@
 import uvicorn
 import asyncio
+import signal
+import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from cachetools import TTLCache
 
-from core.config import PORT, WEBHOOK_SECRET
+from core.config import PORT, WEBHOOK_SECRET, DATABASE_URL
 from core.logger import setup_logger
 
 import run_group_bot
@@ -26,9 +28,12 @@ SECURITY_HEADERS = {
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    "Content-Security-Policy": "default-src 'self'",
 }
 
 MAX_REQUEST_SIZE = 1_000_000  # 1MB
+
+SERVICE_REGISTRY = {}
 
 
 async def rate_limit(request: Request):
@@ -47,18 +52,36 @@ async def check_request_size(request: Request):
     return True
 
 
+def _validate_environment():
+    """Validate critical environment variables before startup."""
+    issues = []
+    
+    if not DATABASE_URL:
+        issues.append("DATABASE_URL is not set — all database operations will fail")
+    
+    if not WEBHOOK_SECRET:
+        issues.append("WEBHOOK_SECRET is not set — webhooks are insecure")
+    
+    for issue in issues:
+        logger.warning(f"⚠️ CONFIG: {issue}")
+    
+    return len(issues) == 0
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 MONOLITH STARTING")
-    if not WEBHOOK_SECRET:
-        logger.critical("⚠️ WEBHOOK_SECRET is not set! Webhooks are insecure.")
+    
+    _validate_environment()
 
     async def safe_start(name, func):
         try:
             await func()
+            SERVICE_REGISTRY[name] = "online"
             logger.info(f"✅ {name} started")
         except Exception as e:
-            logger.error(f"{name} failed to start: {e}")
+            SERVICE_REGISTRY[name] = f"failed: {e}"
+            logger.error(f"❌ {name} failed to start: {e}")
 
     await asyncio.gather(
         safe_start("GROUP", run_group_bot.start_service),
@@ -67,7 +90,13 @@ async def lifespan(app: FastAPI):
         safe_start("SUPPORT", run_support_bot.start_service),
         safe_start("ADMIN", run_admin_bot.start_service),
     )
+    
+    online = sum(1 for v in SERVICE_REGISTRY.values() if v == "online")
+    total = len(SERVICE_REGISTRY)
+    logger.info(f"📊 MONOLITH READY: {online}/{total} services online")
+    
     yield
+    
     logger.info("🛑 MONOLITH SHUTDOWN")
     try:
         await asyncio.wait_for(
@@ -79,13 +108,21 @@ async def lifespan(app: FastAPI):
                 run_admin_bot.stop_service(),
                 return_exceptions=True,
             ),
-            timeout=10.0,
+            timeout=15.0,
         )
     except asyncio.TimeoutError:
         logger.error("⚠️ Force closing: a service refused to shut down in time.")
+    
+    logger.info("👋 MONOLITH STOPPED")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Project Monolith",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+    lifespan=lifespan,
+)
 
 
 @app.middleware("http")
@@ -122,8 +159,28 @@ app.include_router(run_admin_bot.router)
 
 @app.get("/health")
 async def health():
-    return JSONResponse({"status": "ok", "system": "Project Monolith"})
+    return JSONResponse({
+        "status": "ok",
+        "system": "Project Monolith",
+        "services": SERVICE_REGISTRY,
+    })
+
+
+@app.get("/")
+async def root():
+    return JSONResponse({
+        "status": "ok",
+        "system": "Project Monolith",
+        "message": "All systems operational.",
+    })
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=PORT,
+        log_level="info",
+        access_log=False,
+        server_header=False,
+    )

@@ -368,7 +368,7 @@ async def cmd_tickets(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status = status_arg
     
     tickets = await MonitoringRepo.get_all_tickets_admin(status=status, limit=30)
-    title = f"🎫 {'{status.upper()} TICKETS'}" if status else "🎫 ALL TICKETS"
+    title = f"🎫 {status.upper()} TICKETS" if status else "🎫 ALL TICKETS"
     await update.message.reply_text(
         format_ticket_list(tickets, title),
         parse_mode="HTML",
@@ -477,7 +477,7 @@ async def cmd_ticket_close_admin(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("⚠️ Invalid ticket ID.")
         return
 
-    success = await TicketRepo.close_ticket(ticket_id)
+    success = await TicketRepo.admin_close_ticket(ticket_id)
     if success:
         await update.message.reply_text(
             f"✅ <b>Ticket Closed</b>\n\nTicket #{ticket_id} has been closed.",
