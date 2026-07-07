@@ -117,18 +117,16 @@ Zenith is a multi-bot Telegram platform that delivers real-time blockchain intel
 
 ---
 
-## Pricing (India - INR)
+## Pricing (India — INR)
 
-```bash
+₹149/month — Full Pro Bundle (All Bots)
 
-₹149/month - Full Pro Bundle (All Bots)
-   • Zenith AI Bot - Unlimited access
-   • Zenith Crypto Bot - Unlimited access  
-   • Zenith Group Bot - Full features
-   • Zenith Support Bot - Priority support
-
-```
+- Zenith AI Bot — Unlimited access
+- Zenith Crypto Bot — Unlimited access
+- Zenith Group Bot — Full features
+- Zenith Support Bot — Priority support
 
 ---
 
-© 2026 [Zenith Open Source Projects](https://zenithopensourceprojects.vercel.app/). All Rights Reserved. Zenith is a Open Source Project Idea's by @roshhellwett
+© 2026 [Zenith Open Source Projects](https://zenithopensourceprojects.vercel.app/). All Rights Reserved.
+Zenith is an Open Source Project Idea by @roshhellwett
