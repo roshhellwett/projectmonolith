@@ -1,0 +1,14 @@
+.git/
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ua/
+tests/
+*.md
+Makefile
+requirements-dev.txt

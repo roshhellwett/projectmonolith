@@ -1,0 +1,97 @@
+from datetime import date
+
+from sqlalchemy import delete, func, select
+
+from core.database import get_session
+from core.logger import setup_logger
+from zenith_ai_bot.models import AIConversation, AIUsageLog
+
+logger = setup_logger("AI_REPO")
+
+AsyncSessionLocal = get_session()
+
+
+class ConversationRepo:
+    @staticmethod
+    async def add_message(user_id: int, role: str, content: str):
+        async with AsyncSessionLocal() as session:
+            session.add(AIConversation(user_id=user_id, role=role, content=content[:2000]))
+            await session.commit()
+
+    @staticmethod
+    async def get_history(user_id: int, limit: int = 10) -> list:
+        async with AsyncSessionLocal() as session:
+            stmt = (
+                select(AIConversation)
+                .where(AIConversation.user_id == user_id)
+                .order_by(AIConversation.created_at.desc())
+                .limit(limit)
+            )
+            rows = (await session.execute(stmt)).scalars().all()
+            return list(reversed(rows))
+
+    @staticmethod
+    async def clear_history(user_id: int) -> int:
+        async with AsyncSessionLocal() as session:
+            stmt = delete(AIConversation).where(AIConversation.user_id == user_id)
+            result = await session.execute(stmt)
+            await session.commit()
+            return result.rowcount
+
+    @staticmethod
+    async def count_messages(user_id: int) -> int:
+        async with AsyncSessionLocal() as session:
+            stmt = select(func.count()).select_from(AIConversation).where(AIConversation.user_id == user_id)
+            return (await session.execute(stmt)).scalar() or 0
+
+
+class UsageRepo:
+    @staticmethod
+    async def _get_or_create(session, user_id: int) -> AIUsageLog:
+        today = date.today()
+        stmt = select(AIUsageLog).where(AIUsageLog.user_id == user_id, AIUsageLog.usage_date == today)
+        row = (await session.execute(stmt)).scalar_one_or_none()
+        if not row:
+            row = AIUsageLog(user_id=user_id, usage_date=today, query_count=0, summarize_count=0)
+            session.add(row)
+            await session.flush()
+        return row
+
+    @staticmethod
+    async def increment_queries(user_id: int) -> int:
+        async with AsyncSessionLocal() as session:
+            row = await UsageRepo._get_or_create(session, user_id)
+            row.query_count += 1
+            await session.commit()
+            return row.query_count
+
+    @staticmethod
+    async def increment_summarize(user_id: int) -> int:
+        async with AsyncSessionLocal() as session:
+            row = await UsageRepo._get_or_create(session, user_id)
+            row.summarize_count += 1
+            await session.commit()
+            return row.summarize_count
+
+    @staticmethod
+    async def get_today_usage(user_id: int) -> dict:
+        async with AsyncSessionLocal() as session:
+            row = await UsageRepo._get_or_create(session, user_id)
+            return {
+                "queries": row.query_count,
+                "summarizes": row.summarize_count,
+                "persona": row.persona or "default",
+            }
+
+    @staticmethod
+    async def set_persona(user_id: int, persona: str):
+        async with AsyncSessionLocal() as session:
+            row = await UsageRepo._get_or_create(session, user_id)
+            row.persona = persona
+            await session.commit()
+
+    @staticmethod
+    async def get_persona(user_id: int) -> str:
+        async with AsyncSessionLocal() as session:
+            row = await UsageRepo._get_or_create(session, user_id)
+            return row.persona or "default"

@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=64.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "project-monolith"
+version = "1.0.0"
+description = "Zenith — multi-bot Telegram platform with blockchain intelligence, content moderation, and AI conversations"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+dependencies = [
+    "python-telegram-bot==22.6",
+    "SQLAlchemy==2.0.36",
+    "asyncpg==0.31.0",
+    "greenlet==3.3.1",
+    "python-dotenv==1.2.2",
+    "cachetools==5.3.2",
+    "youtube-transcript-api==0.6.2",
+    "httpx==0.27.2",
+    "beautifulsoup4==4.12.3",
+    "groq==0.13.1",
+    "fastapi==0.110.0",
+    "uvicorn==0.27.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "ARG", # flake8-unused-arguments
+    "PT",  # flake8-pytest-style
+]
+ignore = [
+    "E501",   # line-too-long (handled by formatter)
+    "B904",   # raise-without-from-inside-except (intentional in some places)
+    "ARG001", # unused function argument (many handlers require context by API contract)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"alembic/env.py" = ["E402"]
+"alembic/versions/*" = ["W291", "UP007", "UP035"]
+"main.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = false
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = ["src"]
+exclude = ["scripts/"]
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+disable_error_code = [
+    "no-untyped-def",
+    "no-untyped-call",
+    "union-attr",
+    "var-annotated",
+    "arg-type",
+    "misc",
+    "attr-defined",
+    "operator",
+    "assignment",
+    "valid-type",
+    "call-overload",
+    "call-arg",
+    "return-value",
+    "index",
+    "type-var",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "zenith_ai_bot.prompts",
+    "zenith_group_bot.word_list",
+]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["src"]
+filterwarnings = [
+    "ignore::DeprecationWarning:zenith_*",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*", "*/__init__.py", "*/alembic/*", "*/scripts/*"]

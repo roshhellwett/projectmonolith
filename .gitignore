@@ -64,6 +64,17 @@ celerybeat.pid
 # 🧪 TESTING
 # ==========================================
 .coverage
+.coverage.*
 htmlcov/
 .pytest_cache/
 .mypy_cache/
+
+# ==========================================
+# 📊 KNOWLEDGE GRAPH (ephemeral artifacts)
+# ==========================================
+.ua/tmp/
+ARCHITECTURE_PHASES.md
+CODE_OF_CONDUCT.md
+CHANGELOG.md
+.ua  
+
