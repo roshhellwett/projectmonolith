@@ -24,6 +24,7 @@ from zenith_ai_bot.ui import (
     get_research_help,
     get_summarize_help,
     get_summarize_limit_reached,
+    get_no_key_msg,
 )
 from zenith_ai_bot.utils import sanitize_user_input
 from zenith_crypto_bot.repository import SubscriptionRepo
@@ -76,8 +77,7 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
     api_key = await SubscriptionRepo.get_groq_key(user_id)
     if not api_key:
         return await update.message.reply_text(
-            "To use AI features, set your Groq API key in the Crypto Bot:\n"
-            "/setkey gsk_xxxx in @YourCryptoBot",
+            get_no_key_msg(),
             parse_mode="HTML",
         )
 
@@ -132,8 +132,7 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     api_key = await SubscriptionRepo.get_groq_key(user_id)
     if not api_key:
         return await msg_obj.reply_text(
-            "To use AI features, set your Groq API key in the Crypto Bot:\n"
-            "/setkey gsk_xxxx in @YourCryptoBot",
+            get_no_key_msg(),
             parse_mode="HTML",
         )
 
@@ -187,8 +186,7 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     api_key = await SubscriptionRepo.get_groq_key(user_id)
     if not api_key:
         return await update.message.reply_text(
-            "To use AI features, set your Groq API key in the Crypto Bot:\n"
-            "/setkey gsk_xxxx in @YourCryptoBot",
+            get_no_key_msg(),
             parse_mode="HTML",
         )
 
@@ -241,8 +239,7 @@ async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
     api_key = await SubscriptionRepo.get_groq_key(user_id)
     if not api_key:
         return await update.message.reply_text(
-            "To use AI features, set your Groq API key in the Crypto Bot:\n"
-            "/setkey gsk_xxxx in @YourCryptoBot",
+            get_no_key_msg(),
             parse_mode="HTML",
         )
 

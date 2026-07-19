@@ -126,6 +126,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.BigInteger(), nullable=False),
         sa.Column("alerts_enabled", sa.Boolean(), nullable=True),
         sa.Column("joined_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("groq_api_key", sa.String(length=200), nullable=True),
         sa.PrimaryKeyConstraint("user_id"),
     )
     op.create_table(
@@ -183,6 +184,8 @@ def upgrade() -> None:
         sa.Column("is_active", sa.Boolean(), nullable=True),
         sa.Column("ai_enabled", sa.Boolean(), nullable=True),
         sa.Column("crypto_enabled", sa.Boolean(), nullable=True),
+        sa.Column("raid_mode", sa.Boolean(), nullable=True),
+        sa.Column("raid_expires_at", sa.DateTime(), nullable=True),
         sa.Column("setup_date", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("chat_id"),
     )

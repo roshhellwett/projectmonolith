@@ -2,7 +2,6 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from core.database import AsyncSessionLocal, db_retry
 from core.logger import setup_logger
@@ -23,19 +22,20 @@ class SubscriptionRepo:
     @staticmethod
     async def register_user(user_id: int):
         async with AsyncSessionLocal() as session:
-            stmt = pg_insert(CryptoUser).values(user_id=user_id, alerts_enabled=False).on_conflict_do_nothing()
-            await session.execute(stmt)
-            await session.commit()
+            res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
+            if not res.scalar_one_or_none():
+                session.add(CryptoUser(user_id=user_id, alerts_enabled=False))
+                await session.commit()
 
     @staticmethod
     async def toggle_alerts(user_id: int, enable: bool):
         async with AsyncSessionLocal() as session:
-            stmt = (
-                pg_insert(CryptoUser)
-                .values(user_id=user_id, alerts_enabled=enable)
-                .on_conflict_do_update(index_elements=["user_id"], set_=dict(alerts_enabled=enable))
-            )
-            await session.execute(stmt)
+            res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
+            user = res.scalar_one_or_none()
+            if user:
+                user.alerts_enabled = enable
+            else:
+                session.add(CryptoUser(user_id=user_id, alerts_enabled=enable))
             await session.commit()
 
     @staticmethod
@@ -171,15 +171,13 @@ class SubscriptionRepo:
     @staticmethod
     async def save_audit(user_id: int, contract: str):
         async with AsyncSessionLocal() as session:
-            stmt = (
-                pg_insert(SavedAudit)
-                .values(user_id=user_id, contract=contract[:100])
-                .on_conflict_do_update(
-                    index_elements=["user_id", "contract"],
-                    set_=dict(saved_at=datetime.now(UTC)),
-                )
-            )
-            await session.execute(stmt)
+            res = await session.execute(select(SavedAudit).where(SavedAudit.user_id == user_id, SavedAudit.contract == contract[:100]))
+            audit = res.scalar_one_or_none()
+            if audit:
+                audit.saved_at = datetime.now(UTC)
+            else:
+                session.add(SavedAudit(user_id=user_id, contract=contract[:100], saved_at=datetime.now(UTC)))
+            await session.commit()
             count_stmt = select(SavedAudit).where(SavedAudit.user_id == user_id).order_by(SavedAudit.saved_at.desc())
             audits = (await session.execute(count_stmt)).scalars().all()
             if len(audits) > 10:
@@ -217,12 +215,12 @@ class SubscriptionRepo:
     @staticmethod
     async def set_groq_key(user_id: int, api_key: str) -> None:
         async with AsyncSessionLocal() as session:
-            stmt = (
-                pg_insert(CryptoUser)
-                .values(user_id=user_id, groq_api_key=api_key)
-                .on_conflict_do_update(index_elements=["user_id"], set_=dict(groq_api_key=api_key))
-            )
-            await session.execute(stmt)
+            res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
+            user = res.scalar_one_or_none()
+            if user:
+                user.groq_api_key = api_key
+            else:
+                session.add(CryptoUser(user_id=user_id, groq_api_key=api_key))
             await session.commit()
 
     @staticmethod
@@ -235,12 +233,12 @@ class SubscriptionRepo:
     @staticmethod
     async def delete_groq_key(user_id: int) -> None:
         async with AsyncSessionLocal() as session:
-            stmt = (
-                pg_insert(CryptoUser)
-                .values(user_id=user_id)
-                .on_conflict_do_update(index_elements=["user_id"], set_=dict(groq_api_key=None))
-            )
-            await session.execute(stmt)
+            res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
+            user = res.scalar_one_or_none()
+            if user:
+                user.groq_api_key = None
+            else:
+                session.add(CryptoUser(user_id=user_id, groq_api_key=None))
             await session.commit()
 
     @staticmethod
@@ -353,14 +351,12 @@ class WalletTrackerRepo:
     @staticmethod
     async def add_wallet(user_id: int, wallet_address: str, label: str = "Unnamed Wallet") -> bool:
         async with AsyncSessionLocal() as session:
-            stmt = (
-                pg_insert(TrackedWallet)
-                .values(user_id=user_id, wallet_address=wallet_address.lower(), label=label[:50])
-                .on_conflict_do_nothing()
-            )
-            result = await session.execute(stmt)
+            res = await session.execute(select(TrackedWallet).where(TrackedWallet.user_id == user_id, TrackedWallet.wallet_address == wallet_address.lower()))
+            if res.scalar_one_or_none():
+                return False
+            session.add(TrackedWallet(user_id=user_id, wallet_address=wallet_address.lower(), label=label[:50]))
             await session.commit()
-            return result.rowcount > 0
+            return True
 
     @staticmethod
     async def get_user_wallets(user_id: int) -> list:
@@ -416,21 +412,21 @@ class WatchlistRepo:
         user_id: int, token_id: str, token_symbol: str, entry_price: float, quantity: float = 1.0
     ) -> bool:
         async with AsyncSessionLocal() as session:
-            stmt = (
-                pg_insert(WatchlistToken)
-                .values(
-                    user_id=user_id,
-                    token_id=token_id,
-                    token_symbol=token_symbol.upper(),
-                    entry_price=entry_price,
-                    quantity=quantity,
+            res = await session.execute(select(WatchlistToken).where(WatchlistToken.user_id == user_id, WatchlistToken.token_id == token_id))
+            token = res.scalar_one_or_none()
+            if token:
+                token.entry_price = entry_price
+                token.quantity = quantity
+            else:
+                session.add(
+                    WatchlistToken(
+                        user_id=user_id,
+                        token_id=token_id,
+                        token_symbol=token_symbol.upper(),
+                        entry_price=entry_price,
+                        quantity=quantity,
+                    )
                 )
-                .on_conflict_do_update(
-                    index_elements=["user_id", "token_id"],
-                    set_=dict(entry_price=entry_price, quantity=quantity),
-                )
-            )
-            await session.execute(stmt)
             await session.commit()
             return True
 

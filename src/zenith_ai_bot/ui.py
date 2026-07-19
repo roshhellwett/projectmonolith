@@ -30,7 +30,10 @@ def get_ai_dashboard(is_pro: bool, persona: str, usage: dict) -> InlineKeyboardM
             InlineKeyboardButton("Code", callback_data="ai_code_help"),
             InlineKeyboardButton("Imagine", callback_data="ai_imagine_help"),
         ],
-        [InlineKeyboardButton("Chat History", callback_data="ai_history")],
+        [
+            InlineKeyboardButton("Chat History", callback_data="ai_history"),
+            InlineKeyboardButton("🔑 Groq Key", callback_data="ai_show_key_setup"),
+        ],
     ]
     if not is_pro:
         rows.append([InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
@@ -134,6 +137,7 @@ def get_welcome_msg(is_pro: bool, days_left: int, usage: dict, persona: str) -> 
         "\u2022 /code [desc] \u2014 Code generator",
         "\u2022 /imagine [desc] \u2014 Image prompts",
         "\u2022 /history \u2014 Chat memory",
+        "\u2022 /setkey [key] \u2014 Connect Groq API key",
         "",
         "Pro Required for research, code, imagine, history, non-default personas.",
     ]
@@ -230,6 +234,9 @@ def get_help_msg(is_pro: bool) -> str:
         "<b>Main Commands:</b>",
         "\u2022 /start \u2014 Start the bot and see dashboard",
         "\u2022 /zenith [question] \u2014 Ask AI anything",
+        "\u2022 /setkey [key] \u2014 Connect Groq API key",
+        "\u2022 /mykey \u2014 Check API key status",
+        "\u2022 /delkey \u2014 Remove API key",
         "\u2022 /help \u2014 Show this help message",
         "",
         "<b>Personas:</b>",
@@ -281,9 +288,55 @@ def get_worker_error_msg() -> str:
 
 def get_no_key_msg() -> str:
     return (
-        "To use AI features, set your Groq API key in the Crypto Bot:\n"
-        "/setkey gsk_xxxx in @YourCryptoBot"
+        "To use AI features, please connect your Groq API key:\n"
+        "<code>/setkey gsk_xxxx</code>\n\n"
+        "Get a free key in 2 minutes at <b>console.groq.com</b>!"
     )
+
+
+def get_ai_key_status_msg(has_key: bool):
+    if has_key:
+        return (
+            "<b>Groq API Key Settings</b>\n"
+            f"{format_divider()}\n\n"
+            "Your Groq API key is currently connected and active.\n\n"
+            "\u2022 To replace your key: <code>/setkey gsk_your_new_key</code>\n"
+            "\u2022 To remove your key: <code>/delkey</code>\n\n"
+            "This key powers your AI responses across both Zenith AI Bot and Crypto Bot."
+        ), InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="ai_main_menu")]])
+    return (
+        "<b>Groq API Key Settings</b>\n"
+        f"{format_divider()}\n\n"
+        "No Groq API key is connected yet.\n\n"
+        "To get set up in 2 minutes:\n"
+        "1. Go to <b>console.groq.com</b> \u2192 API Keys\n"
+        "2. Create a free API key\n"
+        "3. Send it here:\n"
+        "<code>/setkey gsk_your_api_key</code>"
+    ), InlineKeyboardMarkup([
+        [InlineKeyboardButton("How to get a free key", url="https://console.groq.com")],
+        [InlineKeyboardButton("◀️ Back", callback_data="ai_main_menu")]
+    ])
+
+
+def get_ai_key_set_success_msg():
+    text = (
+        "<b>Groq API Key Connected!</b>\n"
+        f"{format_divider()}\n\n"
+        "Your Groq API key has been verified and saved. \U0001f680\n\n"
+        "You can now use all AI capabilities right here using <code>/zenith [question]</code> or in any supported commands!"
+    )
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back to Dashboard", callback_data="ai_main_menu")]])
+    return text, kb
+
+
+def get_ai_key_deleted_msg():
+    text = (
+        "<b>Groq API Key Removed</b>\n"
+        f"{format_divider()}\n\n"
+        "Your Groq API key has been deleted."
+    )
+    return text, InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="ai_main_menu")]])
 
 
 def get_activate_help_msg() -> str:

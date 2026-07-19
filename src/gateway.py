@@ -13,6 +13,7 @@ import run_crypto_bot
 import run_group_bot
 import run_support_bot
 from core.config import DATABASE_URL, PORT, WEBHOOK_SECRET
+from core.database import init_db
 from core.logger import setup_logger
 
 logger = setup_logger("GATEWAY")
@@ -86,6 +87,10 @@ async def lifespan(app: FastAPI):
 
     _validate_environment()
     await _diagnose_network()
+    try:
+        await init_db()
+    except Exception as e:
+        logger.error(f"❌ Database init failed: {e}")
 
     async def safe_start(name, func):
         try:

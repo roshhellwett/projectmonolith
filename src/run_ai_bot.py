@@ -13,10 +13,11 @@ from telegram.ext import (
 )
 
 from core.config import ADMIN_USER_ID, AI_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
-from core.database import dispose_engine
+from core.database import dispose_engine, init_db
 from core.error_handler import handle_bot_error
 from core.logger import setup_logger
 from core.permissions import resolve_tier
+from zenith_crypto_bot.ai_engine import validate_groq_key
 from zenith_ai_bot.llm_engine import process_ai_query
 from zenith_ai_bot.pro_handlers import cmd_code, cmd_history, cmd_imagine, cmd_persona, cmd_research, cmd_summarize
 from zenith_ai_bot.prompts import PERSONAS
@@ -44,6 +45,10 @@ from zenith_ai_bot.ui import (
     get_welcome_msg,
     get_worker_error_msg,
     get_zenith_no_query_msg,
+    get_no_key_msg,
+    get_ai_key_status_msg,
+    get_ai_key_set_success_msg,
+    get_ai_key_deleted_msg,
 )
 from zenith_ai_bot.utils import check_ai_rate_limit, sanitize_telegram_html
 from zenith_crypto_bot.repository import SubscriptionRepo
@@ -68,7 +73,8 @@ async def ai_worker():
                         await context.bot.edit_message_text(
                             chat_id=placeholder_msg.chat_id,
                             message_id=placeholder_msg.message_id,
-                            text="To use AI features, set your Groq API key in the Crypto Bot:\n/setkey gsk_xxxx in @YourCryptoBot",
+                            text=get_no_key_msg(),
+                            parse_mode="HTML",
                         )
                     task_queue.task_done()
                     continue
@@ -131,9 +137,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Welcome! To use AI features, you need to connect your Groq API key.\n\n"
             "1. Go to <b>console.groq.com</b> \u2192 API Keys\n"
             "2. Create a free key\n"
-            "3. Send it in the <b>Crypto Bot</b>:\n"
+            "3. Send it right here:\n"
             "<code>/setkey gsk_your_api_key</code>\n\n"
-            "Once set, come back here and use /zenith to ask anything!"
+            "Once connected, use /zenith to ask anything or click around the dashboard!"
         )
     else:
         text = get_welcome_msg(is_pro, days_left, usage, persona)
@@ -204,6 +210,32 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="HTML")
 
 
+async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        return await update.message.reply_text("Usage: <code>/setkey gsk_your_groq_api_key</code>", parse_mode="HTML")
+    api_key = context.args[0].strip()
+    placeholder = await update.message.reply_text("Verifying API key...", parse_mode="HTML")
+    valid, msg = await validate_groq_key(api_key)
+    if not valid:
+        return await placeholder.edit_text(f"<b>Invalid Key</b>\n\n{msg}\n\nGet a free key at console.groq.com", parse_mode="HTML")
+    await SubscriptionRepo.set_groq_key(update.effective_user.id, api_key)
+    text, kb = get_ai_key_set_success_msg()
+    await placeholder.edit_text(text, reply_markup=kb, parse_mode="HTML")
+
+
+async def cmd_mykey(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    key = await SubscriptionRepo.get_groq_key(user_id)
+    text, kb = get_ai_key_status_msg(key is not None)
+    await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
+
+
+async def cmd_delkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await SubscriptionRepo.delete_groq_key(update.effective_user.id)
+    text, kb = get_ai_key_deleted_msg()
+    await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
+
+
 async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -229,6 +261,11 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             usage = await UsageRepo.get_today_usage(user_id)
             text = get_usage_card(usage, is_pro)
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
+
+        elif query.data == "ai_show_key_setup":
+            has_key = await SubscriptionRepo.get_groq_key(user_id)
+            text, kb = get_ai_key_status_msg(has_key is not None)
+            await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
 
         elif query.data == "ai_personas":
             if not is_pro:
@@ -327,10 +364,14 @@ async def start_service():
     bot_app.add_handler(CommandHandler("history", cmd_history))
     bot_app.add_handler(CommandHandler("imagine", cmd_imagine))
     bot_app.add_handler(CommandHandler("activate", cmd_activate))
+    bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
+    bot_app.add_handler(CommandHandler("mykey", cmd_mykey))
+    bot_app.add_handler(CommandHandler("delkey", cmd_delkey))
     bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
     bot_app.add_handler(InlineQueryHandler(inline_query))
     bot_app.add_error_handler(handle_bot_error)
 
+    await init_db()
     await bot_app.initialize()
     await bot_app.start()
 

@@ -80,10 +80,30 @@ def get_session() -> sessionmaker:
 
 
 async def init_db():
+    from sqlalchemy import inspect
     engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("All database tables created")
+
+        def _ensure_columns(connection):
+            insp = inspect(connection)
+            tables = insp.get_table_names()
+            if "crypto_users" in tables:
+                cols = [c["name"] for c in insp.get_columns("crypto_users")]
+                if "groq_api_key" not in cols:
+                    connection.exec_driver_sql("ALTER TABLE crypto_users ADD COLUMN groq_api_key VARCHAR(200)")
+            if "zenith_group_settings" in tables:
+                cols = [c["name"] for c in insp.get_columns("zenith_group_settings")]
+                if "raid_mode" not in cols:
+                    if engine.dialect.name == "sqlite":
+                        connection.exec_driver_sql("ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT 0")
+                    else:
+                        connection.exec_driver_sql("ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT FALSE")
+                if "raid_expires_at" not in cols:
+                    connection.exec_driver_sql("ALTER TABLE zenith_group_settings ADD COLUMN raid_expires_at TIMESTAMP")
+
+        await conn.run_sync(_ensure_columns)
+    logger.info("All database tables and columns checked/created")
 
 
 async def dispose_engine():
@@ -120,14 +140,14 @@ def db_retry(func):
                         "PoolError",
                     )
                 )
-                if not retryable:
+                if not retryable or attempt == 2:
                     raise
                 last_error = e
-                if attempt == 2:
-                    raise
                 logger.warning(f"DB retry {attempt + 1}/3 in {func.__name__}: {error_name}: {e}")
                 await asyncio.sleep(0.5 * (2**attempt))
-        raise last_error  # Should never reach here, but safety net
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"Database operation {func.__name__} failed after retries")
 
     return wrapper
 
