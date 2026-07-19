@@ -17,7 +17,6 @@ from core.database import dispose_engine, init_db
 from core.error_handler import handle_bot_error
 from core.logger import setup_logger
 from core.permissions import resolve_tier
-from zenith_crypto_bot.ai_engine import validate_groq_key
 from zenith_ai_bot.llm_engine import process_ai_query
 from zenith_ai_bot.pro_handlers import cmd_code, cmd_history, cmd_imagine, cmd_persona, cmd_research, cmd_summarize
 from zenith_ai_bot.prompts import PERSONAS
@@ -26,6 +25,9 @@ from zenith_ai_bot.search import close_http_client
 from zenith_ai_bot.ui import (
     get_activate_help,
     get_ai_dashboard,
+    get_ai_key_deleted_msg,
+    get_ai_key_set_success_msg,
+    get_ai_key_status_msg,
     get_back_button,
     get_confirm_clear_history,
     get_confirm_clear_history_msg,
@@ -36,6 +38,7 @@ from zenith_ai_bot.ui import (
     get_history_keyboard,
     get_history_list_msg,
     get_history_locked_msg,
+    get_no_key_msg,
     get_persona_switched_msg,
     get_personas_locked_msg,
     get_personas_select_msg,
@@ -45,12 +48,9 @@ from zenith_ai_bot.ui import (
     get_welcome_msg,
     get_worker_error_msg,
     get_zenith_no_query_msg,
-    get_no_key_msg,
-    get_ai_key_status_msg,
-    get_ai_key_set_success_msg,
-    get_ai_key_deleted_msg,
 )
 from zenith_ai_bot.utils import check_ai_rate_limit, sanitize_telegram_html
+from zenith_crypto_bot.ai_engine import validate_groq_key
 from zenith_crypto_bot.repository import SubscriptionRepo
 
 logger = setup_logger("SVC_AI")
@@ -365,7 +365,12 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await query.edit_message_text(get_no_key_msg(), parse_mode="HTML")
                 else:
                     selected_model = await UsageRepo.get_selected_model(user_id)
-                    from zenith_ai_bot.llm_engine import process_code, process_imagine, process_research, process_summarize
+                    from zenith_ai_bot.llm_engine import (
+                        process_code,
+                        process_imagine,
+                        process_research,
+                        process_summarize,
+                    )
                     from zenith_ai_bot.utils import sanitize_telegram_html
 
                     if query.data.startswith("ai_quick_res_"):

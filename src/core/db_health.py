@@ -9,6 +9,7 @@ Provides:
 """
 
 import asyncio
+import contextlib
 import time
 
 from sqlalchemy import text
@@ -112,10 +113,8 @@ async def stop_health_monitor():
     global _health_task
     if _health_task:
         _health_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await _health_task
-        except asyncio.CancelledError:
-            pass
         _health_task = None
     logger.info("🛑 Database health monitor stopped")
 

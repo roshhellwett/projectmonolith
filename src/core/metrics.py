@@ -9,23 +9,22 @@ Tracks real-time telemetry across all bots:
 
 import time
 from collections import deque
-from typing import Dict, List
 
 
 class MetricCounter:
     def __init__(self):
-        self.counts: Dict[str, int] = {}
+        self.counts: dict[str, int] = {}
 
     def inc(self, key: str, amount: int = 1):
         self.counts[key] = self.counts.get(key, 0) + amount
 
-    def get_all(self) -> Dict[str, int]:
+    def get_all(self) -> dict[str, int]:
         return dict(self.counts)
 
 
 class MetricHistogram:
     def __init__(self, max_samples: int = 2000):
-        self.samples: Dict[str, deque] = {}
+        self.samples: dict[str, deque] = {}
         self.max_samples = max_samples
 
     def observe(self, key: str, value_ms: float):
@@ -36,13 +35,13 @@ class MetricHistogram:
     def get_stats(self, key: str) -> dict:
         if key not in self.samples or not self.samples[key]:
             return {"count": 0, "avg_ms": 0.0, "p50_ms": 0.0, "p95_ms": 0.0}
-        
+
         sorted_vals = sorted(self.samples[key])
         n = len(sorted_vals)
         avg = sum(sorted_vals) / n
         p50 = sorted_vals[int(n * 0.5)]
         p95 = sorted_vals[int(n * 0.95) if n > 1 else 0]
-        
+
         return {
             "count": n,
             "avg_ms": round(avg, 2),
@@ -50,7 +49,7 @@ class MetricHistogram:
             "p95_ms": round(p95, 2),
         }
 
-    def get_all_stats(self) -> Dict[str, dict]:
+    def get_all_stats(self) -> dict[str, dict]:
         return {key: self.get_stats(key) for key in self.samples}
 
 

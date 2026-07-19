@@ -3,13 +3,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from core.config import ADMIN_USER_ID
 from core.formatters import (
     format_address,
-    format_alert,
     format_card,
     format_divider,
     format_header,
     format_kv,
-    format_progress_bar,
-    format_status_pill,
 )
 from core.llm_fallback import AVAILABLE_MODELS
 

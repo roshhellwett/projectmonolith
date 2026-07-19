@@ -13,8 +13,10 @@ import run_crypto_bot
 import run_group_bot
 import run_support_bot
 from core.config import DATABASE_URL, PORT, WEBHOOK_SECRET
-from core.database import init_db
+from core.database import dispose_engine, get_engine, init_db
+from core.db_health import is_db_healthy, start_health_monitor, stop_health_monitor
 from core.logger import setup_logger
+from core.secrets import enforce_startup_secrets
 
 logger = setup_logger("GATEWAY")
 
@@ -62,6 +64,7 @@ def _validate_environment():
     for issue in issues:
         logger.warning(f"⚠️ CONFIG: {issue}")
 
+    enforce_startup_secrets()
     return len(issues) == 0
 
 
@@ -89,6 +92,7 @@ async def lifespan(app: FastAPI):
     await _diagnose_network()
     try:
         await init_db()
+        await start_health_monitor(get_engine())
     except Exception as e:
         logger.error(f"❌ Database init failed: {e}")
 
@@ -116,6 +120,7 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("🛑 MONOLITH SHUTDOWN")
+    await stop_health_monitor()
     try:
         await asyncio.wait_for(
             asyncio.gather(
@@ -130,6 +135,7 @@ async def lifespan(app: FastAPI):
         )
     except TimeoutError:
         logger.error("⚠️ Force closing: a service refused to shut down in time.")
+    await dispose_engine()
 
     logger.info("👋 MONOLITH STOPPED")
 
@@ -162,6 +168,8 @@ async def global_protection(request: Request, call_next):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception on {request.url.path}: {exc}")
+    if "/webhook/" in request.url.path:
+        return JSONResponse({"ok": True}, status_code=200)
     return JSONResponse({"error": "An internal error occurred"}, status_code=500)
 
 
@@ -174,12 +182,16 @@ app.include_router(run_admin_bot.router)
 
 @app.get("/health")
 async def health():
+    db_ok = is_db_healthy()
+    status_code = 200 if db_ok else 503
     return JSONResponse(
         {
-            "status": "ok",
+            "status": "ok" if db_ok else "degraded",
+            "db_healthy": db_ok,
             "system": "Project Monolith",
             "services": SERVICE_REGISTRY,
-        }
+        },
+        status_code=status_code,
     )
 
 

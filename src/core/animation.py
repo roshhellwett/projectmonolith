@@ -104,16 +104,16 @@ def get_ai_stages(query: str = "neural pathways") -> list[str]:
     """Precision-crafted multi-stage loading sequence for AI synthesis."""
     return [
         f"⚡ <b>ZENITH CODEX</b> » <i>Initializing neural context for {query}...</i>\n<code>[▰▰▱▱▱▱▱▱▱▱] 20%</code>",
-        f"⚡ <b>ZENITH CODEX</b> » <i>Querying multi-tier Groq LLM clusters...</i>\n<code>[▰▰▰▰▰▱▱▱▱▱] 50%</code>",
-        f"⚡ <b>ZENITH CODEX</b> » <i>Synthesizing final intelligence response...</i>\n<code>[▰▰▰▰▰▰▰▰▰▱] 90%</code>",
+        "⚡ <b>ZENITH CODEX</b> » <i>Querying multi-tier Groq LLM clusters...</i>\n<code>[▰▰▰▰▰▱▱▱▱▱] 50%</code>",
+        "⚡ <b>ZENITH CODEX</b> » <i>Synthesizing final intelligence response...</i>\n<code>[▰▰▰▰▰▰▰▰▰▱] 90%</code>",
     ]
 
 
 def get_crypto_stages(subject: str = "On-Chain Audit") -> list[str]:
     """Precision-crafted multi-stage loading sequence for Crypto scans."""
     return [
-        f"🛡️ <b>ZENITH SECURITY</b> » <i>Connecting to GoPlus honeypot nodes...</i>\n<code>[▰▰▱▱▱▱▱▱▱▱] 25%</code>",
-        f"🛡️ <b>ZENITH SECURITY</b> » <i>Scanning tax rates, LP lock & ownership proxy...</i>\n<code>[▰▰▰▰▰▰▱▱▱▱] 60%</code>",
+        "🛡️ <b>ZENITH SECURITY</b> » <i>Connecting to GoPlus honeypot nodes...</i>\n<code>[▰▰▱▱▱▱▱▱▱▱] 25%</code>",
+        "🛡️ <b>ZENITH SECURITY</b> » <i>Scanning tax rates, LP lock & ownership proxy...</i>\n<code>[▰▰▰▰▰▰▱▱▱▱] 60%</code>",
         f"🛡️ <b>ZENITH SECURITY</b> » <i>Aggregating smart money radar for {subject}...</i>\n<code>[▰▰▰▰▰▰▰▰▰▱] 95%</code>",
     ]
 
@@ -121,7 +121,7 @@ def get_crypto_stages(subject: str = "On-Chain Audit") -> list[str]:
 def get_group_stages(action: str = "Moderation Scan") -> list[str]:
     """Precision-crafted multi-stage sequence for Group & Admin operations."""
     return [
-        f"⚡ <b>ZENITH SHIELD</b> » <i>Verifying group security policies...</i>\n<code>[▰▰▰▱▱▱▱▱▱▱] 30%</code>",
+        "⚡ <b>ZENITH SHIELD</b> » <i>Verifying group security policies...</i>\n<code>[▰▰▰▱▱▱▱▱▱▱] 30%</code>",
         f"⚡ <b>ZENITH SHIELD</b> » <i>Executing {action}...</i>\n<code>[▰▰▰▰▰▰▰▱▱▱] 70%</code>",
     ]
 

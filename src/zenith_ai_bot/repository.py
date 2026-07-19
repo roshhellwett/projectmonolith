@@ -18,6 +18,7 @@ class ConversationRepo:
             await session.commit()
 
     @staticmethod
+    @db_retry
     async def get_history(user_id: int, limit: int = 10) -> list:
         async with AsyncSessionLocal() as session:
             stmt = (
@@ -30,6 +31,7 @@ class ConversationRepo:
             return list(reversed(rows))
 
     @staticmethod
+    @db_retry
     async def clear_history(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
             stmt = delete(AIConversation).where(AIConversation.user_id == user_id)
@@ -38,6 +40,7 @@ class ConversationRepo:
             return result.rowcount
 
     @staticmethod
+    @db_retry
     async def count_messages(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
             stmt = select(func.count()).select_from(AIConversation).where(AIConversation.user_id == user_id)
@@ -46,6 +49,7 @@ class ConversationRepo:
 
 class UsageRepo:
     @staticmethod
+    @db_retry
     async def _get_or_create(session, user_id: int) -> AIUsageLog:
         today = date.today()
         stmt = select(AIUsageLog).where(AIUsageLog.user_id == user_id, AIUsageLog.usage_date == today)
@@ -69,6 +73,7 @@ class UsageRepo:
         return row
 
     @staticmethod
+    @db_retry
     async def increment_queries(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
@@ -77,6 +82,7 @@ class UsageRepo:
             return row.query_count
 
     @staticmethod
+    @db_retry
     async def increment_summarize(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
@@ -85,6 +91,7 @@ class UsageRepo:
             return row.summarize_count
 
     @staticmethod
+    @db_retry
     async def get_today_usage(user_id: int) -> dict:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
@@ -96,6 +103,7 @@ class UsageRepo:
             }
 
     @staticmethod
+    @db_retry
     async def set_persona(user_id: int, persona: str):
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
@@ -103,12 +111,14 @@ class UsageRepo:
             await session.commit()
 
     @staticmethod
+    @db_retry
     async def get_persona(user_id: int) -> str:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
             return row.persona or "default"
 
     @staticmethod
+    @db_retry
     async def set_selected_model(user_id: int, model_id: str):
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
@@ -116,6 +126,7 @@ class UsageRepo:
             await session.commit()
 
     @staticmethod
+    @db_retry
     async def get_selected_model(user_id: int) -> str:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)

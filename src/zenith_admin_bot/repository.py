@@ -11,6 +11,7 @@ logger = setup_logger("ADMIN_DB")
 
 class AdminRepo:
     @staticmethod
+    @db_retry
     async def log_action(
         admin_user_id: int,
         action: ActionType,
@@ -28,12 +29,14 @@ class AdminRepo:
             await session.commit()
 
     @staticmethod
+    @db_retry
     async def get_audit_trail(limit: int = 20) -> list:
         async with AsyncSessionLocal() as session:
             stmt = select(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).limit(limit)
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_audit_for_user(user_id: int, limit: int = 20) -> list:
         async with AsyncSessionLocal() as session:
             stmt = (
@@ -45,6 +48,7 @@ class AdminRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_audit_by_action(action: ActionType, limit: int = 20) -> list:
         async with AsyncSessionLocal() as session:
             stmt = (
@@ -58,6 +62,7 @@ class AdminRepo:
 
 class BotRegistryRepo:
     @staticmethod
+    @db_retry
     async def register_bot(bot_name: str, token_hash: str | None = None) -> BotRegistry:
         async with AsyncSessionLocal() as session:
             stmt = select(BotRegistry).where(BotRegistry.bot_name == bot_name)
@@ -81,6 +86,7 @@ class BotRegistryRepo:
                 return new_bot
 
     @staticmethod
+    @db_retry
     async def unregister_bot(bot_name: str):
         async with AsyncSessionLocal() as session:
             stmt = select(BotRegistry).where(BotRegistry.bot_name == bot_name)
@@ -90,18 +96,21 @@ class BotRegistryRepo:
                 await session.commit()
 
     @staticmethod
+    @db_retry
     async def get_all_bots() -> list:
         async with AsyncSessionLocal() as session:
             stmt = select(BotRegistry).order_by(BotRegistry.registered_at.desc())
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_bot_by_name(bot_name: str) -> BotRegistry | None:
         async with AsyncSessionLocal() as session:
             stmt = select(BotRegistry).where(BotRegistry.bot_name == bot_name)
             return (await session.execute(stmt)).scalar_one_or_none()
 
     @staticmethod
+    @db_retry
     async def update_health_status(bot_name: str, status: str):
         async with AsyncSessionLocal() as session:
             stmt = select(BotRegistry).where(BotRegistry.bot_name == bot_name)
@@ -116,6 +125,7 @@ class BotRegistryRepo:
 
 class MonitoringRepo:
     @staticmethod
+    @db_retry
     async def get_subscription_stats() -> dict:
         async with AsyncSessionLocal() as session:
             from sqlalchemy import func
@@ -152,6 +162,7 @@ class MonitoringRepo:
             }
 
     @staticmethod
+    @db_retry
     async def get_ticket_stats() -> dict:
         from zenith_support_bot.repository import TicketRepo
 
@@ -162,6 +173,7 @@ class MonitoringRepo:
             return {"total": 0, "open": 0, "in_progress": 0, "resolved": 0, "closed": 0}
 
     @staticmethod
+    @db_retry
     async def get_all_active_subscriptions() -> list:
         from zenith_crypto_bot.models import Subscription
 
@@ -171,6 +183,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_recent_keys(limit: int = 10) -> list:
         from zenith_crypto_bot.models import ActivationKey
 
@@ -184,6 +197,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_user_subscription_details(user_id: int) -> dict:
         from zenith_crypto_bot.models import Subscription
 
@@ -206,6 +220,7 @@ class MonitoringRepo:
             }
 
     @staticmethod
+    @db_retry
     async def get_all_tickets_admin(status: str = None, limit: int = 50, offset: int = 0) -> list:
         from sqlalchemy import desc
 
@@ -219,6 +234,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_ticket_by_id(ticket_id: int):
         from zenith_support_bot.models import SupportTicket
 
@@ -227,6 +243,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalar_one_or_none()
 
     @staticmethod
+    @db_retry
     async def get_stale_tickets(days: int = 2) -> list:
         from utils.time_util import utc_now
         from zenith_support_bot.models import SupportTicket
@@ -244,6 +261,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_ticket_metrics() -> dict:
         from sqlalchemy import func
 
@@ -307,6 +325,7 @@ class MonitoringRepo:
             }
 
     @staticmethod
+    @db_retry
     async def search_users(query: str, limit: int = 20) -> list:
         from zenith_crypto_bot.models import CryptoUser
 
@@ -319,6 +338,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_all_groups(limit: int = 50, offset: int = 0) -> list:
         from zenith_group_bot.models import GroupSettings
 
@@ -333,6 +353,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def search_groups(query: str, limit: int = 20) -> list:
         from zenith_group_bot.models import GroupSettings
 
@@ -345,6 +366,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_group_count() -> int:
         from sqlalchemy import func
 
@@ -358,6 +380,7 @@ class MonitoringRepo:
             ).scalar() or 0
 
     @staticmethod
+    @db_retry
     async def get_all_users(limit: int = 100, offset: int = 0) -> list:
         from zenith_crypto_bot.models import CryptoUser
 
@@ -366,6 +389,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_user_count() -> int:
         from sqlalchemy import func
 
@@ -375,6 +399,7 @@ class MonitoringRepo:
             return (await session.execute(select(func.count()).select_from(CryptoUser))).scalar() or 0
 
     @staticmethod
+    @db_retry
     async def generate_bulk_keys(count: int, days: int) -> list:
         import uuid
 
@@ -391,6 +416,7 @@ class MonitoringRepo:
         return keys
 
     @staticmethod
+    @db_retry
     async def get_key_usage_history(limit: int = 20) -> list:
         from zenith_crypto_bot.models import ActivationKey
 
@@ -404,6 +430,7 @@ class MonitoringRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_faq_count() -> int:
         from sqlalchemy import func
 
@@ -413,6 +440,7 @@ class MonitoringRepo:
             return (await session.execute(select(func.count()).select_from(FAQEntry))).scalar() or 0
 
     @staticmethod
+    @db_retry
     async def get_canned_count() -> int:
         from sqlalchemy import func
 
@@ -422,6 +450,7 @@ class MonitoringRepo:
             return (await session.execute(select(func.count()).select_from(CannedResponse))).scalar() or 0
 
     @staticmethod
+    @db_retry
     async def get_db_stats() -> dict:
         from sqlalchemy import func
 
@@ -454,6 +483,7 @@ class MonitoringRepo:
             return stats
 
     @staticmethod
+    @db_retry
     async def get_revenue_report() -> dict:
         from sqlalchemy import func
 
@@ -492,6 +522,7 @@ class MonitoringRepo:
             }
 
     @staticmethod
+    @db_retry
     async def get_all_user_ids() -> list:
         from zenith_crypto_bot.models import CryptoUser
 
@@ -500,6 +531,7 @@ class MonitoringRepo:
             return [r[0] for r in (await session.execute(stmt)).all()]
 
     @staticmethod
+    @db_retry
     async def get_all_pro_user_ids() -> list:
         from zenith_crypto_bot.models import Subscription
 
@@ -509,6 +541,7 @@ class MonitoringRepo:
             return [r[0] for r in (await session.execute(stmt)).all()]
 
     @staticmethod
+    @db_retry
     async def get_all_group_chat_ids() -> list:
         from zenith_group_bot.models import GroupSettings
 

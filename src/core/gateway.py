@@ -8,8 +8,10 @@ Provides:
 """
 
 import asyncio
+import contextlib
 import gc
-from typing import Callable
+from collections.abc import Callable
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -70,7 +72,7 @@ class GatewayController:
             self.active_requests += 1
             self.total_processed += 1
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.rejected_requests += 1
             logger.warning(f"Gateway concurrency limit reached. Rejected update. (Active: {self.active_requests})")
             return False
@@ -119,12 +121,10 @@ async def gateway_middleware(
     acquired = await _gateway.acquire()
     if not acquired:
         if update.effective_message:
-            try:
+            with contextlib.suppress(Exception):
                 await update.effective_message.reply_text(
                     "⚠️ Server under high load. Please try again in a few seconds."
                 )
-            except Exception:
-                pass
         return
 
     try:

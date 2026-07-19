@@ -3,12 +3,10 @@ from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.formatters import (
-    format_alert,
     format_card,
     format_divider,
     format_header,
     format_kv,
-    format_status_pill,
 )
 
 # ── Keyboards ──────────────────────────────────────────────
@@ -143,7 +141,7 @@ def format_key_management(keys: list) -> str:
         days = key.duration_days
         created = key.created_at.strftime("%d %b %Y") if key.created_at else "N/A"
         lines.append(f"  ▫️ <code>{key.key_string}</code> — <b>{days}d</b> (Created {created})")
-    lines.append(f"\n<i>Share tokens with users to grant instant Pro suite authorization.</i>")
+    lines.append("\n<i>Share tokens with users to grant instant Pro suite authorization.</i>")
     return "\n".join(lines)
 
 

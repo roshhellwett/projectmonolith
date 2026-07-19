@@ -106,13 +106,24 @@ async def init_db():
     logger.info("All database tables and columns checked/created")
 
 
+_dispose_lock: asyncio.Lock | None = None
+
+
+def _get_dispose_lock() -> asyncio.Lock:
+    global _dispose_lock
+    if _dispose_lock is None:
+        _dispose_lock = asyncio.Lock()
+    return _dispose_lock
+
+
 async def dispose_engine():
     global _engine, _sessionmaker_instance
-    if _engine is not None:
-        await _engine.dispose()
-        _engine = None
-        _sessionmaker_instance = None
-        logger.info("Database engine disposed")
+    async with _get_dispose_lock():
+        if _engine is not None:
+            await _engine.dispose()
+            _engine = None
+            _sessionmaker_instance = None
+            logger.info("Database engine disposed")
 
 
 def db_retry(func):

@@ -20,6 +20,7 @@ logger = setup_logger("CRYPTO_DB")
 
 class SubscriptionRepo:
     @staticmethod
+    @db_retry
     async def register_user(user_id: int):
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
@@ -28,6 +29,7 @@ class SubscriptionRepo:
                 await session.commit()
 
     @staticmethod
+    @db_retry
     async def toggle_alerts(user_id: int, enable: bool):
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
@@ -39,6 +41,7 @@ class SubscriptionRepo:
             await session.commit()
 
     @staticmethod
+    @db_retry
     async def get_alert_subscribers():
         async with AsyncSessionLocal() as session:
             now = datetime.now(UTC)
@@ -51,6 +54,7 @@ class SubscriptionRepo:
             return free_subscribers, pro_subscribers
 
     @staticmethod
+    @db_retry
     async def generate_key(days: int, validity_days: int = 365) -> str:
         new_key = f"ZENITH-{uuid.uuid4().hex[:8].upper()}-{uuid.uuid4().hex[:4].upper()}"
         async with AsyncSessionLocal() as session:
@@ -60,6 +64,7 @@ class SubscriptionRepo:
         return new_key
 
     @staticmethod
+    @db_retry
     async def redeem_key(user_id: int, key_string: str) -> tuple[bool, str]:
         async with AsyncSessionLocal() as session, session.begin():
             res = await session.execute(
@@ -95,6 +100,7 @@ class SubscriptionRepo:
             )
 
     @staticmethod
+    @db_retry
     async def get_days_left(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(Subscription).where(Subscription.user_id == user_id))
@@ -106,6 +112,7 @@ class SubscriptionRepo:
             return remaining.days + (1 if remaining.seconds > 0 else 0)
 
     @staticmethod
+    @db_retry
     async def is_pro(user_id: int) -> bool:
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(Subscription).where(Subscription.user_id == user_id))
@@ -115,6 +122,7 @@ class SubscriptionRepo:
             return sub.expires_at > datetime.now(UTC)
 
     @staticmethod
+    @db_retry
     async def extend_subscription(user_id: int, days: int = 30) -> tuple[bool, str]:
         async with AsyncSessionLocal() as session, session.begin():
             res = await session.execute(select(Subscription).where(Subscription.user_id == user_id).with_for_update())
@@ -135,6 +143,7 @@ class SubscriptionRepo:
             )
 
     @staticmethod
+    @db_retry
     async def revoke_subscription(user_id: int) -> tuple[bool, str]:
         async with AsyncSessionLocal() as session, session.begin():
             res = await session.execute(select(Subscription).where(Subscription.user_id == user_id).with_for_update())
@@ -153,6 +162,7 @@ class SubscriptionRepo:
             )
 
     @staticmethod
+    @db_retry
     async def get_expiring_users(within_hours: int = 72) -> list:
         async with AsyncSessionLocal() as session:
             now = datetime.now(UTC)
@@ -161,6 +171,7 @@ class SubscriptionRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_just_expired_users(within_hours: int = 1) -> list:
         async with AsyncSessionLocal() as session:
             now = datetime.now(UTC)
@@ -169,6 +180,7 @@ class SubscriptionRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def save_audit(user_id: int, contract: str):
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(SavedAudit).where(SavedAudit.user_id == user_id, SavedAudit.contract == contract[:100]))
@@ -186,18 +198,21 @@ class SubscriptionRepo:
             await session.commit()
 
     @staticmethod
+    @db_retry
     async def get_saved_audits(user_id: int):
         async with AsyncSessionLocal() as session:
             stmt = select(SavedAudit).where(SavedAudit.user_id == user_id).order_by(SavedAudit.saved_at.desc())
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_audit_by_id(user_id: int, audit_id: int):
         async with AsyncSessionLocal() as session:
             stmt = select(SavedAudit).where(SavedAudit.user_id == user_id, SavedAudit.id == audit_id)
             return (await session.execute(stmt)).scalar_one_or_none()
 
     @staticmethod
+    @db_retry
     async def delete_audit(user_id: int, audit_id: int):
         async with AsyncSessionLocal() as session:
             stmt = delete(SavedAudit).where(SavedAudit.user_id == user_id, SavedAudit.id == audit_id)
@@ -205,6 +220,7 @@ class SubscriptionRepo:
             await session.commit()
 
     @staticmethod
+    @db_retry
     async def clear_all_audits(user_id: int):
         async with AsyncSessionLocal() as session:
             stmt = delete(SavedAudit).where(SavedAudit.user_id == user_id)
@@ -213,6 +229,7 @@ class SubscriptionRepo:
 
 
     @staticmethod
+    @db_retry
     async def set_groq_key(user_id: int, api_key: str) -> None:
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
@@ -224,6 +241,7 @@ class SubscriptionRepo:
             await session.commit()
 
     @staticmethod
+    @db_retry
     async def get_groq_key(user_id: int) -> str | None:
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
@@ -231,6 +249,7 @@ class SubscriptionRepo:
             return user.groq_api_key if user and user.groq_api_key else None
 
     @staticmethod
+    @db_retry
     async def delete_groq_key(user_id: int) -> None:
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
@@ -242,6 +261,7 @@ class SubscriptionRepo:
             await session.commit()
 
     @staticmethod
+    @db_retry
     async def get_user_ai_context(user_id: int) -> str:
         async with AsyncSessionLocal() as session:
             parts = []
@@ -288,6 +308,7 @@ class SubscriptionRepo:
 
 class PriceAlertRepo:
     @staticmethod
+    @db_retry
     async def create_alert(
         user_id: int, token_id: str, token_symbol: str, target_price: float, direction: str
     ) -> PriceAlert:
@@ -305,6 +326,7 @@ class PriceAlertRepo:
             return alert
 
     @staticmethod
+    @db_retry
     async def get_user_alerts(user_id: int) -> list:
         async with AsyncSessionLocal() as session:
             stmt = (
@@ -315,12 +337,14 @@ class PriceAlertRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_all_active_alerts() -> list:
         async with AsyncSessionLocal() as session:
             stmt = select(PriceAlert).where(PriceAlert.is_triggered == False)
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def trigger_alert(alert_id: int):
         async with AsyncSessionLocal() as session:
             stmt = select(PriceAlert).where(PriceAlert.id == alert_id)
@@ -330,6 +354,7 @@ class PriceAlertRepo:
                 await session.commit()
 
     @staticmethod
+    @db_retry
     async def delete_alert(user_id: int, alert_id: int) -> bool:
         async with AsyncSessionLocal() as session:
             stmt = delete(PriceAlert).where(PriceAlert.user_id == user_id, PriceAlert.id == alert_id)
@@ -338,6 +363,7 @@ class PriceAlertRepo:
             return result.rowcount > 0
 
     @staticmethod
+    @db_retry
     async def count_user_alerts(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
             stmt = select(func.count()).select_from(PriceAlert).where(
@@ -349,6 +375,7 @@ class PriceAlertRepo:
 
 class WalletTrackerRepo:
     @staticmethod
+    @db_retry
     async def add_wallet(user_id: int, wallet_address: str, label: str = "Unnamed Wallet") -> bool:
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(TrackedWallet).where(TrackedWallet.user_id == user_id, TrackedWallet.wallet_address == wallet_address.lower()))
@@ -359,6 +386,7 @@ class WalletTrackerRepo:
             return True
 
     @staticmethod
+    @db_retry
     async def get_user_wallets(user_id: int) -> list:
         async with AsyncSessionLocal() as session:
             stmt = (
@@ -367,6 +395,7 @@ class WalletTrackerRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def get_all_tracked_wallets() -> list:
         async with AsyncSessionLocal() as session:
             now = datetime.now(UTC)
@@ -378,6 +407,7 @@ class WalletTrackerRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def remove_wallet(user_id: int, wallet_address: str) -> bool:
         async with AsyncSessionLocal() as session:
             stmt = delete(TrackedWallet).where(
@@ -388,6 +418,7 @@ class WalletTrackerRepo:
             return result.rowcount > 0
 
     @staticmethod
+    @db_retry
     async def update_last_tx(wallet_id: int, tx_hash: str):
         async with AsyncSessionLocal() as session:
             stmt = select(TrackedWallet).where(TrackedWallet.id == wallet_id)
@@ -397,6 +428,7 @@ class WalletTrackerRepo:
                 await session.commit()
 
     @staticmethod
+    @db_retry
     async def count_user_wallets(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
             stmt = select(func.count()).select_from(TrackedWallet).where(
@@ -408,6 +440,7 @@ class WalletTrackerRepo:
 
 class WatchlistRepo:
     @staticmethod
+    @db_retry
     async def add_token(
         user_id: int, token_id: str, token_symbol: str, entry_price: float, quantity: float = 1.0
     ) -> bool:
@@ -431,6 +464,7 @@ class WatchlistRepo:
             return True
 
     @staticmethod
+    @db_retry
     async def get_watchlist(user_id: int) -> list:
         async with AsyncSessionLocal() as session:
             stmt = (
@@ -441,6 +475,7 @@ class WatchlistRepo:
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
+    @db_retry
     async def remove_token(user_id: int, token_id: str) -> bool:
         async with AsyncSessionLocal() as session:
             stmt = delete(WatchlistToken).where(WatchlistToken.user_id == user_id, WatchlistToken.token_id == token_id)
@@ -449,6 +484,7 @@ class WatchlistRepo:
             return result.rowcount > 0
 
     @staticmethod
+    @db_retry
     async def count_watchlist(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
             stmt = select(func.count()).select_from(WatchlistToken).where(

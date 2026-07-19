@@ -121,9 +121,9 @@ def get_limit_text(feature_name: str, current: int, limit: int, is_pro: bool) ->
     )
     if not is_pro:
         base += (
-            f"\n💎 Upgrade to <b>Zenith Pro</b> for higher limits.\n"
-            f"<code>/activate YOUR-KEY</code>"
+            "\n💎 Upgrade to <b>Zenith Pro</b> for higher limits.\n"
+            "<code>/activate YOUR-KEY</code>"
         )
     else:
-        base += f"\nPlease remove existing items to add new ones."
+        base += "\nPlease remove existing items to add new ones."
     return base

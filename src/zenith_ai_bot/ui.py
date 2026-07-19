@@ -10,7 +10,6 @@ from core.formatters import (
     format_header,
     format_kv,
     format_progress_bar,
-    format_status_pill,
 )
 from core.llm_fallback import AVAILABLE_MODELS
 from core.ui_components import pro_feature_locked_msg, pro_upgrade_keyboard
@@ -57,10 +56,7 @@ def get_ai_dashboard(is_pro: bool, persona: str, usage: dict, selected_model: st
 def get_model_selector_keyboard(current_model: str, is_pro: bool = False) -> InlineKeyboardMarkup:
     rows = []
     for model_id, info in AVAILABLE_MODELS.items():
-        if info["tier"] == "pro" and not is_pro:
-            marker = " [🔒 PRO]"
-        else:
-            marker = " ✅" if model_id == current_model else ""
+        marker = " [🔒 PRO]" if info["tier"] == "pro" and not is_pro else " ✅" if model_id == current_model else ""
         rows.append([InlineKeyboardButton(f"{info['icon']} {info['name']} ({info['description']}){marker}", callback_data=f"ai_set_model_{model_id}")])
     if not is_pro:
         rows.append([InlineKeyboardButton("💎 Unlock All 70B & DeepSeek Models", url=f"tg://user?id={ADMIN_USER_ID}")])
@@ -364,7 +360,7 @@ def get_ai_key_status_msg(has_key: bool):
             f"  ▫️ Disconnect key: <code>/delkey</code>"
         )
         return text, InlineKeyboardMarkup([[InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")]])
-    
+
     text = (
         f"{format_header('Groq API Configuration', 'Key Verification & Status', 'DISCONNECTED')}\n"
         f"No personal API key is currently linked to your profile.\n\n"

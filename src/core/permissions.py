@@ -8,15 +8,16 @@ Provides:
 - Replaces 30+ inline tier-check patterns across all bots
 """
 
+import contextlib
 import functools
-import time
+import inspect
 from dataclasses import dataclass
 
 from cachetools import TTLCache
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from core.config import ADMIN_USER_ID, is_owner
+from core.config import is_owner
 from core.logger import setup_logger
 
 logger = setup_logger("PERMISSIONS")
@@ -85,6 +86,16 @@ def invalidate_tier_cache(user_id: int) -> None:
     _tier_cache.pop(user_id, None)
 
 
+def _accepts_tier(func) -> bool:
+    try:
+        sig = inspect.signature(func)
+        if "tier" in sig.parameters:
+            return True
+        return any(param.kind == inspect.Parameter.VAR_KEYWORD for param in sig.parameters.values())
+    except Exception:
+        return True
+
+
 def require_pro(locked_feature_name: str = "This feature"):
     """
     Decorator that gates a handler behind Pro tier.
@@ -97,6 +108,8 @@ def require_pro(locked_feature_name: str = "This feature"):
     """
 
     def decorator(func):
+        accepts_tier = _accepts_tier(func)
+
         @functools.wraps(func)
         async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
             user_id = update.effective_user.id
@@ -108,15 +121,15 @@ def require_pro(locked_feature_name: str = "This feature"):
                 text = get_upgrade_text(locked_feature_name)
                 if update.callback_query:
                     await update.callback_query.answer()
-                    try:
+                    with contextlib.suppress(Exception):
                         await update.callback_query.edit_message_text(text, parse_mode="HTML")
-                    except Exception:
-                        pass
                 elif update.message:
                     await update.message.reply_text(text, parse_mode="HTML")
                 return
 
-            return await func(update, context, *args, tier=tier, **kwargs)
+            if accepts_tier:
+                return await func(update, context, *args, tier=tier, **kwargs)
+            return await func(update, context, *args, **kwargs)
 
         return wrapper
 
@@ -132,6 +145,7 @@ def require_owner(func):
         async def cmd_admin_only(update, context, tier):
             ...
     """
+    accepts_tier = _accepts_tier(func)
 
     @functools.wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
@@ -146,7 +160,9 @@ def require_owner(func):
                 await update.message.reply_text(text)
             return
 
-        return await func(update, context, *args, tier=tier, **kwargs)
+        if accepts_tier:
+            return await func(update, context, *args, tier=tier, **kwargs)
+        return await func(update, context, *args, **kwargs)
 
     return wrapper
 

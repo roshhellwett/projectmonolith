@@ -10,12 +10,10 @@ States:
   HALF_OPEN → Testing if service recovered (allow 1 request through)
 """
 
-import asyncio
 import time
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 from core.logger import setup_logger
 
@@ -64,6 +62,7 @@ class CircuitBreaker:
         self.state = CircuitState.CLOSED
         self.failure_times: deque[float] = deque()
         self.success_count = 0
+        self.half_open_in_flight = 0
         self.last_failure_time: float = 0
         self.last_state_change: float = time.monotonic()
 
@@ -78,15 +77,20 @@ class CircuitBreaker:
             # Check if recovery timeout has passed
             if now - self.last_state_change >= self.config.recovery_timeout:
                 self._transition(CircuitState.HALF_OPEN)
+                self.half_open_in_flight += 1
                 return True
             return False
 
-        # HALF_OPEN — allow requests through to test recovery
+        # HALF_OPEN — allow limited requests through to test recovery
+        if self.half_open_in_flight >= self.config.success_threshold:
+            return False
+        self.half_open_in_flight += 1
         return True
 
     def record_success(self) -> None:
         """Record a successful call."""
         if self.state == CircuitState.HALF_OPEN:
+            self.half_open_in_flight = max(0, self.half_open_in_flight - 1)
             self.success_count += 1
             if self.success_count >= self.config.success_threshold:
                 self._transition(CircuitState.CLOSED)
@@ -101,6 +105,7 @@ class CircuitBreaker:
 
         if self.state == CircuitState.HALF_OPEN:
             # Failed during recovery test — go back to open
+            self.half_open_in_flight = max(0, self.half_open_in_flight - 1)
             self._transition(CircuitState.OPEN)
             return
 
@@ -126,9 +131,11 @@ class CircuitBreaker:
 
         if new_state == CircuitState.HALF_OPEN:
             self.success_count = 0
+            self.half_open_in_flight = 0
         elif new_state == CircuitState.CLOSED:
             self.failure_times.clear()
             self.success_count = 0
+            self.half_open_in_flight = 0
 
         if old_state != new_state:
             logger.info(

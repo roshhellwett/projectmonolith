@@ -1,7 +1,6 @@
 import asyncio
-import contextlib
 from dataclasses import dataclass
-from typing import Any, List, Optional
+
 from groq import AsyncGroq
 
 from core.circuit_breaker import get_breaker
@@ -66,14 +65,14 @@ class AIResponse:
     content: str
     model_used: str
     was_fallback: bool
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def is_error(self) -> bool:
         return self.error is not None
 
     @property
-    def error_type(self) -> Optional[str]:
+    def error_type(self) -> str | None:
         # Normalizes error strings so callers checking "rate_limit", "auth_error", etc. match cleanly
         if not self.error:
             return None
@@ -98,7 +97,7 @@ class AIResponse:
 
 class AIExecutionEngine:
     @classmethod
-    def get_fallback_chain(cls, preferred_model: str = "llama-3.3-70b-versatile") -> List[str]:
+    def get_fallback_chain(cls, preferred_model: str = "llama-3.3-70b-versatile") -> list[str]:
         if preferred_model not in AVAILABLE_MODELS:
             preferred_model = "llama-3.3-70b-versatile"
         chain = [preferred_model]
@@ -110,7 +109,7 @@ class AIExecutionEngine:
     @classmethod
     async def execute(
         cls,
-        messages: List[dict],
+        messages: list[dict],
         api_key: str,
         preferred_model: str = "llama-3.3-70b-versatile",
         temperature: float = 0.5,

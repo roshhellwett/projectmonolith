@@ -15,6 +15,7 @@ from zenith_ai_bot.ui import (
     get_history_keyboard,
     get_history_list_msg,
     get_imagine_help,
+    get_no_key_msg,
     get_persona_already_using,
     get_persona_help,
     get_persona_locked,
@@ -24,7 +25,6 @@ from zenith_ai_bot.ui import (
     get_research_help,
     get_summarize_help,
     get_summarize_limit_reached,
-    get_no_key_msg,
 )
 from zenith_ai_bot.utils import sanitize_user_input
 from zenith_crypto_bot.repository import SubscriptionRepo

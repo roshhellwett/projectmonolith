@@ -6,7 +6,6 @@ by criticality, and provides masked logging helpers.
 """
 
 import os
-import sys
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -144,9 +143,12 @@ def enforce_startup_secrets() -> SecretValidationResult:
 def is_service_configured(service_name: str) -> bool:
     """Check if all required secrets for a specific service are present."""
     for secret_def in SECRET_DEFINITIONS:
-        if secret_def.service == service_name and secret_def.level in (SecretLevel.CRITICAL, SecretLevel.REQUIRED):
-            if not os.getenv(secret_def.name, "").strip():
-                return False
+        if (
+            secret_def.service == service_name
+            and secret_def.level in (SecretLevel.CRITICAL, SecretLevel.REQUIRED)
+            and not os.getenv(secret_def.name, "").strip()
+        ):
+            return False
     return True
 
 

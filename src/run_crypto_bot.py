@@ -15,6 +15,7 @@ from core.database import dispose_engine
 from core.error_handler import handle_bot_error
 from core.logger import setup_logger
 from core.permissions import resolve_tier
+from zenith_ai_bot.repository import UsageRepo
 from zenith_crypto_bot import ui as crypto_ui
 from zenith_crypto_bot.ai_handlers import cmd_ai, cmd_delkey, cmd_mykey, cmd_setkey, handle_ai_followup
 from zenith_crypto_bot.market_service import (
@@ -37,7 +38,6 @@ from zenith_crypto_bot.pro_handlers import (
     perform_real_audit,
     show_new_pairs,
 )
-from zenith_ai_bot.repository import UsageRepo
 from zenith_crypto_bot.repository import (
     PriceAlertRepo,
     SubscriptionRepo,

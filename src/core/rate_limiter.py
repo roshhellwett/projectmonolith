@@ -8,8 +8,9 @@ Provides sliding-window rate limiting that:
 - Differentiates between free and pro tiers
 """
 
+import threading
 import time
-from collections import defaultdict, deque
+from collections import deque
 
 from cachetools import TTLCache
 
@@ -34,6 +35,7 @@ class SlidingWindowLimiter:
         # user_id -> deque of timestamps for each action
         self._windows: dict[str, TTLCache] = {}
         self._max_users = max_users
+        self._lock = threading.Lock()
 
     def _get_window(self, action: str, ttl: float) -> TTLCache:
         """Get or create a TTLCache for an action type."""
@@ -57,27 +59,28 @@ class SlidingWindowLimiter:
             - is_allowed: True if within limits
             - seconds_until_reset: seconds until the oldest entry expires (0 if allowed)
         """
-        cache = self._get_window(action, window_seconds)
-        now = time.monotonic()
+        with self._lock:
+            cache = self._get_window(action, window_seconds)
+            now = time.monotonic()
 
-        # Get existing timestamps
-        timestamps: deque = cache.get(user_id, deque(maxlen=limit + 1))
+            # Get existing timestamps
+            timestamps: deque = cache.get(user_id, deque(maxlen=limit + 1))
 
-        # Clean old timestamps outside window
-        cutoff = now - window_seconds
-        while timestamps and timestamps[0] < cutoff:
-            timestamps.popleft()
+            # Clean old timestamps outside window
+            cutoff = now - window_seconds
+            while timestamps and timestamps[0] < cutoff:
+                timestamps.popleft()
 
-        if len(timestamps) >= limit:
-            # Rate limited — calculate when the oldest entry expires
-            oldest = timestamps[0]
-            seconds_left = max(1, int((oldest + window_seconds) - now))
-            return False, seconds_left
+            if len(timestamps) >= limit:
+                # Rate limited — calculate when the oldest entry expires
+                oldest = timestamps[0]
+                seconds_left = max(1, int((oldest + window_seconds) - now))
+                return False, seconds_left
 
-        # Allowed — record this action
-        timestamps.append(now)
-        cache[user_id] = timestamps
-        return True, 0
+            # Allowed — record this action
+            timestamps.append(now)
+            cache[user_id] = timestamps
+            return True, 0
 
     def get_remaining(
         self,
@@ -87,16 +90,28 @@ class SlidingWindowLimiter:
         window_seconds: float,
     ) -> int:
         """Get how many actions the user has remaining in the current window."""
-        cache = self._get_window(action, window_seconds)
-        now = time.monotonic()
+        with self._lock:
+            cache = self._get_window(action, window_seconds)
+            now = time.monotonic()
 
-        timestamps: deque = cache.get(user_id, deque())
+            timestamps: deque = cache.get(user_id, deque())
 
-        # Count valid (non-expired) timestamps
-        cutoff = now - window_seconds
-        active = sum(1 for t in timestamps if t >= cutoff)
+            # Count valid (non-expired) timestamps
+            cutoff = now - window_seconds
+            active = sum(1 for t in timestamps if t >= cutoff)
 
-        return max(0, limit - active)
+            return max(0, limit - active)
+
+    def prune(self):
+        """Expire old entries across all window caches."""
+        with self._lock:
+            for cache in self._windows.values():
+                cache.expire()
+
+    @classmethod
+    def prune_all_memory(cls):
+        """Class-level helper called by gateway memory optimization."""
+        _limiter.prune()
 
 
 # ==========================================================
@@ -149,7 +164,7 @@ def format_rate_limit_message(
     else:
         time_str = f"{seconds_left}s"
 
-    text = f"⏳ <b>Rate Limit Reached</b>"
+    text = "⏳ <b>Rate Limit Reached</b>"
     if feature_name:
         text += f" — {feature_name}"
     text += f"\n\nPlease try again in <b>{time_str}</b>."

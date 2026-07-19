@@ -78,7 +78,7 @@ def categorize_error(error: Exception) -> ErrorCategory:
     """Categorize an exception into a user-friendly error type."""
     if isinstance(error, RetryAfter):
         return ErrorCategory.RATE_LIMITED
-    if isinstance(error, (TimedOut, asyncio.TimeoutError)):
+    if isinstance(error, TimedOut | asyncio.TimeoutError):
         return ErrorCategory.API_TIMEOUT
     if isinstance(error, Forbidden):
         return ErrorCategory.PERMISSION_ERROR

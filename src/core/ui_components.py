@@ -13,7 +13,7 @@ Provides precision-crafted components for:
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import ADMIN_USER_ID
-from core.formatters import format_alert, format_divider, format_header, format_progress_bar, format_status_pill
+from core.formatters import format_divider, format_progress_bar, format_status_pill
 
 
 # ==========================================================

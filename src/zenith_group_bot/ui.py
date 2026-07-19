@@ -4,12 +4,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import ADMIN_USER_ID
 from core.formatters import (
-    format_alert,
     format_card,
     format_divider,
     format_header,
     format_kv,
-    format_status_pill,
 )
 
 # ============================================================
@@ -219,7 +217,7 @@ def get_dashboard_main_msg(is_pro: bool, groups: list, days_left: int = 0) -> st
     if is_pro:
         text += f"\n\n{format_card('Pro Shield Capabilities (In-Group)', pro_cmds, '💎')}"
     else:
-        text += f"\n\n<i>💎 Tip: Upgrade to Pro Shield for custom word filters, anti-raid lockdown, and up to 5 protected communities.</i>"
+        text += "\n\n<i>💎 Tip: Upgrade to Pro Shield for custom word filters, anti-raid lockdown, and up to 5 protected communities.</i>"
     return text
 
 
@@ -267,7 +265,7 @@ def get_group_list_msg(groups: list) -> str:
         status = "🟢 Active Shield" if g.is_active else "🔴 Inactive"
         name = g.group_name or f"Group {g.chat_id}"
         lines.append(f"  ▫️ <b>{escape(name)}</b> — {status}")
-    lines.append(f"\n<i>Select a group below to manage anti-spam, custom filters, and security settings.</i>")
+    lines.append("\n<i>Select a group below to manage anti-spam, custom filters, and security settings.</i>")
     return "\n".join(lines)
 
 

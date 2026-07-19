@@ -7,7 +7,6 @@ from core.formatters import (
     format_header,
     format_kv,
     format_progress_bar,
-    format_status_pill,
 )
 
 # ── Keyboards ──────────────────────────────────────────────
@@ -19,7 +18,7 @@ def get_back_button(label: str = "Back") -> InlineKeyboardMarkup:
 def get_support_dashboard(is_pro: bool, open_tickets: int = 0, is_owner: bool = False) -> InlineKeyboardMarkup:
     ticket_limit = 999 if is_owner else 15 if is_pro else 3
     tier_label = "👑 OWNER ACCESS" if is_owner else "💎 PRO VIP SUPPORT" if is_pro else "⚪ STANDARD FREE TIER"
-    
+
     keyboard = [
         [InlineKeyboardButton(tier_label, callback_data="sup_status")],
         [
@@ -157,7 +156,7 @@ def get_welcome_msg(first_name: str, is_pro: bool, days_left: int = 0, ticket_co
         f"{format_card('Quick Actions', commands, '🛠️')}"
     )
     if not (is_pro or is_owner):
-        text += f"\n\n<i>⚡ Tip: Upgrade to Pro for 15 concurrent tickets, instant AI troubleshooting, and priority routing.</i>"
+        text += "\n\n<i>⚡ Tip: Upgrade to Pro for 15 concurrent tickets, instant AI troubleshooting, and priority routing.</i>"
     return text
 
 
@@ -205,7 +204,7 @@ def get_pro_status_msg(is_pro: bool, days_left: int, is_owner: bool) -> str:
 def get_ticket_created_msg(ticket_id: int, ai_response: str = None) -> str:
     items = [
         f"Ticket Reference: <code>#{ticket_id}</code>",
-        f"Queue Placement: <b>Dispatched to Triage Agents</b>",
+        "Queue Placement: <b>Dispatched to Triage Agents</b>",
         f"Tracking Command: <code>/status {ticket_id}</code>",
     ]
     msg = (
