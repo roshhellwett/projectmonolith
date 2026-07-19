@@ -1,0 +1,114 @@
+import pytest
+
+from zenith_group_bot.flood_control import (
+    add_warning,
+    check_bot_command_limit,
+    clear_warnings,
+    get_flood_action,
+    get_warning_count,
+    is_flooding,
+)
+from zenith_group_bot.pro_handlers import is_raid_mode, set_raid_mode
+from zenith_group_bot.word_list import BANNED_WORDS, SPAM_DOMAINS
+
+
+class TestWordList:
+    def test_banned_words_not_empty(self):
+        assert len(BANNED_WORDS) > 0
+
+    def test_spam_domains_not_empty(self):
+        assert len(SPAM_DOMAINS) > 0
+
+    def test_banned_words_are_strings(self):
+        for w in BANNED_WORDS:
+            assert isinstance(w, str)
+
+    def test_spam_domains_are_strings(self):
+        for d in SPAM_DOMAINS:
+            assert isinstance(d, str)
+
+
+class TestFloodControl:
+    def test_is_flooding_first_message(self):
+        result, reason = is_flooding(user_id=99999)
+        assert result is False
+        assert reason == ""
+
+    def test_is_flooding_with_idempotent_media(self):
+        result, reason = is_flooding(user_id=88888, media_group_id="grp1")
+        assert result is False
+
+    def test_is_flooding_duplicate_media_skips(self):
+        is_flooding(user_id=77777, media_group_id="grp2")
+        result, reason = is_flooding(user_id=77777, media_group_id="grp2")
+        assert result is False
+
+    def test_check_bot_command_limit_free_user(self):
+        limited, msg, _ = check_bot_command_limit(user_id=11111, is_pro=False)
+        assert limited is False
+
+    def test_warning_cycle(self):
+        assert get_warning_count(user_id=22222) == 0
+        add_warning(user_id=22222)
+        assert get_warning_count(user_id=22222) == 1
+        clear_warnings(user_id=22222)
+        assert get_warning_count(user_id=22222) == 0
+
+    def test_get_flood_action_free_user(self):
+        action, duration = get_flood_action(warning_count=1, is_pro=False)
+        assert isinstance(action, str)
+        assert isinstance(duration, int)
+
+    def test_is_raid_mode_default(self):
+        assert is_raid_mode(chat_id=12345) is False
+
+    def test_set_and_clear_raid_mode(self):
+        set_raid_mode(chat_id=54321, active=True)
+        assert is_raid_mode(chat_id=54321) is True
+        set_raid_mode(chat_id=54321, active=False)
+        assert is_raid_mode(chat_id=54321) is False
+
+
+class TestGroupFilters:
+    def test_filters_module_imports(self):
+        import zenith_group_bot.filters
+
+    def test_scan_for_abuse_profanity(self):
+        from zenith_group_bot.filters import scan_for_abuse
+
+        assert scan_for_abuse("this is shit") is True
+
+    def test_scan_for_abuse_clean(self):
+        from zenith_group_bot.filters import scan_for_abuse
+
+        assert scan_for_abuse("hello world") is False
+
+    def test_scan_for_spam_link(self):
+        from zenith_group_bot.filters import scan_for_spam
+
+        assert scan_for_spam("join now t.me/joinchat/abc") is True
+
+    def test_scan_for_spam_clean(self):
+        from zenith_group_bot.filters import scan_for_spam
+
+        assert scan_for_spam("hello world") is False
+
+
+class TestGroupModels:
+    def test_group_settings_model(self):
+        from zenith_group_bot.models import GroupSettings
+
+        assert GroupSettings.__tablename__ == "zenith_group_settings"
+
+    def test_group_strike_model(self):
+        from zenith_group_bot.models import GroupStrike
+
+        assert GroupStrike.__tablename__ == "zenith_group_strikes"
+
+
+class TestGroupApp:
+    def test_group_app_imports(self):
+        from zenith_group_bot.group_app import handle_message, handle_new_member
+
+        assert callable(handle_message)
+        assert callable(handle_new_member)

@@ -56,7 +56,7 @@ class SettingsRepo:
                 .select_from(GroupSettings)
                 .where(
                     GroupSettings.owner_id == owner_id,
-                    GroupSettings.is_active is True,
+                    GroupSettings.is_active == True,
                 )
             )
             return (await session.execute(stmt)).scalar() or 0
@@ -279,7 +279,7 @@ class ScheduleRepo:
         async with AsyncSessionLocal() as session:
             stmt = select(ScheduledMessage).where(
                 ScheduledMessage.chat_id == chat_id,
-                ScheduledMessage.is_active is True,
+                ScheduledMessage.is_active == True,
             )
             return (await session.execute(stmt)).scalars().all()
 
@@ -304,7 +304,7 @@ class ScheduleRepo:
                 .select_from(ScheduledMessage)
                 .where(
                     ScheduledMessage.chat_id == chat_id,
-                    ScheduledMessage.is_active is True,
+                    ScheduledMessage.is_active == True,
                 )
             )
             return (await session.execute(stmt)).scalar() or 0
@@ -318,11 +318,11 @@ class ScheduleRepo:
             stmt = (
                 select(ScheduledMessage)
                 .where(
-                    ScheduledMessage.is_active is True,
+                    ScheduledMessage.is_active == True,
                     ScheduledMessage.hour == current_hour,
                     ScheduledMessage.minute == current_minute,
                 )
-                .filter((ScheduledMessage.last_sent is None) | (ScheduledMessage.last_sent < one_hour_ago))
+                .filter((ScheduledMessage.last_sent == None) | (ScheduledMessage.last_sent < one_hour_ago))
             )
             return (await session.execute(stmt)).scalars().all()
 
@@ -369,7 +369,7 @@ class WelcomeRepo:
         async with AsyncSessionLocal() as session:
             stmt = select(WelcomeConfig).where(
                 WelcomeConfig.chat_id == chat_id,
-                WelcomeConfig.is_active is True,
+                WelcomeConfig.is_active == True,
             )
             return (await session.execute(stmt)).scalar_one_or_none()
 

@@ -255,7 +255,7 @@ class TicketRepo:
             stmt = select(SupportTicket).where(
                 SupportTicket.last_admin_reply_at.isnot(None),
                 SupportTicket.last_admin_reply_at < cutoff,
-                SupportTicket.user_replied is False,
+                SupportTicket.user_replied == False,
                 SupportTicket.status == "resolved",
             )
             return (await session.execute(stmt)).scalars().all()
@@ -270,8 +270,8 @@ class TicketRepo:
                 SupportTicket.last_admin_reply_at.isnot(None),
                 SupportTicket.last_admin_reply_at < cutoff,
                 SupportTicket.last_admin_reply_at > cutoff_24,
-                SupportTicket.user_replied is False,
-                SupportTicket.reminder_sent is False,
+                SupportTicket.user_replied == False,
+                SupportTicket.reminder_sent == False,
                 SupportTicket.status == "resolved",
             )
             return (await session.execute(stmt)).scalars().all()

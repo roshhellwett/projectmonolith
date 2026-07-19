@@ -44,7 +44,7 @@ class SubscriptionRepo:
     async def get_alert_subscribers():
         async with AsyncSessionLocal() as session:
             now = datetime.now(UTC)
-            users_res = await session.execute(select(CryptoUser.user_id).where(CryptoUser.alerts_enabled is True))
+            users_res = await session.execute(select(CryptoUser.user_id).where(CryptoUser.alerts_enabled == True))
             all_alert_users = set([r[0] for r in users_res.all()])
             pro_res = await session.execute(select(Subscription.user_id).where(Subscription.expires_at > now))
             all_pro_users = set([r[0] for r in pro_res.all()])
@@ -239,7 +239,7 @@ class PriceAlertRepo:
         async with AsyncSessionLocal() as session:
             stmt = (
                 select(PriceAlert)
-                .where(PriceAlert.user_id == user_id, PriceAlert.is_triggered is False)
+                .where(PriceAlert.user_id == user_id, PriceAlert.is_triggered == False)
                 .order_by(PriceAlert.created_at.desc())
             )
             return (await session.execute(stmt)).scalars().all()
@@ -247,7 +247,7 @@ class PriceAlertRepo:
     @staticmethod
     async def get_all_active_alerts() -> list:
         async with AsyncSessionLocal() as session:
-            stmt = select(PriceAlert).where(PriceAlert.is_triggered is False)
+            stmt = select(PriceAlert).where(PriceAlert.is_triggered == False)
             return (await session.execute(stmt)).scalars().all()
 
     @staticmethod
@@ -270,7 +270,7 @@ class PriceAlertRepo:
     @staticmethod
     async def count_user_alerts(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
-            stmt = select(PriceAlert).where(PriceAlert.user_id == user_id, PriceAlert.is_triggered is False)
+            stmt = select(PriceAlert).where(PriceAlert.user_id == user_id, PriceAlert.is_triggered == False)
             return len((await session.execute(stmt)).scalars().all())
 
 

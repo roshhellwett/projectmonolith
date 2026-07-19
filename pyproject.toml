@@ -51,9 +51,12 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"tests/**" = ["F401"]
 "alembic/env.py" = ["E402"]
 "alembic/versions/*" = ["W291", "UP007", "UP035"]
 "main.py" = ["F401"]
+"**/repository.py" = ["E711", "E712"]
+"**/scheduler.py" = ["E711", "E712"]
 
 [tool.ruff.format]
 quote-style = "double"

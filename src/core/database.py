@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import re
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -26,6 +27,7 @@ def _resolve_database_url(url: str) -> str:
         return url
     elif not url.startswith("postgresql+asyncpg://"):
         raise ValueError(f"Unsupported DATABASE_URL scheme: {url.split('://')[0]}")
+    url = re.sub(r"\?pgbouncer=true", "", url)
     return url
 
 

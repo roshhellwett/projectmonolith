@@ -179,7 +179,7 @@ class MonitoringRepo:
         async with AsyncSessionLocal() as session:
             stmt = (
                 select(ActivationKey)
-                .where(ActivationKey.is_used is False)
+                .where(ActivationKey.is_used == False)
                 .order_by(ActivationKey.created_at.desc())
                 .limit(limit)
             )
@@ -327,7 +327,7 @@ class MonitoringRepo:
         async with AsyncSessionLocal() as session:
             stmt = (
                 select(GroupSettings)
-                .where(GroupSettings.is_active is True)
+                .where(GroupSettings.is_active == True)
                 .order_by(GroupSettings.chat_id.desc())
                 .limit(limit)
                 .offset(offset)
@@ -355,7 +355,7 @@ class MonitoringRepo:
         async with AsyncSessionLocal() as session:
             return (
                 await session.execute(
-                    select(func.count()).select_from(GroupSettings).where(GroupSettings.is_active is True)
+                    select(func.count()).select_from(GroupSettings).where(GroupSettings.is_active == True)
                 )
             ).scalar() or 0
 
@@ -399,7 +399,7 @@ class MonitoringRepo:
         async with AsyncSessionLocal() as session:
             stmt = (
                 select(ActivationKey)
-                .where(ActivationKey.is_used is True)
+                .where(ActivationKey.is_used == True)
                 .order_by(ActivationKey.used_at.desc())
                 .limit(limit)
             )
@@ -475,13 +475,13 @@ class MonitoringRepo:
                 await session.execute(
                     select(func.count())
                     .select_from(ActivationKey)
-                    .where(ActivationKey.is_used is True, ActivationKey.used_at >= month_start)
+                    .where(ActivationKey.is_used == True, ActivationKey.used_at >= month_start)
                 )
             ).scalar() or 0
 
             total_keys_used = (
                 await session.execute(
-                    select(func.count()).select_from(ActivationKey).where(ActivationKey.is_used is True)
+                    select(func.count()).select_from(ActivationKey).where(ActivationKey.is_used == True)
                 )
             ).scalar() or 0
 
@@ -515,5 +515,5 @@ class MonitoringRepo:
         from zenith_group_bot.models import GroupSettings
 
         async with AsyncSessionLocal() as session:
-            stmt = select(GroupSettings.chat_id).where(GroupSettings.is_active is True)
+            stmt = select(GroupSettings.chat_id).where(GroupSettings.is_active == True)
             return [r[0] for r in (await session.execute(stmt)).all()]
