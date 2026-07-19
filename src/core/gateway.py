@@ -136,3 +136,24 @@ async def gateway_middleware(
 
 def get_gateway() -> GatewayController:
     return _gateway
+
+
+def attach_gateway(bot_app, bot_name: str):
+    """
+    Attaches the central gateway middleware and registers the bot with monitoring.
+    """
+    from zenith_admin_bot.monitoring import register_bot_app
+
+    register_bot_app(bot_name, bot_app)
+    original_process_update = bot_app.process_update
+
+    async def wrapped_process_update(update: object):
+        if isinstance(update, Update):
+            async def next_call(u, c):
+                return await original_process_update(u)
+            await gateway_middleware(update, bot_app.create_context(update), next_call)
+        else:
+            await original_process_update(update)
+
+    bot_app.process_update = wrapped_process_update
+

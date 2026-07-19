@@ -4,6 +4,7 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandle
 
 from core.config import ADMIN_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
 from core.database import dispose_engine
+from core.gateway import attach_gateway
 from core.logger import setup_logger
 from zenith_admin_bot.commands import (
     cmd_audit,
@@ -52,6 +53,7 @@ async def start_service():
         return
 
     bot_app = ApplicationBuilder().token(ADMIN_BOT_TOKEN).build()
+    attach_gateway(bot_app, "Admin")
 
     bot_app.add_handler(CommandHandler("start", cmd_start))
     bot_app.add_handler(CommandHandler("keygen", cmd_keygen))

@@ -13,6 +13,7 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandle
 from core.config import CRYPTO_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
 from core.database import dispose_engine
 from core.error_handler import handle_bot_error
+from core.gateway import attach_gateway
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 from zenith_ai_bot.repository import UsageRepo
@@ -535,6 +536,7 @@ async def start_service():
         return
 
     bot_app = ApplicationBuilder().token(CRYPTO_BOT_TOKEN).build()
+    attach_gateway(bot_app, "Crypto")
 
     bot_app.add_handler(CommandHandler("start", cmd_start))
     bot_app.add_handler(CommandHandler("help", cmd_help))

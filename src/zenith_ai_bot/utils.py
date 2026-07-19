@@ -35,16 +35,17 @@ def get_db_engine():
 
 async def check_user_ban_status(user_id: int) -> bool:
     try:
-        engine = get_db_engine()  # sync function — no await
-        if not engine:
-            return False
+        from core.database import AsyncSessionLocal
+        from sqlalchemy import select
+        from zenith_group_bot.models import GroupStrike
 
         async def fetch_db():
-            async with engine.connect() as conn:
-                query = text(
-                    "SELECT strike_count FROM zenith_group_strikes WHERE user_id = :uid AND strike_count >= 3 LIMIT 1"
-                )
-                result = await conn.execute(query, {"uid": user_id})
+            async with AsyncSessionLocal() as session:
+                stmt = select(GroupStrike.strike_count).where(
+                    GroupStrike.user_id == user_id,
+                    GroupStrike.strike_count >= 3,
+                ).limit(1)
+                result = await session.execute(stmt)
                 return result.scalar() is not None
 
         return await asyncio.wait_for(fetch_db(), timeout=5.0)
@@ -54,6 +55,7 @@ async def check_user_ban_status(user_id: int) -> bool:
     except Exception as e:
         logger.warning(f"⚠️ DB Fallback Triggered: {repr(e)}")
         return False
+
 
 
 async def check_ai_rate_limit(user_id: int, is_pro: bool = False) -> tuple[bool, str]:

@@ -14,6 +14,7 @@ from telegram.ext import (
 
 from core.config import GROUP_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
 from core.database import dispose_engine
+from core.gateway import attach_gateway
 from core.logger import setup_logger
 from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_group_bot.group_app import (
@@ -168,6 +169,7 @@ async def start_service():
         return
 
     bot_app = ApplicationBuilder().token(GROUP_BOT_TOKEN).build()
+    attach_gateway(bot_app, "Group")
 
     bot_app.add_handler(CommandHandler("start", cmd_start))
     bot_app.add_handler(CommandHandler("setup", cmd_setup))

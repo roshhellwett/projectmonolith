@@ -15,6 +15,7 @@ from telegram.ext import (
 from core.config import ADMIN_USER_ID, AI_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
 from core.database import dispose_engine, init_db
 from core.error_handler import handle_bot_error
+from core.gateway import attach_gateway
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 from zenith_ai_bot.llm_engine import process_ai_query
@@ -447,6 +448,7 @@ async def start_service():
         return
 
     bot_app = ApplicationBuilder().token(AI_BOT_TOKEN).build()
+    attach_gateway(bot_app, "AI")
 
     bot_app.add_handler(CommandHandler("start", cmd_start))
     bot_app.add_handler(CommandHandler("help", cmd_help))
