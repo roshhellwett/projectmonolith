@@ -11,7 +11,7 @@ from telegram.error import BadRequest, Forbidden, RetryAfter
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes
 
 from core.config import ADMIN_USER_ID, CRYPTO_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
-from core.database import dispose_engine, init_db
+from core.database import dispose_engine
 from core.logger import setup_logger
 from zenith_crypto_bot.market_service import (
     close_market_client,
@@ -645,7 +645,6 @@ async def start_service():
     if not CRYPTO_BOT_TOKEN:
         return
 
-    await init_db()
     bot_app = ApplicationBuilder().token(CRYPTO_BOT_TOKEN).build()
 
     bot_app.add_handler(CommandHandler("start", cmd_start))

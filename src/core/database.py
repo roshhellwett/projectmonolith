@@ -39,9 +39,15 @@ def get_engine() -> AsyncEngine:
             _engine = create_async_engine(
                 resolved_url,
                 pool_size=DB_POOL_SIZE,
-                max_overflow=20,
+                max_overflow=2,
                 pool_pre_ping=True,
                 pool_recycle=3600,
+                pool_timeout=5,
+                pool_use_lifo=True,
+                connect_args={
+                    "prepared_statement_cache_size": 0,
+                    "statement_cache_size": 0,
+                },
             )
         logger.info("Database engine created")
     return _engine

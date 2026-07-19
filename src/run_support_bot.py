@@ -8,7 +8,7 @@ from telegram.error import BadRequest, RetryAfter
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
 from core.config import SUPPORT_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL, is_owner
-from core.database import dispose_engine, init_db
+from core.database import dispose_engine
 from core.logger import setup_logger
 from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_support_bot.ai_responder import generate_ai_response
@@ -553,7 +553,6 @@ async def start_service():
     if not SUPPORT_BOT_TOKEN:
         return
 
-    await init_db()
     await seed_default_faq()
     bot_app = ApplicationBuilder().token(SUPPORT_BOT_TOKEN).build()
 

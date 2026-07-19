@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler
 
 from core.config import ADMIN_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
-from core.database import dispose_engine, init_db
+from core.database import dispose_engine
 from core.logger import setup_logger
 from zenith_admin_bot.commands import (
     cmd_audit,
@@ -50,7 +50,6 @@ async def start_service():
         logger.warning("ADMIN_BOT_TOKEN missing! Admin Service disabled.")
         return
 
-    await init_db()
     bot_app = ApplicationBuilder().token(ADMIN_BOT_TOKEN).build()
 
     bot_app.add_handler(CommandHandler("start", cmd_start))

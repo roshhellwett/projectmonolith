@@ -71,7 +71,7 @@ def run_migrations_online() -> None:
         print("No real DATABASE_URL configured. Use offline mode or set sqlalchemy.url in alembic.ini.")
         return
 
-    sync_url = url.replace("+asyncpg", "").replace("+psycopg", "")
+    sync_url = url.replace("+asyncpg", "").replace("+psycopg", "").split("?")[0]
     connectable = create_engine(sync_url, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:

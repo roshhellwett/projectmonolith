@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 from core.config import GROUP_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
-from core.database import dispose_engine, init_db
+from core.database import dispose_engine
 from core.logger import setup_logger
 from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_group_bot.group_app import cmd_forgive, cmd_reset, handle_message, handle_new_member
@@ -216,10 +216,8 @@ async def scheduled_message_loop():
 async def start_service():
     global bot_app, bg_tasks
     if not GROUP_BOT_TOKEN:
-        logger.warning("⚠️ GROUP_BOT_TOKEN missing! Group Service disabled.")
+        logger.warning("GROUP_BOT_TOKEN missing! Group Service disabled.")
         return
-
-    await init_db()
 
     bot_app = ApplicationBuilder().token(GROUP_BOT_TOKEN).build()
 

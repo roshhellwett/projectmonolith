@@ -20,7 +20,7 @@ from telegram.ext import (
 )
 
 from core.config import ADMIN_USER_ID, AI_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
-from core.database import dispose_engine, init_db
+from core.database import dispose_engine
 from core.logger import setup_logger
 from zenith_ai_bot.llm_engine import process_ai_query
 from zenith_ai_bot.pro_handlers import (
@@ -434,10 +434,8 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start_service():
     global bot_app, worker_tasks
     if not AI_BOT_TOKEN:
-        logger.warning("⚠️ AI_BOT_TOKEN missing! AI Service disabled.")
+        logger.warning("AI_BOT_TOKEN missing! AI Service disabled.")
         return
-
-    await init_db()
 
     bot_app = ApplicationBuilder().token(AI_BOT_TOKEN).build()
 
