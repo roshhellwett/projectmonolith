@@ -37,6 +37,7 @@ from zenith_crypto_bot.pro_handlers import (
     perform_real_audit,
     show_new_pairs,
 )
+from zenith_ai_bot.repository import UsageRepo
 from zenith_crypto_bot.repository import (
     PriceAlertRepo,
     SubscriptionRepo,
@@ -357,6 +358,35 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 text, kb = crypto_ui.get_ai_no_key_msg()
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+
+        elif query.data == "ui_ai_copilot":
+            current_model = await UsageRepo.get_selected_model(user_id)
+            await query.edit_message_text(
+                crypto_ui.get_ai_copilot_menu_msg(current_model, is_pro),
+                reply_markup=crypto_ui.get_ai_copilot_menu_keyboard(current_model, is_pro),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "crypto_ai_models":
+            current_model = await UsageRepo.get_selected_model(user_id)
+            await query.edit_message_text(
+                crypto_ui.get_crypto_model_selector_msg(current_model),
+                reply_markup=crypto_ui.get_crypto_model_selector_keyboard(current_model, is_pro),
+                parse_mode="HTML",
+            )
+
+        elif query.data.startswith("crypto_set_model_"):
+            model_id = query.data.replace("crypto_set_model_", "")
+            from core.llm_fallback import AVAILABLE_MODELS
+
+            if model_id in AVAILABLE_MODELS:
+                if AVAILABLE_MODELS[model_id]["tier"] == "pro" and not is_pro:
+                    msg = crypto_ui.get_pro_info_msg(is_pro, days_left, user_id)
+                    await query.edit_message_text(msg, reply_markup=crypto_ui.get_back_button(), parse_mode="HTML")
+                else:
+                    await UsageRepo.set_selected_model(user_id, model_id)
+                    text = f"✅ <b>Active Engine Switched!</b>\nNow using: <b>{AVAILABLE_MODELS[model_id]['icon']} {AVAILABLE_MODELS[model_id]['name']}</b>\n\n" + crypto_ui.get_crypto_model_selector_msg(model_id)
+                    await query.edit_message_text(text, reply_markup=crypto_ui.get_crypto_model_selector_keyboard(model_id, is_pro=is_pro), parse_mode="HTML")
 
         elif query.data.startswith("ui_noop"):
             pass

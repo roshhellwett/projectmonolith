@@ -2,6 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import ADMIN_USER_ID
 from core.formatters import format_address, format_divider
+from core.llm_fallback import AVAILABLE_MODELS
 
 
 def get_main_dashboard(is_pro: bool = False, alert_count: int = 0, alert_limit: int = 1, wallet_count: int = 0, wallet_limit: int = 0):
@@ -20,7 +21,7 @@ def get_main_dashboard(is_pro: bool = False, alert_count: int = 0, alert_limit: 
          InlineKeyboardButton("Smart Money Pulse", callback_data="ui_volume")],
         [InlineKeyboardButton("New Pair Scanner", callback_data="ui_new_pairs"),
          InlineKeyboardButton("Live Orderflow", callback_data="ui_whale_radar")],
-        [InlineKeyboardButton("AI Co-Pilot", callback_data="ai_followup_what is in my portfolio?"),
+        [InlineKeyboardButton("AI Co-Pilot", callback_data="ui_ai_copilot"),
          InlineKeyboardButton("Set Groq Key", callback_data="ai_show_key_setup")],
         [InlineKeyboardButton(f"{tier} ACCESS", callback_data="ui_pro_info"),
          InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
@@ -752,6 +753,79 @@ def get_subscription_expired(user_id: int) -> str:
 
 
 # ── AI Co-Pilot ────────────────────────────────────────────
+
+def get_ai_copilot_menu_msg(current_model: str = "llama-3.3-70b-versatile", is_pro: bool = False):
+    model_info = AVAILABLE_MODELS.get(current_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
+    return (
+        "<b>Zenith Crypto AI Co-Pilot Terminal</b>\n"
+        f"{format_divider()}\n\n"
+        f"<b>Active Neural Engine:</b> {model_info['icon']} <b>{model_info['name']}</b>\n"
+        f"<i>{model_info['description']}</i>\n\n"
+        "<b>Instant Deep Analysis & Strategy Commands:</b>\n"
+        "• <b>Portfolio Audit:</b> Complete breakdown of your holdings & P/L\n"
+        "• <b>Market Pulse:</b> Live macro liquidity & sentiment analysis\n"
+        "• <b>Gas Optimization:</b> Gwei forecast & execution timing guide\n"
+        "• <b>BTC Technicals:</b> Support/resistance & institutional orderflow\n"
+        "• <b>Alert Strategy:</b> Optimal stop-loss & take-profit targets\n"
+        "• <b>Scam Shield:</b> Smart contract vulnerability & rug-pull check\n\n"
+        "<i>Or type any custom command in chat:</i> <code>/ai [your question]</code>"
+    )
+
+
+def get_ai_copilot_menu_keyboard(current_model: str = "llama-3.3-70b-versatile", is_pro: bool = False):
+    model_info = AVAILABLE_MODELS.get(current_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("📊 Portfolio Audit", callback_data="ai_followup_what is in my portfolio?"),
+            InlineKeyboardButton("🌐 Market Pulse", callback_data="ai_followup_give me the crypto market overview today"),
+        ],
+        [
+            InlineKeyboardButton("⛽ Gas Optimization", callback_data="ai_followup_what are current gas fees and when should I trade?"),
+            InlineKeyboardButton("📈 BTC Technicals", callback_data="ai_followup_analyze bitcoin technical action and support resistance levels"),
+        ],
+        [
+            InlineKeyboardButton("🔔 Alert Strategy", callback_data="ai_followup_what price alerts should I set for my portfolio?"),
+            InlineKeyboardButton("🛡️ Scam Shield Guide", callback_data="ai_followup_how to avoid crypto scams and rug pulls?"),
+        ],
+        [
+            InlineKeyboardButton(f"⚙️ Switch Engine ({model_info['icon']} {model_info['name']})", callback_data="crypto_ai_models"),
+        ],
+        [
+            InlineKeyboardButton("🔑 API Key Settings", callback_data="ai_show_key_setup"),
+            InlineKeyboardButton("◀️ Back to Main Dashboard", callback_data="ui_main_menu"),
+        ],
+    ])
+
+
+def get_crypto_model_selector_msg(current_model: str = "llama-3.3-70b-versatile"):
+    model_info = AVAILABLE_MODELS.get(current_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
+    lines = [
+        "<b>Crypto AI Neural Engine Selection</b>",
+        format_divider(),
+        "",
+        f"<b>Current Active Engine:</b> {model_info['icon']} <b>{model_info['name']}</b>",
+        f"<i>{model_info['description']}</i>",
+        "",
+        "Select an AI engine below to power your Crypto Co-Pilot analysis and market intelligence:",
+    ]
+    return "\n".join(lines)
+
+
+def get_crypto_model_selector_keyboard(current_model: str = "llama-3.3-70b-versatile", is_pro: bool = False):
+    buttons = []
+    for model_id, data in AVAILABLE_MODELS.items():
+        icon = data["icon"]
+        name = data["name"]
+        if model_id == current_model:
+            label = f"✅ {icon} {name} (Active)"
+        elif data["tier"] == "pro" and not is_pro:
+            label = f"🔒 {icon} {name} (Pro Only)"
+        else:
+            label = f"{icon} {name}"
+        buttons.append([InlineKeyboardButton(label, callback_data=f"crypto_set_model_{model_id}")])
+    buttons.append([InlineKeyboardButton("◀️ Back to Co-Pilot", callback_data="ui_ai_copilot")])
+    return InlineKeyboardMarkup(buttons)
+
 
 def get_ai_no_key_msg():
     text = (

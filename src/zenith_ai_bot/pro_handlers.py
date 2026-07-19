@@ -101,7 +101,8 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
             update, context, stages=stages, final_text="Research complete! Compiling report...", delay=0.8
         )
 
-        result = await process_research(topic, api_key=api_key)
+        selected_model = await UsageRepo.get_selected_model(user_id)
+        result = await process_research(topic, api_key=api_key, preferred_model=selected_model)
         clean = sanitize_telegram_html(result)
 
         if len(clean) > 4000:
@@ -161,7 +162,8 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from zenith_ai_bot.utils import sanitize_telegram_html
 
-    result = await process_summarize(text, api_key=api_key)
+    selected_model = await UsageRepo.get_selected_model(user_id)
+    result = await process_summarize(text, api_key=api_key, preferred_model=selected_model)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -200,7 +202,8 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from zenith_ai_bot.utils import sanitize_telegram_html
 
-    result = await process_code(description, api_key=api_key)
+    selected_model = await UsageRepo.get_selected_model(user_id)
+    result = await process_code(description, api_key=api_key, preferred_model=selected_model)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -255,7 +258,8 @@ async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from zenith_ai_bot.utils import sanitize_telegram_html
 
-    result = await process_imagine(description, api_key=api_key)
+    selected_model = await UsageRepo.get_selected_model(user_id)
+    result = await process_imagine(description, api_key=api_key, preferred_model=selected_model)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"

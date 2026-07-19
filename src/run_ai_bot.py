@@ -80,8 +80,9 @@ async def ai_worker():
                     continue
 
                 max_tokens = 4096 if is_pro else 1024
+                selected_model = await UsageRepo.get_selected_model(user_id)
                 ai_response = await process_ai_query(
-                    text, history_text, persona=persona, max_tokens=max_tokens, history=history, api_key=api_key
+                    text, history_text, persona=persona, max_tokens=max_tokens, history=history, api_key=api_key, preferred_model=selected_model
                 )
                 clean_html = sanitize_telegram_html(ai_response)
 
@@ -144,7 +145,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         text = get_welcome_msg(is_pro, days_left, usage, persona)
 
-    await update.message.reply_text(text, reply_markup=get_ai_dashboard(is_pro, persona, usage), parse_mode="HTML")
+    selected_model = usage.get("selected_model", "llama-3.3-70b-versatile")
+    await update.message.reply_text(text, reply_markup=get_ai_dashboard(is_pro, persona, usage, selected_model), parse_mode="HTML")
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -246,10 +248,11 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if query.data == "ai_main_menu":
             usage = await UsageRepo.get_today_usage(user_id)
             persona = usage.get("persona", "default")
+            selected_model = usage.get("selected_model", "llama-3.3-70b-versatile")
             days_left = await SubscriptionRepo.get_days_left(user_id)
             text = get_welcome_msg(is_pro, days_left, usage, persona)
             await query.edit_message_text(
-                text, reply_markup=get_ai_dashboard(is_pro, persona, usage), parse_mode="HTML"
+                text, reply_markup=get_ai_dashboard(is_pro, persona, usage, selected_model), parse_mode="HTML"
             )
 
         elif query.data == "ai_status":
@@ -325,6 +328,92 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             feature = feature_map[query.data]
             msg_text, kb = get_feature_help_msg(feature, is_pro)
             await query.edit_message_text(msg_text, reply_markup=kb, parse_mode="HTML")
+
+        elif query.data == "ai_models":
+            current_model = await UsageRepo.get_selected_model(user_id)
+            from zenith_ai_bot.ui import get_model_selector_keyboard, get_model_selector_msg
+
+            await query.edit_message_text(
+                get_model_selector_msg(current_model),
+                reply_markup=get_model_selector_keyboard(current_model, is_pro=is_pro),
+                parse_mode="HTML",
+            )
+
+        elif query.data.startswith("ai_set_model_"):
+            model_id = query.data.replace("ai_set_model_", "")
+            from core.llm_fallback import AVAILABLE_MODELS
+            from zenith_ai_bot.ui import get_model_selector_keyboard, get_model_selector_msg, get_pro_feature_msg
+
+            if model_id in AVAILABLE_MODELS:
+                if AVAILABLE_MODELS[model_id]["tier"] == "pro" and not is_pro:
+                    msg, kb = get_pro_feature_msg(f"Model: {AVAILABLE_MODELS[model_id]['name']}")
+                    await query.edit_message_text(msg, reply_markup=kb, parse_mode="HTML")
+                else:
+                    await UsageRepo.set_selected_model(user_id, model_id)
+                    text = f"✅ <b>Active Engine Switched!</b>\nNow using: <b>{AVAILABLE_MODELS[model_id]['icon']} {AVAILABLE_MODELS[model_id]['name']}</b>\n\n" + get_model_selector_msg(model_id)
+                    await query.edit_message_text(text, reply_markup=get_model_selector_keyboard(model_id, is_pro=is_pro), parse_mode="HTML")
+
+        elif query.data.startswith("ai_quick_"):
+            if (query.data.startswith("ai_quick_res_") or query.data.startswith("ai_quick_code_") or query.data.startswith("ai_quick_img_")) and not is_pro:
+                from zenith_ai_bot.ui import get_pro_feature_msg
+
+                msg, kb = get_pro_feature_msg("Pro Interactive Quick-Action")
+                await query.edit_message_text(msg, reply_markup=kb, parse_mode="HTML")
+            else:
+                api_key = await SubscriptionRepo.get_groq_key(user_id)
+                if not api_key:
+                    await query.edit_message_text(get_no_key_msg(), parse_mode="HTML")
+                else:
+                    selected_model = await UsageRepo.get_selected_model(user_id)
+                    from zenith_ai_bot.llm_engine import process_code, process_imagine, process_research, process_summarize
+                    from zenith_ai_bot.utils import sanitize_telegram_html
+
+                    if query.data.startswith("ai_quick_res_"):
+                        topics = {
+                            "ai_quick_res_aitrends": "Artificial Intelligence breakthroughs and agentic workflows 2026",
+                            "ai_quick_res_quantum": "Quantum computing commercial progress and breakthroughs",
+                            "ai_quick_res_defi": "DeFi security moats and smart contract vulnerability mitigation",
+                        }
+                        topic = topics.get(query.data, "Artificial Intelligence trends")
+                        await query.edit_message_text(f"🔬 <i>Executing deep research: {topic}...</i>", parse_mode="HTML")
+                        res = await process_research(topic, api_key=api_key, preferred_model=selected_model)
+                        clean = sanitize_telegram_html(res)[:4000]
+                        await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML", disable_web_page_preview=True)
+
+                    elif query.data.startswith("ai_quick_sum_"):
+                        samples = {
+                            "ai_quick_sum_whitepaper": "Autonomous Agentic Systems Whitepaper Summary: Modern AI architectures rely on multi-tier fallback mechanisms, dynamic context pruning, and subagent orchestration. By integrating real-time web verification with specialized tool execution, next-generation LLM agents achieve near-zero hallucination rates in production engineering environments.",
+                            "ai_quick_sum_earnings": "Quarterly Earnings High-Density Review: Tech sector revenues surged 24% year-over-year, driven primarily by enterprise adoption of autonomous developer tools and decentralized compute infrastructure. Operating margins expanded by 340 bps due to AI-driven efficiency workflows across customer support and core infrastructure.",
+                        }
+                        sample = samples.get(query.data, "Summary sample text.")
+                        await query.edit_message_text("📝 <i>Summarizing sample document...</i>", parse_mode="HTML")
+                        res = await process_summarize(sample, api_key=api_key, preferred_model=selected_model)
+                        clean = sanitize_telegram_html(res)[:4000]
+                        await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
+
+                    elif query.data.startswith("ai_quick_code_"):
+                        prompts = {
+                            "ai_quick_code_fastapi": "Create a Python FastAPI REST API endpoint with JWT authentication, dependency injection, and Pydantic schema validation for user registration.",
+                            "ai_quick_code_react": "Write a clean React TypeScript component featuring a sortable, paginated data table with search filtering and modern styling.",
+                            "ai_quick_code_tgbot": "Write a Python Telegram bot handler using python-telegram-bot v20+ with inline keyboard pagination and robust error handling.",
+                        }
+                        prompt = prompts.get(query.data, "Write a Python function.")
+                        await query.edit_message_text("💻 <i>Generating production code architecture...</i>", parse_mode="HTML")
+                        res = await process_code(prompt, api_key=api_key, preferred_model=selected_model)
+                        clean = sanitize_telegram_html(res)[:4000]
+                        await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
+
+                    elif query.data.startswith("ai_quick_img_"):
+                        prompts = {
+                            "ai_quick_img_cyberpunk": "A breathtaking cyberpunk Neo-Tokyo street at twilight with neon rain reflections and towering holographic advertisements.",
+                            "ai_quick_img_nebula": "A vivid deep space colorful nebula horizon with a lone exploratory starship approaching a hyper-luminous pulsar.",
+                            "ai_quick_img_watch": "A minimalist luxury mechanical wristwatch suspended in mid-air with dramatically lit gears and matte black titanium casing.",
+                        }
+                        prompt = prompts.get(query.data, "Visual prompt sample.")
+                        await query.edit_message_text("🎨 <i>Crafting multi-platform visual prompts...</i>", parse_mode="HTML")
+                        res = await process_imagine(prompt, api_key=api_key, preferred_model=selected_model)
+                        clean = sanitize_telegram_html(res)[:4000]
+                        await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
 
     except Exception as e:
         if "not modified" not in str(e).lower():

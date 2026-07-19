@@ -51,7 +51,19 @@ class UsageRepo:
         stmt = select(AIUsageLog).where(AIUsageLog.user_id == user_id, AIUsageLog.usage_date == today)
         row = (await session.execute(stmt)).scalar_one_or_none()
         if not row:
-            row = AIUsageLog(user_id=user_id, usage_date=today, query_count=0, summarize_count=0)
+            last_stmt = select(AIUsageLog).where(AIUsageLog.user_id == user_id).order_by(AIUsageLog.usage_date.desc()).limit(1)
+            last_row = (await session.execute(last_stmt)).scalar_one_or_none()
+            default_persona = last_row.persona if last_row and last_row.persona else "default"
+            default_model = last_row.selected_model if last_row and last_row.selected_model else "llama-3.3-70b-versatile"
+
+            row = AIUsageLog(
+                user_id=user_id,
+                usage_date=today,
+                query_count=0,
+                summarize_count=0,
+                persona=default_persona,
+                selected_model=default_model,
+            )
             session.add(row)
             await session.flush()
         return row
@@ -80,6 +92,7 @@ class UsageRepo:
                 "queries": row.query_count,
                 "summarizes": row.summarize_count,
                 "persona": row.persona or "default",
+                "selected_model": row.selected_model or "llama-3.3-70b-versatile",
             }
 
     @staticmethod
@@ -94,3 +107,16 @@ class UsageRepo:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
             return row.persona or "default"
+
+    @staticmethod
+    async def set_selected_model(user_id: int, model_id: str):
+        async with AsyncSessionLocal() as session:
+            row = await UsageRepo._get_or_create(session, user_id)
+            row.selected_model = model_id
+            await session.commit()
+
+    @staticmethod
+    async def get_selected_model(user_id: int) -> str:
+        async with AsyncSessionLocal() as session:
+            row = await UsageRepo._get_or_create(session, user_id)
+            return row.selected_model or "llama-3.3-70b-versatile"

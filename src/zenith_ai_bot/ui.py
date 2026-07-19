@@ -4,40 +4,70 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import ADMIN_USER_ID
 from core.formatters import format_divider, format_progress_bar
+from core.llm_fallback import AVAILABLE_MODELS
 from zenith_ai_bot.prompts import PERSONAS
 
 
-def get_ai_dashboard(is_pro: bool, persona: str, usage: dict) -> InlineKeyboardMarkup:
+def get_ai_dashboard(is_pro: bool, persona: str, usage: dict, selected_model: str = "llama-3.3-70b-versatile") -> InlineKeyboardMarkup:
     persona_info = PERSONAS.get(persona, PERSONAS["default"])
     persona_label = f"{persona_info['icon']} {persona_info['name']}"
+
+    model_info = AVAILABLE_MODELS.get(selected_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
+    model_label = f"{model_info['icon']} {model_info['name']}"
 
     message_limit = usage.get("message_limit", 100) if is_pro else usage.get("message_limit", 10)
     messages_used = usage.get("messages_used", 0)
     message_bar = format_progress_bar(messages_used, message_limit)
 
-    tier_label = "PRO ACTIVE" if is_pro else "FREE TIER"
+    tier_label = "⚡ PRO ACTIVE" if is_pro else "FREE TIER"
     rows = [
         [InlineKeyboardButton(tier_label, callback_data="ai_status")],
         [
             InlineKeyboardButton(f"Persona: {persona_label}", callback_data="ai_personas"),
-            InlineKeyboardButton(f"{message_bar}", callback_data="ai_usage"),
+            InlineKeyboardButton(f"Model: {model_label}", callback_data="ai_models"),
+        ],
+        [InlineKeyboardButton(f"{message_bar}", callback_data="ai_usage")],
+        [
+            InlineKeyboardButton("🔬 Research", callback_data="ai_research_help"),
+            InlineKeyboardButton("📝 Summarize", callback_data="ai_summarize_help"),
         ],
         [
-            InlineKeyboardButton("Research", callback_data="ai_research_help"),
-            InlineKeyboardButton("Summarize", callback_data="ai_summarize_help"),
+            InlineKeyboardButton("💻 Code", callback_data="ai_code_help"),
+            InlineKeyboardButton("🎨 Imagine", callback_data="ai_imagine_help"),
         ],
         [
-            InlineKeyboardButton("Code", callback_data="ai_code_help"),
-            InlineKeyboardButton("Imagine", callback_data="ai_imagine_help"),
-        ],
-        [
-            InlineKeyboardButton("Chat History", callback_data="ai_history"),
+            InlineKeyboardButton("💬 Chat Memory", callback_data="ai_history"),
             InlineKeyboardButton("🔑 Groq Key", callback_data="ai_show_key_setup"),
         ],
     ]
     if not is_pro:
-        rows.append([InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
+        rows.append([InlineKeyboardButton("💎 Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
     return InlineKeyboardMarkup(rows)
+
+
+def get_model_selector_keyboard(current_model: str, is_pro: bool = False) -> InlineKeyboardMarkup:
+    rows = []
+    for model_id, info in AVAILABLE_MODELS.items():
+        if info["tier"] == "pro" and not is_pro:
+            marker = " [PRO ONLY]"
+        else:
+            marker = " \u2714" if model_id == current_model else ""
+        rows.append([InlineKeyboardButton(f"{info['icon']} {info['name']} ({info['description']}){marker}", callback_data=f"ai_set_model_{model_id}")])
+    if not is_pro:
+        rows.append([InlineKeyboardButton("💎 Upgrade to Unlock All 70B Models", url=f"tg://user?id={ADMIN_USER_ID}")])
+    rows.append([InlineKeyboardButton("◀️ Back to Dashboard", callback_data="ai_main_menu")])
+    return InlineKeyboardMarkup(rows)
+
+
+def get_model_selector_msg(current_model: str) -> str:
+    m_info = AVAILABLE_MODELS.get(current_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
+    return (
+        f"<b>🤖 AI Intelligence Engine Selection</b>\n"
+        f"{format_divider()}\n\n"
+        f"Current Engine: <b>{m_info['icon']} {m_info['name']}</b>\n"
+        f"<i>{m_info['description']}</i>\n\n"
+        f"Select your preferred Groq AI model below. All models are automatically protected by our real-time multi-tier fallback engine!"
+    )
 
 
 def get_persona_keyboard(current: str, is_pro: bool = False) -> InlineKeyboardMarkup:
@@ -352,36 +382,75 @@ def get_activate_help_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-# Feature help messages
+# Feature help messages with interactive quick-action triggers
 def get_feature_help_msg(feature: str, is_pro: bool = False) -> tuple:
     messages = {
         "research": (
-            "<b>Deep Research</b>\n\n"
-            "Multi-source research with news and web analysis.\n\n"
-            "Usage: /research [TOPIC]\n" + ("Available with your Pro subscription." if is_pro else "Pro Required")
+            "<b>🔬 Deep Research Engine</b>\n"
+            f"{format_divider()}\n\n"
+            "Multi-source investigative research with live web analysis.\n\n"
+            "<b>How to use:</b>\n"
+            "<code>/research [TOPIC]</code>\n\n"
+            "Or click any interactive quick-action below to test right now:\n"
+            + ("\n<i>⚡ Pro Active \u2014 Full capability unlocked.</i>" if is_pro else "\n<i>⚠️ Pro Required to execute research queries.</i>")
         ),
         "summarize": (
-            "<b>Text Summarizer</b>\n\n"
-            "Condense long texts into key takeaways.\n\n"
-            "Usage: /summarize [TEXT]\n"
-            "Or reply to any message with /summarize\n\n"
-            f"Limit: {'Unlimited' if is_pro else '1/day (500 words max)'}"
+            "<b>📝 Precision Text Summarizer</b>\n"
+            f"{format_divider()}\n\n"
+            "Condense long articles, transcripts, or whitepapers into scannable key takeaways.\n\n"
+            "<b>How to use:</b>\n"
+            "<code>/summarize [TEXT]</code> or reply to any message with <code>/summarize</code>\n\n"
+            "Or click any interactive example below to run a test summary right now:\n"
+            + (f"\n<i>⚡ Limit: {'Unlimited (Pro)' if is_pro else '1/day (Free Tier)'}</i>")
         ),
         "code": (
-            "<b>Code Generator</b>\n\n"
-            "Production-ready code from natural language.\n\n"
-            "Usage: /code [DESCRIPTION]\n" + ("Available with your Pro subscription." if is_pro else "Pro Required")
+            "<b>💻 Principal Code Architect</b>\n"
+            f"{format_divider()}\n\n"
+            "Production-ready, clean, modular code generated from natural language descriptions.\n\n"
+            "<b>How to use:</b>\n"
+            "<code>/code [DESCRIPTION]</code>\n\n"
+            "Or click any interactive quick-action below to test right now:\n"
+            + ("\n<i>⚡ Pro Active \u2014 Full capability unlocked.</i>" if is_pro else "\n<i>⚠️ Pro Required to execute code generation.</i>")
         ),
         "imagine": (
-            "<b>Image Prompt Crafter</b>\n\n"
-            "Optimized prompts for Midjourney, DALL-E, Stable Diffusion.\n\n"
-            "Usage: /imagine [DESCRIPTION]\n" + ("Available with your Pro subscription." if is_pro else "Pro Required")
+            "<b>🎨 Visual Prompt Architect</b>\n"
+            f"{format_divider()}\n\n"
+            "Craft high-precision image generation prompts across Midjourney, DALL-E, and Stable Diffusion.\n\n"
+            "<b>How to use:</b>\n"
+            "<code>/imagine [DESCRIPTION]</code>\n\n"
+            "Or click any interactive example below to test right now:\n"
+            + ("\n<i>⚡ Pro Active \u2014 Full capability unlocked.</i>" if is_pro else "\n<i>⚠️ Pro Required to execute image prompt crafting.</i>")
         ),
     }
     message = messages.get(feature, "Feature help not available.")
-    if feature in ("research", "code", "imagine") and not is_pro:
-        message += "\n\nPro Feature. Upgrade to PRO to unlock."
-    return message, get_back_button()
+
+    rows = []
+    if feature == "research":
+        rows = [
+            [InlineKeyboardButton("💡 Quick Run: AI Trends 2026", callback_data="ai_quick_res_aitrends")],
+            [InlineKeyboardButton("💡 Quick Run: Quantum Computing", callback_data="ai_quick_res_quantum")],
+            [InlineKeyboardButton("💡 Quick Run: DeFi Security Moats", callback_data="ai_quick_res_defi")],
+        ]
+    elif feature == "summarize":
+        rows = [
+            [InlineKeyboardButton("💡 Quick Run: Tech Whitepaper", callback_data="ai_quick_sum_whitepaper")],
+            [InlineKeyboardButton("💡 Quick Run: Earnings Report", callback_data="ai_quick_sum_earnings")],
+        ]
+    elif feature == "code":
+        rows = [
+            [InlineKeyboardButton("💡 Quick Run: FastAPI Auth Endpoint", callback_data="ai_quick_code_fastapi")],
+            [InlineKeyboardButton("💡 Quick Run: React Table Component", callback_data="ai_quick_code_react")],
+            [InlineKeyboardButton("💡 Quick Run: Telegram Bot Boilerplate", callback_data="ai_quick_code_tgbot")],
+        ]
+    elif feature == "imagine":
+        rows = [
+            [InlineKeyboardButton("💡 Quick Run: Cyberpunk Neo-Tokyo", callback_data="ai_quick_img_cyberpunk")],
+            [InlineKeyboardButton("💡 Quick Run: Space Nebula Horizon", callback_data="ai_quick_img_nebula")],
+            [InlineKeyboardButton("💡 Quick Run: Luxury Watch Concept", callback_data="ai_quick_img_watch")],
+        ]
+
+    rows.append([InlineKeyboardButton("◀️ Back to Dashboard", callback_data="ai_main_menu")])
+    return message, InlineKeyboardMarkup(rows)
 
 
 from core.ui_components import pro_feature_locked_msg, pro_upgrade_keyboard

@@ -114,7 +114,9 @@ async def cmd_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ai_response = None
     if is_pro or is_owner_user:
         try:
-            ai_response = await generate_ai_response(subject, description)
+            from zenith_ai_bot.repository import UsageRepo
+            preferred_model = await UsageRepo.get_selected_model(user_id)
+            ai_response = await generate_ai_response(subject, description, preferred_model=preferred_model)
             if ai_response:
                 await TicketRepo.set_ai_response(ticket.id, ai_response)
         except Exception as e:
