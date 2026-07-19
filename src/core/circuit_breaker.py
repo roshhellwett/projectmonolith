@@ -138,10 +138,7 @@ class CircuitBreaker:
             self.half_open_in_flight = 0
 
         if old_state != new_state:
-            logger.info(
-                f"⚡ [{self.config.name}] Circuit breaker: "
-                f"{old_state.value} → {new_state.value}"
-            )
+            logger.info(f"⚡ [{self.config.name}] Circuit breaker: " f"{old_state.value} → {new_state.value}")
 
     @property
     def is_open(self) -> bool:

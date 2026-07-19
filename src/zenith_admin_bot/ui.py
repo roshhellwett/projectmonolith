@@ -11,6 +11,7 @@ from core.formatters import (
 
 # ── Keyboards ──────────────────────────────────────────────
 
+
 def get_admin_main_menu() -> InlineKeyboardMarkup:
     keyboard = [
         [
@@ -40,7 +41,6 @@ def get_admin_main_menu() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("◀️ Exit to Main Menu", callback_data="admin_back")],
     ]
     return InlineKeyboardMarkup(keyboard)
-
 
 
 def get_back_button() -> InlineKeyboardMarkup:
@@ -93,6 +93,7 @@ def get_faq_keyboard() -> InlineKeyboardMarkup:
 
 # ── Messages / Formatting ──────────────────────────────────
 
+
 def get_admin_dashboard() -> str:
     items = [
         "System Architecture: <b>Zenith Enterprise Multi-Bot Cluster</b>",
@@ -135,7 +136,7 @@ def format_key_management(keys: list) -> str:
         )
     lines = [
         format_header("License Key Registry", "Active & Unused Activation Token Matrix", f"{len(keys)} KEYS"),
-        "<b>Available Activation Tokens:</b>"
+        "<b>Available Activation Tokens:</b>",
     ]
     for key in keys:
         days = key.duration_days
@@ -170,8 +171,12 @@ def format_bot_health(bots: list) -> str:
 
     db_icon = "🟢 Healthy & Synced" if is_db_healthy() else "🔴 Unhealthy Connection"
     lines = [
-        format_header("Cluster Diagnostics", "Real-Time Health & Circuit Breaker Telemetry", "HEALTHY" if is_db_healthy() else "ALERT"),
-        f"<b>Database Engine:</b> {db_icon}\n"
+        format_header(
+            "Cluster Diagnostics",
+            "Real-Time Health & Circuit Breaker Telemetry",
+            "HEALTHY" if is_db_healthy() else "ALERT",
+        ),
+        f"<b>Database Engine:</b> {db_icon}\n",
     ]
 
     breakers = get_all_breaker_statuses()
@@ -179,7 +184,9 @@ def format_bot_health(bots: list) -> str:
         lines.append("<b>Circuit Breaker Matrix:</b>")
         for b in breakers:
             state_icon = "🟢" if b["state"] == "closed" else ("🔴" if b["state"] == "open" else "🟡")
-            lines.append(f"  ▫️ <b>{b['name']}</b>: {state_icon} {b['state'].upper()} (Recent Fails: <code>{b['recent_failures']}</code>)")
+            lines.append(
+                f"  ▫️ <b>{b['name']}</b>: {state_icon} {b['state'].upper()} (Recent Fails: <code>{b['recent_failures']}</code>)"
+            )
         lines.append("")
 
     if not bots:
@@ -187,16 +194,18 @@ def format_bot_health(bots: list) -> str:
     else:
         lines.append("<b>Monitored Cluster Nodes:</b>")
         for bot in bots:
-            status_icon = "🟢 Active" if bot.status == "active" else ("🔴 Error" if bot.status == "error" else "⚪ Inactive")
+            status_icon = (
+                "🟢 Active" if bot.status == "active" else ("🔴 Error" if bot.status == "error" else "⚪ Inactive")
+            )
             health = bot.health_status or "unknown"
             last_check = bot.last_health_check.strftime("%d %b %H:%M") if bot.last_health_check else "Never"
             lines.append(f"  ▫️ <b>{bot.bot_name}</b>: {status_icon} | Health: {health.upper()} (Checked {last_check})")
     return "\n".join(lines)
 
 
-
 def format_platform_metrics() -> str:
     from core.metrics import get_metrics
+
     summary = get_metrics().get_summary()
     uptime = summary.get("uptime_seconds", 0)
     mins = int(uptime // 60)
@@ -222,7 +231,9 @@ def format_platform_metrics() -> str:
         items.append("<b>Latency Summaries (ms):</b>")
         for k, stats in lats.items():
             if stats["count"] > 0:
-                items.append(f"  ▫️ {k}: p50=<code>{stats['p50_ms']}ms</code> | p95=<code>{stats['p95_ms']}ms</code> (n={stats['count']})")
+                items.append(
+                    f"  ▫️ {k}: p50=<code>{stats['p50_ms']}ms</code> | p95=<code>{stats['p95_ms']}ms</code> (n={stats['count']})"
+                )
 
     return (
         f"{format_header('Platform Telemetry', 'High-Frequency Cluster Execution Metrics', 'LIVE')}\n"
@@ -238,7 +249,7 @@ def format_audit_log(logs: list) -> str:
         )
     lines = [
         format_header("Forensic Audit Log", "Administrator Action & Mutation History", f"{len(logs)} LOGS"),
-        "<b>Recent Admin Mutations:</b>"
+        "<b>Recent Admin Mutations:</b>",
     ]
     for log in logs[:15]:
         time_str = log.created_at.strftime("%d %b %H:%M") if log.created_at else "N/A"
@@ -267,7 +278,6 @@ def format_revenue_analytics(stats: dict) -> str:
         f"{format_card('Monetization Dashboard', items, '💰')}\n\n"
         f"<i>💡 Note: Calculation based on ₹149/month standard tier billing.</i>"
     )
-
 
 
 def format_subscription_list(subscriptions: list) -> str:
@@ -450,7 +460,9 @@ def format_key_history(keys: list) -> str:
     lines = [f"<b>Recently Used Keys</b>\n{format_divider()}"]
     for key in keys[:15]:
         used_at = key.used_at.strftime("%d %b %Y") if key.used_at else "N/A"
-        lines.append(f"\u2022 <code>{key.key_string}</code>\n   {key.duration_days}d \u2192 <code>{key.used_by}</code> | {used_at}")
+        lines.append(
+            f"\u2022 <code>{key.key_string}</code>\n   {key.duration_days}d \u2192 <code>{key.used_by}</code> | {used_at}"
+        )
     return "\n".join(lines)
 
 
@@ -477,6 +489,7 @@ def format_canned_list(canned: list) -> str:
 
 
 # ── Inline Helpers ─────────────────────────────────────────
+
 
 def get_user_management_help() -> str:
     return (
@@ -511,12 +524,7 @@ def get_bulk_keygen_success(count: int, days: int, keys: list) -> str:
 
 
 def get_keygen_success(key: str, days: int) -> str:
-    return (
-        f"<b>Key Generated</b>\n"
-        f"{format_divider()}\n\n"
-        f"<code>{key}</code>\n\n"
-        f"Duration: {days} days"
-    )
+    return f"<b>Key Generated</b>\n" f"{format_divider()}\n\n" f"<code>{key}</code>\n\n" f"Duration: {days} days"
 
 
 def get_broadcast_result(user_ids: list, pro_user_ids: list, group_ids: list, sent: int, failed: int) -> str:

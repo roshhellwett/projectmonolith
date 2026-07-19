@@ -221,13 +221,14 @@ async def start_service():
     logger.info("⏰ Scheduled Message Loop: Online")
 
 
-async def stop_service():
+async def stop_service(dispose_db: bool = False):
     for task in bg_tasks:
         task.cancel()
     if bot_app:
         await bot_app.stop()
         await bot_app.shutdown()
-    await dispose_engine()
+    if dispose_db:
+        await dispose_engine()
 
 
 @router.post("/webhook/group/{secret}")

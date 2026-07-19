@@ -38,8 +38,7 @@ class ErrorCategory(Enum):
 # User-friendly messages for each error category
 ERROR_MESSAGES = {
     ErrorCategory.RATE_LIMITED: (
-        "⏳ <b>Slow down!</b>\n\n"
-        "You're sending requests too quickly. Please wait a moment and try again."
+        "⏳ <b>Slow down!</b>\n\n" "You're sending requests too quickly. Please wait a moment and try again."
     ),
     ErrorCategory.API_TIMEOUT: (
         "⏱️ <b>Request Timed Out</b>\n\n"
@@ -55,16 +54,13 @@ ERROR_MESSAGES = {
         "We encountered a brief database issue. Please try again — it usually resolves in seconds."
     ),
     ErrorCategory.PERMISSION_ERROR: (
-        "🔒 <b>Permission Denied</b>\n\n"
-        "You don't have permission to perform this action."
+        "🔒 <b>Permission Denied</b>\n\n" "You don't have permission to perform this action."
     ),
     ErrorCategory.VALIDATION_ERROR: (
-        "⚠️ <b>Invalid Input</b>\n\n"
-        "Please check your input and try again. Use /help for command usage."
+        "⚠️ <b>Invalid Input</b>\n\n" "Please check your input and try again. Use /help for command usage."
     ),
     ErrorCategory.TELEGRAM_ERROR: (
-        "📱 <b>Telegram Error</b>\n\n"
-        "There was an issue communicating with Telegram. Please try again."
+        "📱 <b>Telegram Error</b>\n\n" "There was an issue communicating with Telegram. Please try again."
     ),
     ErrorCategory.INTERNAL_ERROR: (
         "❌ <b>Something Went Wrong</b>\n\n"
@@ -119,9 +115,7 @@ async def safe_send_message(
     # Try editing callback query message first
     if update.callback_query:
         with contextlib.suppress(Exception):
-            await update.callback_query.edit_message_text(
-                text=text, parse_mode=parse_mode, reply_markup=reply_markup
-            )
+            await update.callback_query.edit_message_text(text=text, parse_mode=parse_mode, reply_markup=reply_markup)
             return True
 
     # Try replying to message
@@ -134,6 +128,7 @@ async def safe_send_message(
             # HTML parsing failed — try without formatting
             with contextlib.suppress(Exception):
                 import re
+
                 plain = re.sub(r"<[^>]+>", "", text)
                 await msg.reply_text(text=plain)
                 return True

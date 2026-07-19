@@ -11,6 +11,7 @@ from core.formatters import (
 
 # ── Keyboards ──────────────────────────────────────────────
 
+
 def get_back_button(label: str = "Back") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data="sup_main_menu")]])
 
@@ -28,19 +29,28 @@ def get_support_dashboard(is_pro: bool, open_tickets: int = 0, is_owner: bool = 
     ]
     if is_owner or is_pro:
         keyboard.append([InlineKeyboardButton("➕ Open New Ticket", callback_data="sup_new_ticket")])
-        keyboard.append([
-            InlineKeyboardButton("📊 Support Telemetry", callback_data="sup_stats"),
-            InlineKeyboardButton("📋 Canned Templates", callback_data="sup_canned"),
-        ])
+        keyboard.append(
+            [
+                InlineKeyboardButton("📊 Support Telemetry", callback_data="sup_stats"),
+                InlineKeyboardButton("📋 Canned Templates", callback_data="sup_canned"),
+            ]
+        )
     else:
-        keyboard.append([InlineKeyboardButton(f"➕ Open New Ticket ({open_tickets}/{ticket_limit})", callback_data="sup_new_ticket")])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"➕ Open New Ticket ({open_tickets}/{ticket_limit})", callback_data="sup_new_ticket"
+                )
+            ]
+        )
     if is_owner:
-        keyboard.append([
-            InlineKeyboardButton("👑 Admin: All Tickets", callback_data="sup_all_tickets"),
-            InlineKeyboardButton("👑 Admin: Add FAQ", callback_data="sup_add_faq_admin"),
-        ])
+        keyboard.append(
+            [
+                InlineKeyboardButton("👑 Admin: All Tickets", callback_data="sup_all_tickets"),
+                InlineKeyboardButton("👑 Admin: Add FAQ", callback_data="sup_add_faq_admin"),
+            ]
+        )
     return InlineKeyboardMarkup(keyboard)
-
 
 
 def get_ticket_keyboard(tickets: list) -> InlineKeyboardMarkup:
@@ -64,7 +74,9 @@ def get_all_tickets_keyboard(tickets: list) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_ticket_detail_keyboard(ticket_id: int, is_owner: bool = False, is_pro: bool = False, is_admin: bool = False, is_ticket_owner: bool = False) -> InlineKeyboardMarkup:
+def get_ticket_detail_keyboard(
+    ticket_id: int, is_owner: bool = False, is_pro: bool = False, is_admin: bool = False, is_ticket_owner: bool = False
+) -> InlineKeyboardMarkup:
     keyboard = []
     if is_ticket_owner or is_owner:
         keyboard.append([InlineKeyboardButton("Close Ticket", callback_data=f"sup_close_confirm_{ticket_id}")])
@@ -85,12 +97,14 @@ def get_faq_keyboard(faqs: list) -> InlineKeyboardMarkup:
 
 
 def get_priority_keyboard(ticket_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Low", callback_data=f"sup_prio_{ticket_id}_low")],
-        [InlineKeyboardButton("Normal", callback_data=f"sup_prio_{ticket_id}_normal")],
-        [InlineKeyboardButton("High", callback_data=f"sup_prio_{ticket_id}_high")],
-        [InlineKeyboardButton("Urgent", callback_data=f"sup_prio_{ticket_id}_urgent")],
-    ])
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Low", callback_data=f"sup_prio_{ticket_id}_low")],
+            [InlineKeyboardButton("Normal", callback_data=f"sup_prio_{ticket_id}_normal")],
+            [InlineKeyboardButton("High", callback_data=f"sup_prio_{ticket_id}_high")],
+            [InlineKeyboardButton("Urgent", callback_data=f"sup_prio_{ticket_id}_urgent")],
+        ]
+    )
 
 
 def get_canned_keyboard(canned_list: list) -> InlineKeyboardMarkup:
@@ -110,13 +124,16 @@ def get_rating_keyboard(ticket_id: int) -> InlineKeyboardMarkup:
 
 
 def get_confirm_close_ticket(ticket_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Yes, Close Ticket", callback_data=f"sup_close_{ticket_id}")],
-        [InlineKeyboardButton("Cancel", callback_data=f"sup_ticket_{ticket_id}")],
-    ])
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Yes, Close Ticket", callback_data=f"sup_close_{ticket_id}")],
+            [InlineKeyboardButton("Cancel", callback_data=f"sup_ticket_{ticket_id}")],
+        ]
+    )
 
 
 # ── Message Builders ───────────────────────────────────────
+
 
 def get_confirm_close_ticket_msg(ticket_id: int) -> str:
     return (
@@ -126,7 +143,9 @@ def get_confirm_close_ticket_msg(ticket_id: int) -> str:
     )
 
 
-def get_welcome_msg(first_name: str, is_pro: bool, days_left: int = 0, ticket_count: int = 0, is_owner: bool = False) -> str:
+def get_welcome_msg(
+    first_name: str, is_pro: bool, days_left: int = 0, ticket_count: int = 0, is_owner: bool = False
+) -> str:
     if is_owner:
         tier_info = "👑 Owner (Full System Access)"
         ticket_limit = 999
@@ -216,7 +235,6 @@ def get_ticket_created_msg(ticket_id: int, ai_response: str = None) -> str:
     return msg
 
 
-
 def get_ticket_status_msg(ticket, is_pro: bool = False, is_owner: bool = False) -> str:
     status_text = ticket.status.replace("_", " ").upper()
     priority_text = ticket.priority.upper()
@@ -240,7 +258,9 @@ def get_ticket_status_msg(ticket, is_pro: bool = False, is_owner: bool = False) 
 
 
 def get_limit_reached_msg(feature: str, current: int, limit: int) -> str:
-    return f"Limit Reached: {feature}\n\nYou've used {current}/{limit}.\n\nClose some tickets or upgrade to PRO for more."
+    return (
+        f"Limit Reached: {feature}\n\nYou've used {current}/{limit}.\n\nClose some tickets or upgrade to PRO for more."
+    )
 
 
 def get_no_tickets_msg() -> str:
@@ -316,12 +336,7 @@ def get_faq_loaded() -> str:
 
 
 def get_faq_detail(question: str, answer: str, category: str) -> str:
-    return (
-        f"<b>{question}</b>\n"
-        f"{format_divider()}\n\n"
-        f"{answer}\n\n"
-        f"Category: {category}"
-    )
+    return f"<b>{question}</b>\n" f"{format_divider()}\n\n" f"{answer}\n\n" f"Category: {category}"
 
 
 def get_priority_help() -> str:
@@ -450,10 +465,12 @@ def get_pro_feature_msg(feature: str) -> tuple:
         f"\u2022 Canned responses\n"
         f"\u2022 Analytics"
     )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Activate Key", callback_data="sup_activate_help")],
-        [InlineKeyboardButton("Back", callback_data="sup_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Activate Key", callback_data="sup_activate_help")],
+            [InlineKeyboardButton("Back", callback_data="sup_main_menu")],
+        ]
+    )
     return msg, kb
 
 
@@ -610,11 +627,14 @@ def get_ticket_status_card(ticket) -> str:
 
 def get_user_reply_prompt(ticket_id: int) -> tuple:
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
     text = f"<b>Reply to Ticket #{ticket_id}</b>\n\nPlease send your reply to this ticket.\n\nType your response below:"
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Cancel Reply", callback_data=f"ticket_cancel_reply_{ticket_id}")],
-        [InlineKeyboardButton("◀️ Back to Dashboard", callback_data="sup_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("❌ Cancel Reply", callback_data=f"ticket_cancel_reply_{ticket_id}")],
+            [InlineKeyboardButton("◀️ Back to Dashboard", callback_data="sup_main_menu")],
+        ]
+    )
     return text, kb
 
 
@@ -648,6 +668,7 @@ def get_user_reply_failure() -> str:
 
 def get_ticket_status_keyboard(ticket):
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
     keyboard = []
     if ticket.status in ["open", "in_progress", "resolved"]:
         keyboard.append([InlineKeyboardButton("Reply", callback_data=f"ticket_reply_{ticket.id}")])
@@ -658,10 +679,13 @@ def get_ticket_status_keyboard(ticket):
 
 def get_user_what_next_keyboard():
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("View All Tickets", callback_data="sup_my_tickets")],
-        [InlineKeyboardButton("◀️ Back to Dashboard", callback_data="sup_main_menu")],
-    ])
+
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("View All Tickets", callback_data="sup_my_tickets")],
+            [InlineKeyboardButton("◀️ Back to Dashboard", callback_data="sup_main_menu")],
+        ]
+    )
 
 
 def get_user_what_next_msg() -> str:

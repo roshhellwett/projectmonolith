@@ -83,7 +83,13 @@ async def ai_worker():
                 max_tokens = 4096 if is_pro else 1024
                 selected_model = await UsageRepo.get_selected_model(user_id)
                 ai_response = await process_ai_query(
-                    text, history_text, persona=persona, max_tokens=max_tokens, history=history, api_key=api_key, preferred_model=selected_model
+                    text,
+                    history_text,
+                    persona=persona,
+                    max_tokens=max_tokens,
+                    history=history,
+                    api_key=api_key,
+                    preferred_model=selected_model,
                 )
                 clean_html = sanitize_telegram_html(ai_response)
 
@@ -102,22 +108,28 @@ async def ai_worker():
                         parse_mode="HTML",
                         disable_web_page_preview=True,
                     )
-                except Exception:
-                    plain_text = re.sub(r"<[^>]+>", "", clean_html)
-                    await context.bot.edit_message_text(
-                        chat_id=placeholder_msg.chat_id,
-                        message_id=placeholder_msg.message_id,
-                        text=plain_text,
-                        disable_web_page_preview=True,
-                    )
+                except Exception as inner_e:
+                    if "not modified" not in str(inner_e).lower():
+                        plain_text = re.sub(r"<[^>]+>", "", clean_html)[:4000]
+                        try:
+                            await context.bot.edit_message_text(
+                                chat_id=placeholder_msg.chat_id,
+                                message_id=placeholder_msg.message_id,
+                                text=plain_text,
+                                disable_web_page_preview=True,
+                            )
+                        except Exception as fallback_e:
+                            if "not modified" not in str(fallback_e).lower():
+                                raise fallback_e
             except Exception as e:
-                logger.error(f"Worker Error: {e}")
-                with contextlib.suppress(Exception):
-                    await context.bot.edit_message_text(
-                        chat_id=placeholder_msg.chat_id,
-                        message_id=placeholder_msg.message_id,
-                        text=get_worker_error_msg(),
-                    )
+                if "not modified" not in str(e).lower():
+                    logger.error(f"Worker Error: {e}")
+                    with contextlib.suppress(Exception):
+                        await context.bot.edit_message_text(
+                            chat_id=placeholder_msg.chat_id,
+                            message_id=placeholder_msg.message_id,
+                            text=get_worker_error_msg(),
+                        )
             finally:
                 task_queue.task_done()
         except asyncio.CancelledError:
@@ -147,7 +159,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = get_welcome_msg(is_pro, days_left, usage, persona)
 
     selected_model = usage.get("selected_model", "llama-3.3-70b-versatile")
-    await update.message.reply_text(text, reply_markup=get_ai_dashboard(is_pro, persona, usage, selected_model), parse_mode="HTML")
+    await update.message.reply_text(
+        text, reply_markup=get_ai_dashboard(is_pro, persona, usage, selected_model), parse_mode="HTML"
+    )
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -220,7 +234,9 @@ async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
     placeholder = await update.message.reply_text("Verifying API key...", parse_mode="HTML")
     valid, msg = await validate_groq_key(api_key)
     if not valid:
-        return await placeholder.edit_text(f"<b>Invalid Key</b>\n\n{msg}\n\nGet a free key at console.groq.com", parse_mode="HTML")
+        return await placeholder.edit_text(
+            f"<b>Invalid Key</b>\n\n{msg}\n\nGet a free key at console.groq.com", parse_mode="HTML"
+        )
     await SubscriptionRepo.set_groq_key(update.effective_user.id, api_key)
     text, kb = get_ai_key_set_success_msg()
     await placeholder.edit_text(text, reply_markup=kb, parse_mode="HTML")
@@ -351,11 +367,20 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await query.edit_message_text(msg, reply_markup=kb, parse_mode="HTML")
                 else:
                     await UsageRepo.set_selected_model(user_id, model_id)
-                    text = f"✅ <b>Active Engine Switched!</b>\nNow using: <b>{AVAILABLE_MODELS[model_id]['icon']} {AVAILABLE_MODELS[model_id]['name']}</b>\n\n" + get_model_selector_msg(model_id)
-                    await query.edit_message_text(text, reply_markup=get_model_selector_keyboard(model_id, is_pro=is_pro), parse_mode="HTML")
+                    text = (
+                        f"✅ <b>Active Engine Switched!</b>\nNow using: <b>{AVAILABLE_MODELS[model_id]['icon']} {AVAILABLE_MODELS[model_id]['name']}</b>\n\n"
+                        + get_model_selector_msg(model_id)
+                    )
+                    await query.edit_message_text(
+                        text, reply_markup=get_model_selector_keyboard(model_id, is_pro=is_pro), parse_mode="HTML"
+                    )
 
         elif query.data.startswith("ai_quick_"):
-            if (query.data.startswith("ai_quick_res_") or query.data.startswith("ai_quick_code_") or query.data.startswith("ai_quick_img_")) and not is_pro:
+            if (
+                query.data.startswith("ai_quick_res_")
+                or query.data.startswith("ai_quick_code_")
+                or query.data.startswith("ai_quick_img_")
+            ) and not is_pro:
                 from zenith_ai_bot.ui import get_pro_feature_msg
 
                 msg, kb = get_pro_feature_msg("Pro Interactive Quick-Action")
@@ -381,10 +406,14 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             "ai_quick_res_defi": "DeFi security moats and smart contract vulnerability mitigation",
                         }
                         topic = topics.get(query.data, "Artificial Intelligence trends")
-                        await query.edit_message_text(f"🔬 <i>Executing deep research: {topic}...</i>", parse_mode="HTML")
+                        await query.edit_message_text(
+                            f"🔬 <i>Executing deep research: {topic}...</i>", parse_mode="HTML"
+                        )
                         res = await process_research(topic, api_key=api_key, preferred_model=selected_model)
                         clean = sanitize_telegram_html(res)[:4000]
-                        await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML", disable_web_page_preview=True)
+                        await query.edit_message_text(
+                            clean, reply_markup=get_back_button(), parse_mode="HTML", disable_web_page_preview=True
+                        )
 
                     elif query.data.startswith("ai_quick_sum_"):
                         samples = {
@@ -404,7 +433,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             "ai_quick_code_tgbot": "Write a Python Telegram bot handler using python-telegram-bot v20+ with inline keyboard pagination and robust error handling.",
                         }
                         prompt = prompts.get(query.data, "Write a Python function.")
-                        await query.edit_message_text("💻 <i>Generating production code architecture...</i>", parse_mode="HTML")
+                        await query.edit_message_text(
+                            "💻 <i>Generating production code architecture...</i>", parse_mode="HTML"
+                        )
                         res = await process_code(prompt, api_key=api_key, preferred_model=selected_model)
                         clean = sanitize_telegram_html(res)[:4000]
                         await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
@@ -416,7 +447,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             "ai_quick_img_watch": "A minimalist luxury mechanical wristwatch suspended in mid-air with dramatically lit gears and matte black titanium casing.",
                         }
                         prompt = prompts.get(query.data, "Visual prompt sample.")
-                        await query.edit_message_text("🎨 <i>Crafting multi-platform visual prompts...</i>", parse_mode="HTML")
+                        await query.edit_message_text(
+                            "🎨 <i>Crafting multi-platform visual prompts...</i>", parse_mode="HTML"
+                        )
                         res = await process_imagine(prompt, api_key=api_key, preferred_model=selected_model)
                         clean = sanitize_telegram_html(res)[:4000]
                         await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
@@ -490,7 +523,7 @@ async def start_service():
     logger.info("AI Worker Pool: Online (5 workers)")
 
 
-async def stop_service():
+async def stop_service(dispose_db: bool = False):
     for task in worker_tasks:
         task.cancel()
 
@@ -510,7 +543,8 @@ async def stop_service():
     if bot_app:
         await bot_app.stop()
         await bot_app.shutdown()
-    await dispose_engine()
+    if dispose_db:
+        await dispose_engine()
     await close_http_client()
 
 

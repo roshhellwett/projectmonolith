@@ -11,7 +11,9 @@ from core.formatters import (
 from core.llm_fallback import AVAILABLE_MODELS
 
 
-def get_main_dashboard(is_pro: bool = False, alert_count: int = 0, alert_limit: int = 1, wallet_count: int = 0, wallet_limit: int = 0):
+def get_main_dashboard(
+    is_pro: bool = False, alert_count: int = 0, alert_limit: int = 1, wallet_count: int = 0, wallet_limit: int = 0
+):
     tier_badge = "💎 PRO ACTIVE" if is_pro else "⚪ FREE TIER"
     alert_info = f" ({alert_count}/{alert_limit})" if alert_limit > 0 else ""
     wallet_info = f" ({wallet_count}/{wallet_limit})" if wallet_limit > 0 else ""
@@ -44,17 +46,22 @@ def get_main_dashboard(is_pro: bool = False, alert_count: int = 0, alert_limit: 
         ],
     ]
     if not is_pro:
-        keyboard.append([InlineKeyboardButton("💎 Upgrade to Pro (Unlimited Intelligence)", url=f"tg://user?id={ADMIN_USER_ID}")])
+        keyboard.append(
+            [InlineKeyboardButton("💎 Upgrade to Pro (Unlimited Intelligence)", url=f"tg://user?id={ADMIN_USER_ID}")]
+        )
     return InlineKeyboardMarkup(keyboard)
-
 
 
 def get_audits_keyboard(audits):
     keyboard = []
     for a in audits:
         short = format_address(a.contract, 6, 4)
-        keyboard.append([InlineKeyboardButton(short, callback_data=f"ui_view_audit_{a.id}"),
-                          InlineKeyboardButton("Delete", callback_data=f"ui_del_audit_{a.id}")])
+        keyboard.append(
+            [
+                InlineKeyboardButton(short, callback_data=f"ui_view_audit_{a.id}"),
+                InlineKeyboardButton("Delete", callback_data=f"ui_del_audit_{a.id}"),
+            ]
+        )
     if audits:
         keyboard.append([InlineKeyboardButton("Clear All", callback_data="ui_clear_audits")])
     keyboard.append([InlineKeyboardButton("Back", callback_data="ui_main_menu")])
@@ -68,20 +75,26 @@ def get_alerts_keyboard(alerts, is_pro: bool = False):
         label = f"{a.token_symbol} {direction} ${a.target_price:,.2f}"
         if a.is_triggered:
             label += " (Triggered)"
-        keyboard.append([
-            InlineKeyboardButton(label, callback_data=f"ui_alert_{a.id}"),
-            InlineKeyboardButton("Delete", callback_data=f"ui_del_alert_confirm_{a.id}"),
-        ])
+        keyboard.append(
+            [
+                InlineKeyboardButton(label, callback_data=f"ui_alert_{a.id}"),
+                InlineKeyboardButton("Delete", callback_data=f"ui_del_alert_confirm_{a.id}"),
+            ]
+        )
     keyboard.append([InlineKeyboardButton("Add Alert", callback_data="ui_add_alert_help")])
     keyboard.append([InlineKeyboardButton("Back", callback_data="ui_main_menu")])
     return InlineKeyboardMarkup(keyboard)
 
 
 def get_confirm_delete_alert(alert):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Yes, Delete", callback_data=f"ui_del_alert_{alert.id}"),
-         InlineKeyboardButton("Cancel", callback_data="ui_price_alerts")],
-    ])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Yes, Delete", callback_data=f"ui_del_alert_{alert.id}"),
+                InlineKeyboardButton("Cancel", callback_data="ui_price_alerts"),
+            ],
+        ]
+    )
 
 
 def get_confirm_delete_alert_msg(alert):
@@ -97,10 +110,12 @@ def get_wallets_keyboard(wallets, is_pro: bool = False):
     keyboard = []
     for w in wallets:
         short = format_address(w.wallet_address, 6, 4)
-        keyboard.append([
-            InlineKeyboardButton(f"{w.label}: {short}", callback_data=f"ui_wallet_{w.id}"),
-            InlineKeyboardButton("Untrack", callback_data=f"ui_untrack_confirm_{w.id}"),
-        ])
+        keyboard.append(
+            [
+                InlineKeyboardButton(f"{w.label}: {short}", callback_data=f"ui_wallet_{w.id}"),
+                InlineKeyboardButton("Untrack", callback_data=f"ui_untrack_confirm_{w.id}"),
+            ]
+        )
     limit = 5 if is_pro else 0
     if limit > 0:
         keyboard.append([InlineKeyboardButton(f"Track Wallet ({len(wallets)}/{limit})", callback_data="ui_track_help")])
@@ -111,10 +126,14 @@ def get_wallets_keyboard(wallets, is_pro: bool = False):
 
 
 def get_confirm_untrack_wallet(wallet):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Yes, Untrack", callback_data=f"ui_untrack_{wallet.id}"),
-         InlineKeyboardButton("Cancel", callback_data="ui_wallet_tracker")],
-    ])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Yes, Untrack", callback_data=f"ui_untrack_{wallet.id}"),
+                InlineKeyboardButton("Cancel", callback_data="ui_wallet_tracker"),
+            ],
+        ]
+    )
 
 
 def get_confirm_untrack_msg(wallet):
@@ -144,10 +163,12 @@ def get_limit_reached_card(feature: str, current: int, limit: int, is_pro: bool 
             f"\u2022 5 tracked wallets (vs 0)\n"
             f"\u2022 Full security scans"
         )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
-        [InlineKeyboardButton("Back", callback_data="ui_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
+            [InlineKeyboardButton("Back", callback_data="ui_main_menu")],
+        ]
+    )
     return msg, kb
 
 
@@ -178,11 +199,13 @@ def get_pro_feature_msg(feature: str):
         f"\u2022 New pair scanner\n"
         f"\u2022 Fear & Greed Index"
     )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
-        [InlineKeyboardButton("Activate Key", callback_data="ui_activate_help")],
-        [InlineKeyboardButton("Back", callback_data="ui_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
+            [InlineKeyboardButton("Activate Key", callback_data="ui_activate_help")],
+            [InlineKeyboardButton("Back", callback_data="ui_main_menu")],
+        ]
+    )
     return msg, kb
 
 
@@ -255,7 +278,6 @@ def get_help_msg(is_pro: bool = False) -> str:
     )
 
 
-
 def get_audit_help() -> str:
     return (
         "<b>Token Security Scanner</b>\n\n"
@@ -293,11 +315,7 @@ def get_alert_help() -> str:
 
 
 def get_alert_direction_error() -> str:
-    return (
-        "Invalid Direction\n\n"
-        "Direction must be above or below.\n\n"
-        "Example: /alert BTC above 100000"
-    )
+    return "Invalid Direction\n\n" "Direction must be above or below.\n\n" "Example: /alert BTC above 100000"
 
 
 def get_alert_price_error(msg: str) -> str:
@@ -305,11 +323,7 @@ def get_alert_price_error(msg: str) -> str:
 
 
 def get_alert_token_not_found(symbol: str) -> str:
-    return (
-        f"Token Not Found\n\n"
-        f"Token {symbol} was not found.\n\n"
-        "Try a different symbol or check for typos."
-    )
+    return f"Token Not Found\n\n" f"Token {symbol} was not found.\n\n" "Try a different symbol or check for typos."
 
 
 def get_alert_created(symbol: str, direction: str, target_price: float) -> str:
@@ -321,12 +335,7 @@ def get_alert_created(symbol: str, direction: str, target_price: float) -> str:
 
 
 def get_alerts_empty() -> str:
-    return (
-        "<b>Price Alerts</b>\n\n"
-        "No active alerts.\n\n"
-        "Create one:\n"
-        "/alert BTC above 100000"
-    )
+    return "<b>Price Alerts</b>\n\n" "No active alerts.\n\n" "Create one:\n" "/alert BTC above 100000"
 
 
 def get_alerts_loading() -> str:
@@ -377,12 +386,7 @@ def get_track_success(label: str, address: str) -> str:
 
 
 def get_wallets_empty() -> str:
-    return (
-        "<b>Wallet Tracker</b>\n\n"
-        "No tracked wallets.\n\n"
-        "Track a wallet:\n"
-        "/track 0x... MyLabel"
-    )
+    return "<b>Wallet Tracker</b>\n\n" "No tracked wallets.\n\n" "Track a wallet:\n" "/track 0x... MyLabel"
 
 
 def get_wallets_loading() -> str:
@@ -491,7 +495,18 @@ def get_market_loading() -> str:
     return "Scanning global market sentiment..."
 
 
-def get_market_card(fng_val: int, fng_class: str, gauge_bar: str, btc_price: float, btc_change: float, eth_price: float, eth_change: float, gainers: list, losers: list, is_pro: bool) -> str:
+def get_market_card(
+    fng_val: int,
+    fng_class: str,
+    gauge_bar: str,
+    btc_price: float,
+    btc_change: float,
+    eth_price: float,
+    eth_change: float,
+    gainers: list,
+    losers: list,
+    is_pro: bool,
+) -> str:
     lines = [
         "<b>Market Intelligence</b>",
         format_divider(),
@@ -558,9 +573,7 @@ def get_whale_radar_on(is_pro: bool) -> str:
             "Leave chat open for live signals."
         )
     return (
-        "Orderflow: Online\n\n"
-        "Receiving delayed mid-cap volume.\n"
-        "Upgrade to Pro for real-time + unredacted data."
+        "Orderflow: Online\n\n" "Receiving delayed mid-cap volume.\n" "Upgrade to Pro for real-time + unredacted data."
     )
 
 
@@ -647,7 +660,21 @@ def get_risk_label(risk_score: int) -> str:
     return "High Risk"
 
 
-def get_audit_pro_report(token_name: str, token_symbol: str, contract: str, safety: str, risk_score: int, risks: list, is_honeypot: bool, is_open_source: bool, is_proxy: bool, buy_tax: str, sell_tax: str, holder_count: str, lp_holder_count: str) -> str:
+def get_audit_pro_report(
+    token_name: str,
+    token_symbol: str,
+    contract: str,
+    safety: str,
+    risk_score: int,
+    risks: list,
+    is_honeypot: bool,
+    is_open_source: bool,
+    is_proxy: bool,
+    buy_tax: str,
+    sell_tax: str,
+    holder_count: str,
+    lp_holder_count: str,
+) -> str:
     detail_lines = [f"  {r}" for r in risks] if risks else ["  No significant risks detected."]
     return (
         f"<b>Zenith Security Report \u2014 PRO</b>\n"
@@ -684,10 +711,12 @@ def get_audit_free_report(token_name: str, token_symbol: str, contract: str, saf
 
 
 def get_portfolio_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Add Position", callback_data="ui_add_token_help")],
-        [InlineKeyboardButton("Back", callback_data="ui_main_menu")],
-    ])
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Add Position", callback_data="ui_add_token_help")],
+            [InlineKeyboardButton("Back", callback_data="ui_main_menu")],
+        ]
+    )
 
 
 def get_activate_help() -> str:
@@ -695,11 +724,7 @@ def get_activate_help() -> str:
 
 
 def get_token_not_found_msg(symbol: str) -> str:
-    return (
-        f"Token Not Found\n\n"
-        f"Token {symbol} was not found.\n\n"
-        "Try a different symbol or check for typos."
-    )
+    return f"Token Not Found\n\n" f"Token {symbol} was not found.\n\n" "Try a different symbol or check for typos."
 
 
 def get_pro_features_section() -> str:
@@ -753,6 +778,7 @@ def get_subscription_expired(user_id: int) -> str:
 
 # ── AI Co-Pilot ────────────────────────────────────────────
 
+
 def get_ai_copilot_menu_msg(current_model: str = "llama-3.3-70b-versatile", is_pro: bool = False):
     model_info = AVAILABLE_MODELS.get(current_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
     return (
@@ -773,27 +799,43 @@ def get_ai_copilot_menu_msg(current_model: str = "llama-3.3-70b-versatile", is_p
 
 def get_ai_copilot_menu_keyboard(current_model: str = "llama-3.3-70b-versatile", is_pro: bool = False):
     model_info = AVAILABLE_MODELS.get(current_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
-    return InlineKeyboardMarkup([
+    return InlineKeyboardMarkup(
         [
-            InlineKeyboardButton("📊 Portfolio Audit", callback_data="ai_followup_what is in my portfolio?"),
-            InlineKeyboardButton("🌐 Market Pulse", callback_data="ai_followup_give me the crypto market overview today"),
-        ],
-        [
-            InlineKeyboardButton("⛽ Gas Optimization", callback_data="ai_followup_what are current gas fees and when should I trade?"),
-            InlineKeyboardButton("📈 BTC Technicals", callback_data="ai_followup_analyze bitcoin technical action and support resistance levels"),
-        ],
-        [
-            InlineKeyboardButton("🔔 Alert Strategy", callback_data="ai_followup_what price alerts should I set for my portfolio?"),
-            InlineKeyboardButton("🛡️ Scam Shield Guide", callback_data="ai_followup_how to avoid crypto scams and rug pulls?"),
-        ],
-        [
-            InlineKeyboardButton(f"⚙️ Switch Engine ({model_info['icon']} {model_info['name']})", callback_data="crypto_ai_models"),
-        ],
-        [
-            InlineKeyboardButton("🔑 API Key Settings", callback_data="ai_show_key_setup"),
-            InlineKeyboardButton("◀️ Back to Main Dashboard", callback_data="ui_main_menu"),
-        ],
-    ])
+            [
+                InlineKeyboardButton("📊 Portfolio Audit", callback_data="ai_followup_what is in my portfolio?"),
+                InlineKeyboardButton(
+                    "🌐 Market Pulse", callback_data="ai_followup_give me the crypto market overview today"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "⛽ Gas Optimization",
+                    callback_data="ai_followup_what are current gas fees and when should I trade?",
+                ),
+                InlineKeyboardButton(
+                    "📈 BTC Technicals",
+                    callback_data="ai_followup_analyze bitcoin technical action and support resistance levels",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔔 Alert Strategy", callback_data="ai_followup_what price alerts should I set for my portfolio?"
+                ),
+                InlineKeyboardButton(
+                    "🛡️ Scam Shield Guide", callback_data="ai_followup_how to avoid crypto scams and rug pulls?"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    f"⚙️ Switch Engine ({model_info['icon']} {model_info['name']})", callback_data="crypto_ai_models"
+                ),
+            ],
+            [
+                InlineKeyboardButton("🔑 API Key Settings", callback_data="ai_show_key_setup"),
+                InlineKeyboardButton("◀️ Back to Main Dashboard", callback_data="ui_main_menu"),
+            ],
+        ]
+    )
 
 
 def get_crypto_model_selector_msg(current_model: str = "llama-3.3-70b-versatile"):
@@ -837,10 +879,12 @@ def get_ai_no_key_msg():
         "<code>/setkey gsk_your_api_key</code>\n\n"
         "Takes 2 minutes!"
     )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("How to get a key", url="https://console.groq.com")],
-        [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("How to get a key", url="https://console.groq.com")],
+            [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
+        ]
+    )
     return text, kb
 
 
@@ -854,80 +898,86 @@ def get_ai_key_set_success_msg():
         "\u2022 <code>/ai analyze the market today</code>\n"
         "\u2022 <code>/ai is BTC a good buy right now?</code>"
     )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Try: My Portfolio", callback_data="ai_followup_what is in my portfolio?")],
-        [InlineKeyboardButton("Try: Market Today", callback_data="ai_followup_analyze the crypto market today")],
-        [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Try: My Portfolio", callback_data="ai_followup_what is in my portfolio?")],
+            [InlineKeyboardButton("Try: Market Today", callback_data="ai_followup_analyze the crypto market today")],
+            [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
+        ]
+    )
     return text, kb
 
 
 def get_ai_key_status_msg(has_key: bool):
     if has_key:
         return (
-            "<b>Groq API Key</b>\n"
-            f"{format_divider()}\n\n"
-            "Your key is set and active.\n\n"
-            "To remove it: /delkey"
+            "<b>Groq API Key</b>\n" f"{format_divider()}\n\n" "Your key is set and active.\n\n" "To remove it: /delkey"
         ), InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")]])
     return (
-        "<b>Groq API Key</b>\n"
-        f"{format_divider()}\n\n"
-        "No key set.\n\n"
-        "Set one: /setkey gsk_your_key"
+        "<b>Groq API Key</b>\n" f"{format_divider()}\n\n" "No key set.\n\n" "Set one: /setkey gsk_your_key"
     ), InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")]])
 
 
 def get_ai_key_deleted_msg():
-    text = (
-        "<b>Groq API Key</b>\n"
-        f"{format_divider()}\n\n"
-        "Your key has been removed."
-    )
+    text = "<b>Groq API Key</b>\n" f"{format_divider()}\n\n" "Your key has been removed."
     return text, InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")]])
 
 
 def get_ai_empty_query_msg():
-    text = (
-        "<b>Crypto AI Co-Pilot</b>\n"
-        f"{format_divider()}\n\n"
-        "Ask me anything about crypto! Try one of these:"
+    text = "<b>Crypto AI Co-Pilot</b>\n" f"{format_divider()}\n\n" "Ask me anything about crypto! Try one of these:"
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("My Portfolio", callback_data="ai_followup_what is in my portfolio?")],
+            [
+                InlineKeyboardButton(
+                    "Market Overview", callback_data="ai_followup_give me the crypto market overview today"
+                )
+            ],
+            [InlineKeyboardButton("Gas Fees", callback_data="ai_followup_what are current gas fees?")],
+            [InlineKeyboardButton("Analyze BTC", callback_data="ai_followup_analyze bitcoin price action")],
+            [InlineKeyboardButton("Alert Strategy", callback_data="ai_followup_what price alerts should I set?")],
+            [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
+        ]
     )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("My Portfolio", callback_data="ai_followup_what is in my portfolio?")],
-        [InlineKeyboardButton("Market Overview", callback_data="ai_followup_give me the crypto market overview today")],
-        [InlineKeyboardButton("Gas Fees", callback_data="ai_followup_what are current gas fees?")],
-        [InlineKeyboardButton("Analyze BTC", callback_data="ai_followup_analyze bitcoin price action")],
-        [InlineKeyboardButton("Alert Strategy", callback_data="ai_followup_what price alerts should I set?")],
-        [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
-    ])
     return text, kb
 
 
 def get_ai_response_msg(response: str, query: str) -> tuple:
-    text = (
-        f"<b>Crypto AI</b>\n"
-        f"{format_divider()}\n\n"
-        f"{response}"
-    )
+    text = f"<b>Crypto AI</b>\n" f"{format_divider()}\n\n" f"{response}"
 
     lower = query.lower()
     if any(w in lower for w in ["portfolio", "position", "pnl", "p/l", "bag"]):
         buttons = [
-            [InlineKeyboardButton("Compare vs BTC", callback_data="ai_followup_compare my portfolio vs bitcoin performance")],
+            [
+                InlineKeyboardButton(
+                    "Compare vs BTC", callback_data="ai_followup_compare my portfolio vs bitcoin performance"
+                )
+            ],
             [InlineKeyboardButton("Top Gainer", callback_data="ai_followup_what is my top performing token?")],
-            [InlineKeyboardButton("Market Today", callback_data="ai_followup_give me the crypto market overview today")],
+            [
+                InlineKeyboardButton(
+                    "Market Today", callback_data="ai_followup_give me the crypto market overview today"
+                )
+            ],
         ]
     elif any(w in lower for w in ["market", "btc", "bitcoin", "eth", "price"]):
         buttons = [
-            [InlineKeyboardButton("Top Movers", callback_data="ai_followup_what are the top gainers and losers today?")],
+            [
+                InlineKeyboardButton(
+                    "Top Movers", callback_data="ai_followup_what are the top gainers and losers today?"
+                )
+            ],
             [InlineKeyboardButton("Gas Fees", callback_data="ai_followup_what are current gas fees?")],
             [InlineKeyboardButton("My Portfolio", callback_data="ai_followup_what is in my portfolio?")],
         ]
     elif any(w in lower for w in ["alert", "alert"]):
         buttons = [
             [InlineKeyboardButton("View Alerts", callback_data="ui_price_alerts")],
-            [InlineKeyboardButton("Alert Strategy", callback_data="ai_followup_what price alerts should I set for my portfolio?")],
+            [
+                InlineKeyboardButton(
+                    "Alert Strategy", callback_data="ai_followup_what price alerts should I set for my portfolio?"
+                )
+            ],
         ]
     elif any(w in lower for w in ["wallet", "whale", "track"]):
         buttons = [
@@ -937,7 +987,11 @@ def get_ai_response_msg(response: str, query: str) -> tuple:
     elif any(w in lower for w in ["gas", "fee", "gwei"]):
         buttons = [
             [InlineKeyboardButton("Live Gas", callback_data="ui_gas")],
-            [InlineKeyboardButton("Optimization", callback_data="ai_followup_how can I optimize gas fees for my trades?")],
+            [
+                InlineKeyboardButton(
+                    "Optimization", callback_data="ai_followup_how can I optimize gas fees for my trades?"
+                )
+            ],
         ]
     elif any(w in lower for w in ["audit", "token", "contract", "scam"]):
         buttons = [
@@ -958,7 +1012,11 @@ def get_ai_response_msg(response: str, query: str) -> tuple:
     else:
         buttons = [
             [InlineKeyboardButton("My Portfolio", callback_data="ai_followup_what is in my portfolio?")],
-            [InlineKeyboardButton("Market Today", callback_data="ai_followup_give me the crypto market overview today")],
+            [
+                InlineKeyboardButton(
+                    "Market Today", callback_data="ai_followup_give me the crypto market overview today"
+                )
+            ],
             [InlineKeyboardButton("My Alerts", callback_data="ui_price_alerts")],
             [InlineKeyboardButton("Gas Fees", callback_data="ai_followup_what are current gas fees?")],
         ]
@@ -975,10 +1033,12 @@ def get_ai_rate_limited_msg():
         "Wait a bit or replace your key:\n"
         "<code>/setkey gsk_new_key</code>"
     )
-    return text, InlineKeyboardMarkup([
-        [InlineKeyboardButton("Replace Key", callback_data="ai_followup_how do i set a new groq key?")],
-        [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
-    ])
+    return text, InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Replace Key", callback_data="ai_followup_how do i set a new groq key?")],
+            [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
+        ]
+    )
 
 
 def get_ai_invalid_key_msg():
@@ -989,10 +1049,12 @@ def get_ai_invalid_key_msg():
         "Check it at console.groq.com and update:\n"
         "<code>/setkey gsk_new_key</code>"
     )
-    return text, InlineKeyboardMarkup([
-        [InlineKeyboardButton("Set New Key", callback_data="ai_followup_how do i set a new groq key?")],
-        [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
-    ])
+    return text, InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Set New Key", callback_data="ai_followup_how do i set a new groq key?")],
+            [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
+        ]
+    )
 
 
 def get_ai_server_error_msg():
@@ -1002,10 +1064,12 @@ def get_ai_server_error_msg():
         "Couldn't reach the AI right now.\n\n"
         "Try again in a moment with /ai"
     )
-    return text, InlineKeyboardMarkup([
-        [InlineKeyboardButton("Try Again", callback_data="ai_followup_what is in my portfolio?")],
-        [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
-    ])
+    return text, InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Try Again", callback_data="ai_followup_what is in my portfolio?")],
+            [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
+        ]
+    )
 
 
 def get_price_alert_triggered(token_symbol: str, direction: str, target_price: float, current_price: float) -> str:

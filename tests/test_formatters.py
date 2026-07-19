@@ -51,6 +51,7 @@ class TestFormatDivider:
 class TestFormatHeader:
     def test_basic_header(self):
         from core.formatters import format_header
+
         res = format_header("Zenith AI", "Neural Assistant", "PRO")
         assert "ZENITH AI" in res
         assert "[PRO]" in res
@@ -60,6 +61,7 @@ class TestFormatHeader:
 class TestFormatCard:
     def test_card(self):
         from core.formatters import format_card
+
         res = format_card("Features", ["Deep Research", "Code Generator"])
         assert "Features" in res
         assert "▫️ Deep Research" in res
@@ -68,7 +70,7 @@ class TestFormatCard:
 class TestFormatPill:
     def test_status_pill(self):
         from core.formatters import format_status_pill
+
         res = format_status_pill("🟢 ACTIVE", "Pro Tier")
         assert "🟢 ACTIVE" in res
         assert "Pro Tier" in res
-

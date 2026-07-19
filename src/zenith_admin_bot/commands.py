@@ -196,8 +196,7 @@ async def cmd_ticket_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_ticket_resolve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args) < 2:
         await update.message.reply_text(
-            "Usage: /resolve [TICKET_ID] [response]\n"
-            "Example: /resolve 5 The issue has been fixed."
+            "Usage: /resolve [TICKET_ID] [response]\n" "Example: /resolve 5 The issue has been fixed."
         )
         return
 

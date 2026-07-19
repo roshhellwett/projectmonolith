@@ -31,12 +31,14 @@ def home_button(callback_data: str = "ui_main_menu") -> InlineKeyboardMarkup:
 
 def back_and_home(back_data: str, home_data: str = "ui_main_menu") -> InlineKeyboardMarkup:
     """Combined back + home navigation."""
-    return InlineKeyboardMarkup([
+    return InlineKeyboardMarkup(
         [
-            InlineKeyboardButton("« Back", callback_data=back_data),
-            InlineKeyboardButton("🏠 Home", callback_data=home_data),
+            [
+                InlineKeyboardButton("« Back", callback_data=back_data),
+                InlineKeyboardButton("🏠 Home", callback_data=home_data),
+            ]
         ]
-    ])
+    )
 
 
 # ==========================================================
@@ -44,11 +46,13 @@ def back_and_home(back_data: str, home_data: str = "ui_main_menu") -> InlineKeyb
 # ==========================================================
 def pro_upgrade_keyboard(back_data: str = "ui_main_menu") -> InlineKeyboardMarkup:
     """Keyboard with upgrade link + back button."""
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 Unlock Pro Access", url=f"tg://user?id={ADMIN_USER_ID}")],
-        [InlineKeyboardButton("🔑 Activate License Key", callback_data="ui_activate_help")],
-        [InlineKeyboardButton("« Back", callback_data=back_data)],
-    ])
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("💎 Unlock Pro Access", url=f"tg://user?id={ADMIN_USER_ID}")],
+            [InlineKeyboardButton("🔑 Activate License Key", callback_data="ui_activate_help")],
+            [InlineKeyboardButton("« Back", callback_data=back_data)],
+        ]
+    )
 
 
 def pro_feature_locked_msg(feature_name: str) -> str:
@@ -126,19 +130,17 @@ def confirm_keyboard(
     cancel_text: str = "✕ Cancel",
 ) -> InlineKeyboardMarkup:
     """Standard confirmation dialog buttons."""
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(confirm_text, callback_data=confirm_data)],
-        [InlineKeyboardButton(cancel_text, callback_data=cancel_data)],
-    ])
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(confirm_text, callback_data=confirm_data)],
+            [InlineKeyboardButton(cancel_text, callback_data=cancel_data)],
+        ]
+    )
 
 
 def confirm_msg(action: str, detail: str = "") -> str:
     """Standard confirmation prompt with precision aesthetic."""
-    text = (
-        f"⚠️ <b>CONFIRMATION REQUIRED</b>\n"
-        f"{format_divider('⎯', 24)}\n\n"
-        f"<b>Action:</b> {action}"
-    )
+    text = f"⚠️ <b>CONFIRMATION REQUIRED</b>\n" f"{format_divider('⎯', 24)}\n\n" f"<b>Action:</b> {action}"
     if detail:
         text += f"\n<b>Detail:</b> {detail}"
     text += "\n\n<i>Note: This operation cannot be undone once executed.</i>"
@@ -207,9 +209,6 @@ def divider(char: str = "⎯", length: int = 24) -> str:
     return format_divider(char, length)
 
 
-def progress_bar(
-    current: int, total: int, length: int = 15, filled: str = "▰", empty: str = "▱"
-) -> str:
+def progress_bar(current: int, total: int, length: int = 15, filled: str = "▰", empty: str = "▱") -> str:
     """Render a progress bar."""
     return format_progress_bar(current, total, length, filled, empty)
-

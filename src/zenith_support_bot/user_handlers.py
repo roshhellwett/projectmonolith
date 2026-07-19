@@ -37,6 +37,7 @@ async def handle_ticket_cancel_reply_callback(update: Update, context: ContextTy
 
     user_id = update.effective_user.id
     from core.permissions import resolve_tier
+
     tier = await resolve_tier(user_id)
 
     await query.edit_message_text(

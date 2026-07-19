@@ -66,8 +66,6 @@ def get_engine() -> AsyncEngine:
     return _engine
 
 
-
-
 def get_session() -> sessionmaker:
     global _sessionmaker_instance
     if _sessionmaker_instance is None:
@@ -81,6 +79,7 @@ def get_session() -> sessionmaker:
 
 async def init_db():
     from sqlalchemy import inspect
+
     engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -96,9 +95,13 @@ async def init_db():
                 cols = [c["name"] for c in insp.get_columns("zenith_group_settings")]
                 if "raid_mode" not in cols:
                     if engine.dialect.name == "sqlite":
-                        connection.exec_driver_sql("ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT 0")
+                        connection.exec_driver_sql(
+                            "ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT 0"
+                        )
                     else:
-                        connection.exec_driver_sql("ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT FALSE")
+                        connection.exec_driver_sql(
+                            "ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT FALSE"
+                        )
                 if "raid_expires_at" not in cols:
                     connection.exec_driver_sql("ALTER TABLE zenith_group_settings ADD COLUMN raid_expires_at TIMESTAMP")
 
@@ -161,4 +164,3 @@ def db_retry(func):
         raise RuntimeError(f"Database operation {func.__name__} failed after retries")
 
     return wrapper
-

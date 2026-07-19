@@ -60,6 +60,7 @@ class TestFloodControl:
 
     def test_raid_mode_on_model(self):
         from zenith_group_bot.models import GroupSettings
+
         assert hasattr(GroupSettings, "raid_mode")
         assert hasattr(GroupSettings, "raid_expires_at")
 

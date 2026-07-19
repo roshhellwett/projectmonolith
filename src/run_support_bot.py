@@ -92,7 +92,9 @@ async def cmd_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
         upgrade_msg = ""
         if not is_owner_user and not is_pro:
             upgrade_msg = "Upgrade to Pro for 15 tickets!"
-        await update.message.reply_text(support_ui.get_ticket_limit_msg(open_tickets, max_tickets, upgrade_msg), parse_mode="HTML")
+        await update.message.reply_text(
+            support_ui.get_ticket_limit_msg(open_tickets, max_tickets, upgrade_msg), parse_mode="HTML"
+        )
         return
 
     if not context.args:
@@ -116,6 +118,7 @@ async def cmd_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_pro or is_owner_user:
         try:
             from zenith_ai_bot.repository import UsageRepo
+
             preferred_model = await UsageRepo.get_selected_model(user_id)
             ai_response = await generate_ai_response(subject, description, preferred_model=preferred_model)
             if ai_response:
@@ -323,7 +326,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ticket_id = int(query.data.split("_")[-1])
             ticket = await TicketRepo.get_ticket(ticket_id)
             if not ticket:
-                await query.edit_message_text(support_ui.get_ticket_not_found_msg(), reply_markup=support_ui.get_back_button())
+                await query.edit_message_text(
+                    support_ui.get_ticket_not_found_msg(), reply_markup=support_ui.get_back_button()
+                )
                 return
 
             is_ticket_owner = ticket.user_id == user_id
@@ -339,7 +344,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             faq_id = int(query.data.split("_")[-1])
             faq = await FAQRepo.get_faq(faq_id)
             if not faq:
-                await query.edit_message_text(support_ui.get_ticket_not_found_msg(), reply_markup=support_ui.get_back_button())
+                await query.edit_message_text(
+                    support_ui.get_ticket_not_found_msg(), reply_markup=support_ui.get_back_button()
+                )
                 return
 
             await query.edit_message_text(
@@ -401,7 +408,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data.startswith("sup_resolve_"):
             ticket_id = int(query.data.split("_")[-1])
             if not is_owner_user:
-                await query.edit_message_text(support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button())
+                await query.edit_message_text(
+                    support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button()
+                )
                 return
             await query.edit_message_text(
                 f"Use /resolve {ticket_id} [response] to resolve this ticket.",
@@ -411,7 +420,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif query.data == "sup_all_tickets":
             if not is_owner_user:
-                await query.edit_message_text(support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button())
+                await query.edit_message_text(
+                    support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button()
+                )
                 return
             tickets = await TicketRepo.get_all_tickets(limit=50)
             if not tickets:
@@ -429,7 +440,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif query.data == "sup_add_faq_admin":
             if not is_owner_user:
-                await query.edit_message_text(support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button())
+                await query.edit_message_text(
+                    support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button()
+                )
                 return
             await query.edit_message_text(
                 support_ui.get_addfaq_help(),
@@ -487,6 +500,7 @@ async def start_service():
                 await handler_func(u, c, tier.is_pro, tier.is_owner)
             else:
                 await handler_func(u, c, tier.is_owner)
+
         return wrapper
 
     bot_app.add_handler(CommandHandler("priority", with_tier(cmd_priority)))
@@ -526,14 +540,15 @@ async def start_service():
     await start_ticket_scheduler()
 
 
-async def stop_service():
+async def stop_service(dispose_db: bool = False):
     await stop_ticket_scheduler()
     for t in list(background_tasks):
         t.cancel()
     if bot_app:
         await bot_app.stop()
         await bot_app.shutdown()
-    await dispose_engine()
+    if dispose_db:
+        await dispose_engine()
 
 
 @router.post("/webhook/support/{secret}")

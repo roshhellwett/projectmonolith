@@ -195,7 +195,9 @@ class AIExecutionEngine:
         elif last_error == "timeout":
             err_content = "⏱️ AI generation took too long across all fallback models. Please try a more concise query."
         else:
-            err_content = "❌ AI engine encountered an unexpected issue across all available models. Please retry shortly."
+            err_content = (
+                "❌ AI engine encountered an unexpected issue across all available models. Please retry shortly."
+            )
 
         return AIResponse(
             content=err_content,

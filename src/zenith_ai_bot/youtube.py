@@ -10,8 +10,12 @@ logger = setup_logger("YOUTUBE_TOOL")
 
 
 def extract_yt_video_id(url: str) -> str | None:
-    match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", url)
-    return match.group(1) if match else None
+    if not url:
+        return None
+    match = re.search(r"(?:(?:v|embed|shorts|live)=?\/|v=)([0-9A-Za-z_-]{11})|\/([0-9A-Za-z_-]{11})(?:\?|&|$)", url)
+    if match:
+        return match.group(1) or match.group(2)
+    return None
 
 
 def _fetch_transcript_sync(video_id: str) -> str | None:

@@ -3,6 +3,7 @@ Zenith God-Level UI Formatter Engine.
 Provides precision-crafted typographic hierarchy, minimalist layout primitives, and visual polish across all bots.
 """
 
+
 def format_progress_bar(
     current: int, total: int, length: int = 15, filled_char: str = "▰", empty_char: str = "▱"
 ) -> str:
@@ -70,9 +71,4 @@ def format_alert(title: str, message: str, level: str = "INFO") -> str:
         "PRO": "💎",
     }
     icon = icons.get(level.upper(), "⚡")
-    return (
-        f"{icon} <b>{title}</b>\n"
-        f"{format_divider('─', 20)}\n"
-        f"{message}"
-    )
-
+    return f"{icon} <b>{title}</b>\n" f"{format_divider('─', 20)}\n" f"{message}"

@@ -86,10 +86,7 @@ async def health_monitor_loop(engine: AsyncEngine, interval: int = 300):
             if isinstance(checked_out, int) and isinstance(pool_size, int) and pool_size > 0:
                 utilization = checked_out / pool_size
                 if utilization > 0.8:
-                    logger.warning(
-                        f"⚠️ Connection pool {utilization:.0%} utilized "
-                        f"({checked_out}/{pool_size})"
-                    )
+                    logger.warning(f"⚠️ Connection pool {utilization:.0%} utilized " f"({checked_out}/{pool_size})")
 
         except asyncio.CancelledError:
             break

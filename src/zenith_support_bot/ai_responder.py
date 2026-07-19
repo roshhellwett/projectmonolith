@@ -51,7 +51,9 @@ Please provide a helpful, step-by-step solution to address this support inquiry.
         return "Thank you for your ticket! Our support team will review it shortly. For urgent issues, please describe your problem in more detail."
 
 
-async def generate_faq_answer(question: str, faq_context: str = None, preferred_model: str = "llama-3.3-70b-versatile") -> str:
+async def generate_faq_answer(
+    question: str, faq_context: str = None, preferred_model: str = "llama-3.3-70b-versatile"
+) -> str:
     api_key = get_groq_api_key(prefer_support=True)
     if not api_key:
         return None

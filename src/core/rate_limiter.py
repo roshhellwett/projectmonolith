@@ -170,9 +170,6 @@ def format_rate_limit_message(
     text += f"\n\nPlease try again in <b>{time_str}</b>."
 
     if not is_pro:
-        text += (
-            "\n\n💎 <b>Zenith Pro</b> users get significantly higher limits.\n"
-            "<code>/activate YOUR-KEY</code>"
-        )
+        text += "\n\n💎 <b>Zenith Pro</b> users get significantly higher limits.\n" "<code>/activate YOUR-KEY</code>"
 
     return text

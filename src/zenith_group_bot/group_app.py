@@ -275,6 +275,9 @@ async def cmd_forgive(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_forgive_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    if not await _is_admin_cached(update.effective_chat.id, query.from_user.id, context):
+        return await query.edit_message_text(get_forgive_admin_error())
+
     user_id = int(query.data.replace("grp_forgive_", ""))
     chat_id = update.effective_chat.id
 

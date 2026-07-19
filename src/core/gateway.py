@@ -25,7 +25,7 @@ class TelegramRequestValidator:
     """Validates incoming Telegram updates before handler execution."""
 
     MAX_TEXT_LENGTH = 4096 * 4  # Max allowed raw text length (including captions)
-    MAX_ARGS_COUNT = 100        # Max arguments per command
+    MAX_ARGS_COUNT = 100  # Max arguments per command
 
     @classmethod
     def validate_update(cls, update: Update) -> tuple[bool, str]:
@@ -149,11 +149,12 @@ def attach_gateway(bot_app, bot_name: str):
 
     async def wrapped_process_update(update: object):
         if isinstance(update, Update):
+
             async def next_call(u, c):
                 return await original_process_update(u)
+
             await gateway_middleware(update, bot_app.create_context(update), next_call)
         else:
             await original_process_update(update)
 
     bot_app.process_update = wrapped_process_update
-

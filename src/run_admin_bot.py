@@ -112,7 +112,7 @@ async def start_service():
     logger.info("Admin Bot: Online")
 
 
-async def stop_service():
+async def stop_service(dispose_db: bool = False):
     await stop_monitoring()
 
     for t in list(background_tasks):
@@ -122,7 +122,8 @@ async def stop_service():
         await bot_app.stop()
         await bot_app.shutdown()
 
-    await dispose_engine()
+    if dispose_db:
+        await dispose_engine()
     logger.info("Admin Bot: Stopped")
 
 

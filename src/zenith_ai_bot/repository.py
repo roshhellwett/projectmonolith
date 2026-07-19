@@ -55,10 +55,14 @@ class UsageRepo:
         stmt = select(AIUsageLog).where(AIUsageLog.user_id == user_id, AIUsageLog.usage_date == today)
         row = (await session.execute(stmt)).scalar_one_or_none()
         if not row:
-            last_stmt = select(AIUsageLog).where(AIUsageLog.user_id == user_id).order_by(AIUsageLog.usage_date.desc()).limit(1)
+            last_stmt = (
+                select(AIUsageLog).where(AIUsageLog.user_id == user_id).order_by(AIUsageLog.usage_date.desc()).limit(1)
+            )
             last_row = (await session.execute(last_stmt)).scalar_one_or_none()
             default_persona = last_row.persona if last_row and last_row.persona else "default"
-            default_model = last_row.selected_model if last_row and last_row.selected_model else "llama-3.3-70b-versatile"
+            default_model = (
+                last_row.selected_model if last_row and last_row.selected_model else "llama-3.3-70b-versatile"
+            )
 
             row = AIUsageLog(
                 user_id=user_id,

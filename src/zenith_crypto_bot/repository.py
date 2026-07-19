@@ -183,7 +183,9 @@ class SubscriptionRepo:
     @db_retry
     async def save_audit(user_id: int, contract: str):
         async with AsyncSessionLocal() as session:
-            res = await session.execute(select(SavedAudit).where(SavedAudit.user_id == user_id, SavedAudit.contract == contract[:100]))
+            res = await session.execute(
+                select(SavedAudit).where(SavedAudit.user_id == user_id, SavedAudit.contract == contract[:100])
+            )
             audit = res.scalar_one_or_none()
             if audit:
                 audit.saved_at = datetime.now(UTC)
@@ -226,7 +228,6 @@ class SubscriptionRepo:
             stmt = delete(SavedAudit).where(SavedAudit.user_id == user_id)
             await session.execute(stmt)
             await session.commit()
-
 
     @staticmethod
     @db_retry
@@ -275,9 +276,7 @@ class SubscriptionRepo:
             else:
                 parts.append("Subscription: Free tier")
 
-            watch_res = await session.execute(
-                select(WatchlistToken).where(WatchlistToken.user_id == user_id)
-            )
+            watch_res = await session.execute(select(WatchlistToken).where(WatchlistToken.user_id == user_id))
             tokens = watch_res.scalars().all()
             if tokens:
                 items = []
@@ -293,14 +292,10 @@ class SubscriptionRepo:
             alert_total = len(alert_count.scalars().all())
             parts.append(f"Active Alerts: {alert_total}")
 
-            wallet_total = await session.execute(
-                select(TrackedWallet).where(TrackedWallet.user_id == user_id)
-            )
+            wallet_total = await session.execute(select(TrackedWallet).where(TrackedWallet.user_id == user_id))
             parts.append(f"Tracked Wallets: {len(wallet_total.scalars().all())}")
 
-            audit_total = await session.execute(
-                select(SavedAudit).where(SavedAudit.user_id == user_id)
-            )
+            audit_total = await session.execute(select(SavedAudit).where(SavedAudit.user_id == user_id))
             parts.append(f"Saved Audits: {len(audit_total.scalars().all())}")
 
             return "\n".join(parts)
@@ -366,8 +361,10 @@ class PriceAlertRepo:
     @db_retry
     async def count_user_alerts(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
-            stmt = select(func.count()).select_from(PriceAlert).where(
-                PriceAlert.user_id == user_id, PriceAlert.is_triggered == False
+            stmt = (
+                select(func.count())
+                .select_from(PriceAlert)
+                .where(PriceAlert.user_id == user_id, PriceAlert.is_triggered == False)
             )
             result = await session.execute(stmt)
             return result.scalar() or 0
@@ -378,7 +375,11 @@ class WalletTrackerRepo:
     @db_retry
     async def add_wallet(user_id: int, wallet_address: str, label: str = "Unnamed Wallet") -> bool:
         async with AsyncSessionLocal() as session:
-            res = await session.execute(select(TrackedWallet).where(TrackedWallet.user_id == user_id, TrackedWallet.wallet_address == wallet_address.lower()))
+            res = await session.execute(
+                select(TrackedWallet).where(
+                    TrackedWallet.user_id == user_id, TrackedWallet.wallet_address == wallet_address.lower()
+                )
+            )
             if res.scalar_one_or_none():
                 return False
             session.add(TrackedWallet(user_id=user_id, wallet_address=wallet_address.lower(), label=label[:50]))
@@ -431,9 +432,7 @@ class WalletTrackerRepo:
     @db_retry
     async def count_user_wallets(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
-            stmt = select(func.count()).select_from(TrackedWallet).where(
-                TrackedWallet.user_id == user_id
-            )
+            stmt = select(func.count()).select_from(TrackedWallet).where(TrackedWallet.user_id == user_id)
             result = await session.execute(stmt)
             return result.scalar() or 0
 
@@ -445,7 +444,9 @@ class WatchlistRepo:
         user_id: int, token_id: str, token_symbol: str, entry_price: float, quantity: float = 1.0
     ) -> bool:
         async with AsyncSessionLocal() as session:
-            res = await session.execute(select(WatchlistToken).where(WatchlistToken.user_id == user_id, WatchlistToken.token_id == token_id))
+            res = await session.execute(
+                select(WatchlistToken).where(WatchlistToken.user_id == user_id, WatchlistToken.token_id == token_id)
+            )
             token = res.scalar_one_or_none()
             if token:
                 token.entry_price = entry_price
@@ -487,8 +488,6 @@ class WatchlistRepo:
     @db_retry
     async def count_watchlist(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
-            stmt = select(func.count()).select_from(WatchlistToken).where(
-                WatchlistToken.user_id == user_id
-            )
+            stmt = select(func.count()).select_from(WatchlistToken).where(WatchlistToken.user_id == user_id)
             result = await session.execute(stmt)
             return result.scalar() or 0

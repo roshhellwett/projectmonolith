@@ -78,7 +78,9 @@ async def cmd_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text(crypto_ui.get_alerts_empty(), parse_mode="HTML")
 
     msg = await send_loading_message(update, context, crypto_ui.get_alerts_loading())
-    await msg.edit_text(crypto_ui.get_alerts_loaded(), reply_markup=crypto_ui.get_alerts_keyboard(alerts, is_pro), parse_mode="HTML")
+    await msg.edit_text(
+        crypto_ui.get_alerts_loaded(), reply_markup=crypto_ui.get_alerts_keyboard(alerts, is_pro), parse_mode="HTML"
+    )
 
 
 async def cmd_delalert(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -113,7 +115,9 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
     label = " ".join(context.args[1:]) if len(context.args) > 1 else "Unnamed Wallet"
     label_validation = validate_wallet_label(label)
     if not label_validation.is_valid:
-        return await update.message.reply_text(crypto_ui.get_track_label_error(label_validation.error_message), parse_mode="HTML")
+        return await update.message.reply_text(
+            crypto_ui.get_track_label_error(label_validation.error_message), parse_mode="HTML"
+        )
     label = label_validation.sanitized_value
 
     count = await WalletTrackerRepo.count_user_wallets(user_id)
@@ -138,7 +142,9 @@ async def cmd_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text(crypto_ui.get_wallets_empty(), parse_mode="HTML")
 
     msg = await send_loading_message(update, context, crypto_ui.get_wallets_loading())
-    await msg.edit_text(crypto_ui.get_wallets_loaded(), reply_markup=crypto_ui.get_wallets_keyboard(wallets, is_pro), parse_mode="HTML")
+    await msg.edit_text(
+        crypto_ui.get_wallets_loaded(), reply_markup=crypto_ui.get_wallets_keyboard(wallets, is_pro), parse_mode="HTML"
+    )
 
 
 async def cmd_untrack(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -168,7 +174,9 @@ async def cmd_addtoken(update: Update, context: ContextTypes.DEFAULT_TYPE):
     limit = 20 if is_pro else 3
     count = await WatchlistRepo.count_watchlist(user_id)
     if count >= limit:
-        return await update.message.reply_text(crypto_ui.get_addtoken_portfolio_full(count, limit, is_pro), parse_mode="HTML")
+        return await update.message.reply_text(
+            crypto_ui.get_addtoken_portfolio_full(count, limit, is_pro), parse_mode="HTML"
+        )
 
     symbol = context.args[0].upper()
     try:
@@ -189,7 +197,9 @@ async def cmd_addtoken(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await WatchlistRepo.add_token(user_id, token_id, symbol, entry_price, quantity)
     current = prices.get(token_id, {}).get("usd", entry_price)
     pnl_pct = ((current - entry_price) / entry_price) * 100 if entry_price > 0 else 0
-    await update.message.reply_text(crypto_ui.get_addtoken_success(symbol, quantity, entry_price, current, pnl_pct), parse_mode="HTML")
+    await update.message.reply_text(
+        crypto_ui.get_addtoken_success(symbol, quantity, entry_price, current, pnl_pct), parse_mode="HTML"
+    )
 
 
 async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -232,7 +242,9 @@ async def cmd_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
     eth_price = btc_data.get("ethereum", {}).get("usd", 0)
     eth_change = btc_data.get("ethereum", {}).get("usd_24h_change", 0)
 
-    text = crypto_ui.get_market_card(fng_val, fng_class, gauge_bar, btc_price, btc_change, eth_price, eth_change, gainers, losers, is_pro)
+    text = crypto_ui.get_market_card(
+        fng_val, fng_class, gauge_bar, btc_price, btc_change, eth_price, eth_change, gainers, losers, is_pro
+    )
     with contextlib.suppress(Exception):
         await msg.edit_text(text, reply_markup=crypto_ui.get_back_button(), parse_mode="HTML")
 
@@ -310,15 +322,26 @@ async def perform_real_audit(user_id: int, contract: str, msg, is_pro: bool):
 
         if is_pro:
             report = crypto_ui.get_audit_pro_report(
-                token_name, token_symbol, contract, safety=crypto_ui.get_risk_label(risk_score),
-                risk_score=risk_score, risks=risks,
-                is_honeypot=is_honeypot, is_open_source=is_open_source,
-                is_proxy=is_proxy, buy_tax=buy_tax, sell_tax=sell_tax,
-                holder_count=holder_count, lp_holder_count=lp_holder_count,
+                token_name,
+                token_symbol,
+                contract,
+                safety=crypto_ui.get_risk_label(risk_score),
+                risk_score=risk_score,
+                risks=risks,
+                is_honeypot=is_honeypot,
+                is_open_source=is_open_source,
+                is_proxy=is_proxy,
+                buy_tax=buy_tax,
+                sell_tax=sell_tax,
+                holder_count=holder_count,
+                lp_holder_count=lp_holder_count,
             )
         else:
             report = crypto_ui.get_audit_free_report(
-                token_name, token_symbol, contract, safety=crypto_ui.get_risk_label(risk_score),
+                token_name,
+                token_symbol,
+                contract,
+                safety=crypto_ui.get_risk_label(risk_score),
                 is_honeypot=is_honeypot,
             )
 

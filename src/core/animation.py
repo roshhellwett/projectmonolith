@@ -49,7 +49,9 @@ async def edit_or_reply(
             pass
     elif chat_id and context.bot:
         try:
-            return await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=keyboard, parse_mode=parse_mode)
+            return await context.bot.send_message(
+                chat_id=chat_id, text=text, reply_markup=keyboard, parse_mode=parse_mode
+            )
         except Exception:
             pass
     return None
@@ -72,7 +74,9 @@ async def _edit_with_animation(
     parse_mode: str = "HTML",
     existing_msg: Any | None = None,
 ) -> Any | None:
-    return await edit_or_reply(update, context, text=text, keyboard=keyboard, parse_mode=parse_mode, existing_msg=existing_msg)
+    return await edit_or_reply(
+        update, context, text=text, keyboard=keyboard, parse_mode=parse_mode, existing_msg=existing_msg
+    )
 
 
 async def edit_with_stages(
@@ -124,4 +128,3 @@ def get_group_stages(action: str = "Moderation Scan") -> list[str]:
         "⚡ <b>ZENITH SHIELD</b> » <i>Verifying group security policies...</i>\n<code>[▰▰▰▱▱▱▱▱▱▱] 30%</code>",
         f"⚡ <b>ZENITH SHIELD</b> » <i>Executing {action}...</i>\n<code>[▰▰▰▰▰▰▰▱▱▱] 70%</code>",
     ]
-

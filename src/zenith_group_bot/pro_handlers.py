@@ -219,10 +219,18 @@ async def cmd_schedule_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
     query = update.callback_query
     await query.answer()
 
-    pending = context.user_data.pop("pending_schedule", None)
-    if not pending:
-        return await query.edit_message_text("Session expired. Try again.")
+    pending = context.user_data.get("pending_schedule")
+    if not pending or query.from_user.id != pending.get("user_id"):
+        return await query.edit_message_text("Session expired or unauthorized. Try again.")
 
+    try:
+        member = await context.bot.get_chat_member(pending["chat_id"], query.from_user.id)
+        if member.status not in ["administrator", "creator"]:
+            return await query.edit_message_text("Admin only.")
+    except Exception:
+        return await query.edit_message_text("Cannot verify admin status.")
+
+    context.user_data.pop("pending_schedule", None)
     sid = await ScheduleRepo.add_schedule(
         pending["chat_id"], pending["user_id"], pending["message_text"], pending["hour"], pending["minute"]
     )

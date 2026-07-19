@@ -28,7 +28,9 @@ async def cmd_priority(update: Update, context: ContextTypes.DEFAULT_TYPE, is_pr
     priority = context.args[1].lower()
     validation = validate_priority(priority)
     if not validation.is_valid:
-        await update.message.reply_text(support_ui.get_priority_invalid_value(validation.error_message), parse_mode="HTML")
+        await update.message.reply_text(
+            support_ui.get_priority_invalid_value(validation.error_message), parse_mode="HTML"
+        )
         return
 
     priority = validation.sanitized_value
@@ -69,7 +71,9 @@ async def cmd_savereply(update: Update, context: ContextTypes.DEFAULT_TYPE, is_p
     count = await CannedRepo.count_canned()
     limit = 50
     if count >= limit:
-        await update.message.reply_text(support_ui.get_limit_reached_msg("Canned Responses", count, limit), parse_mode="HTML")
+        await update.message.reply_text(
+            support_ui.get_limit_reached_msg("Canned Responses", count, limit), parse_mode="HTML"
+        )
         return
 
     await CannedRepo.add_canned(tag, content, update.effective_user.id)

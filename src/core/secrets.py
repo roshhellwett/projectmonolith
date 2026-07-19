@@ -123,19 +123,14 @@ def enforce_startup_secrets() -> SecretValidationResult:
     )
 
     if not result.can_start:
-        logger.critical(
-            f"🛑 CANNOT START: Missing critical secrets: {', '.join(result.missing_critical)}"
-        )
+        logger.critical(f"🛑 CANNOT START: Missing critical secrets: {', '.join(result.missing_critical)}")
         # In production, we still start but log critical errors.
         # This allows the /health endpoint to report the issue.
         # Uncomment the line below to hard-fail:
         # sys.exit(1)
 
     if result.missing_required:
-        logger.warning(
-            f"⚠️  Services disabled due to missing tokens: "
-            f"{', '.join(result.missing_required)}"
-        )
+        logger.warning(f"⚠️  Services disabled due to missing tokens: " f"{', '.join(result.missing_required)}")
 
     return result
 

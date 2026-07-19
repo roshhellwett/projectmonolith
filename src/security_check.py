@@ -31,9 +31,7 @@ def check_git_secrets(root_dir: Path):
     print_header("Checking for Exposed Secrets in Git")
 
     try:
-        result = subprocess.run(
-            ["git", "status", "--porcelain"], capture_output=True, text=True, cwd=root_dir
-        )
+        result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, cwd=root_dir)
 
         env_files = [f for f in result.stdout.split("\n") if re.search(r"\b\.env\b", f) and f.strip()]
         if env_files:

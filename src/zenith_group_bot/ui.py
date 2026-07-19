@@ -40,9 +40,14 @@ def get_admin_dashboard(is_pro: bool, groups: list, usage: dict = None) -> Inlin
             ]
         )
     else:
-        rows.append([InlineKeyboardButton("💎 Upgrade to Pro Shield (Unlimited Protection)", url=f"tg://user?id={ADMIN_USER_ID}")])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    "💎 Upgrade to Pro Shield (Unlimited Protection)", url=f"tg://user?id={ADMIN_USER_ID}"
+                )
+            ]
+        )
     return InlineKeyboardMarkup(rows)
-
 
 
 def get_group_picker(groups: list, action_prefix: str, is_pro: bool = False) -> InlineKeyboardMarkup:
@@ -259,7 +264,7 @@ def get_group_list_msg(groups: list) -> str:
 
     lines = [
         format_header("Protected Communities", "Active Group Registry", f"{len(groups)} GROUPS"),
-        "<b>Linked Communities:</b>"
+        "<b>Linked Communities:</b>",
     ]
     for g in groups:
         status = "🟢 Active Shield" if g.is_active else "🔴 Inactive"

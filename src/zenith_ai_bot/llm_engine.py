@@ -110,7 +110,9 @@ async def process_code(description: str, api_key: str = None, preferred_model: s
     return resp.get_formatted_content()
 
 
-async def process_imagine(description: str, api_key: str = None, preferred_model: str = "llama-3.3-70b-versatile") -> str:
+async def process_imagine(
+    description: str, api_key: str = None, preferred_model: str = "llama-3.3-70b-versatile"
+) -> str:
     if not api_key:
         return "Your Groq API key is not set. Use /setkey to configure your key."
     resp = await AIExecutionEngine.execute(

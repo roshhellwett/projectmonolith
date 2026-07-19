@@ -87,9 +87,12 @@ async def cmd_group_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         from zenith_ai_bot.repository import UsageRepo
+
         preferred_model = await UsageRepo.get_selected_model(user_id)
         max_tokens = PRO_MAX_TOKENS if is_pro else FREE_MAX_TOKENS
-        response = await process_ai_query(text, "", persona="default", max_tokens=max_tokens, preferred_model=preferred_model)
+        response = await process_ai_query(
+            text, "", persona="default", max_tokens=max_tokens, preferred_model=preferred_model
+        )
         clean = sanitize_telegram_html(response)
 
         if len(clean) > FREE_MAX_RESPONSE_LENGTH and not is_pro:

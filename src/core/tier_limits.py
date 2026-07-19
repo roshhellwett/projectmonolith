@@ -115,15 +115,9 @@ def get_upgrade_text(feature_name: str) -> str:
 
 def get_limit_text(feature_name: str, current: int, limit: int, is_pro: bool) -> str:
     """Get a consistent limit-reached message."""
-    base = (
-        f"📊 <b>{feature_name} Limit Reached</b>\n\n"
-        f"You have <b>{current}/{limit}</b> active.\n"
-    )
+    base = f"📊 <b>{feature_name} Limit Reached</b>\n\n" f"You have <b>{current}/{limit}</b> active.\n"
     if not is_pro:
-        base += (
-            "\n💎 Upgrade to <b>Zenith Pro</b> for higher limits.\n"
-            "<code>/activate YOUR-KEY</code>"
-        )
+        base += "\n💎 Upgrade to <b>Zenith Pro</b> for higher limits.\n" "<code>/activate YOUR-KEY</code>"
     else:
         base += "\nPlease remove existing items to add new ones."
     return base

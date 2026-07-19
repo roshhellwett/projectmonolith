@@ -16,7 +16,9 @@ from core.ui_components import pro_feature_locked_msg, pro_upgrade_keyboard
 from zenith_ai_bot.prompts import PERSONAS
 
 
-def get_ai_dashboard(is_pro: bool, persona: str, usage: dict, selected_model: str = "llama-3.3-70b-versatile") -> InlineKeyboardMarkup:
+def get_ai_dashboard(
+    is_pro: bool, persona: str, usage: dict, selected_model: str = "llama-3.3-70b-versatile"
+) -> InlineKeyboardMarkup:
     persona_info = PERSONAS.get(persona, PERSONAS["default"])
     persona_label = f"{persona_info['icon']} {persona_info['name']}"
 
@@ -49,7 +51,9 @@ def get_ai_dashboard(is_pro: bool, persona: str, usage: dict, selected_model: st
         ],
     ]
     if not is_pro:
-        rows.append([InlineKeyboardButton("💎 Upgrade to Pro Bundle (Unlimited Access)", url=f"tg://user?id={ADMIN_USER_ID}")])
+        rows.append(
+            [InlineKeyboardButton("💎 Upgrade to Pro Bundle (Unlimited Access)", url=f"tg://user?id={ADMIN_USER_ID}")]
+        )
     return InlineKeyboardMarkup(rows)
 
 
@@ -57,7 +61,14 @@ def get_model_selector_keyboard(current_model: str, is_pro: bool = False) -> Inl
     rows = []
     for model_id, info in AVAILABLE_MODELS.items():
         marker = " [🔒 PRO]" if info["tier"] == "pro" and not is_pro else " ✅" if model_id == current_model else ""
-        rows.append([InlineKeyboardButton(f"{info['icon']} {info['name']} ({info['description']}){marker}", callback_data=f"ai_set_model_{model_id}")])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    f"{info['icon']} {info['name']} ({info['description']}){marker}",
+                    callback_data=f"ai_set_model_{model_id}",
+                )
+            ]
+        )
     if not is_pro:
         rows.append([InlineKeyboardButton("💎 Unlock All 70B & DeepSeek Models", url=f"tg://user?id={ADMIN_USER_ID}")])
     rows.append([InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")])
@@ -73,7 +84,6 @@ def get_model_selector_msg(current_model: str) -> str:
         f"  <i>└ {m_info['description']}</i>\n\n"
         f"All models are protected by Zenith's high-reliability circuit-breaker & auto-fallback matrix."
     )
-
 
 
 def get_persona_keyboard(current: str, is_pro: bool = False) -> InlineKeyboardMarkup:
@@ -96,7 +106,6 @@ def get_persona_preview_msg(persona_key: str) -> str:
         f"{info.get('description', '')}\n\n"
         f"Would you like to switch your neural persona to <b>{info['name']}</b>?"
     )
-
 
 
 def get_confirm_persona_switch(persona_key: str) -> InlineKeyboardMarkup:
@@ -135,7 +144,7 @@ def get_confirm_clear_history_msg() -> str:
     return format_alert(
         "Purge Context Memory",
         "This will permanently wipe your active conversation history with the AI.\nContextual awareness will reset to fresh state.",
-        "WARNING"
+        "WARNING",
     )
 
 
@@ -237,7 +246,7 @@ def get_persona_switched_msg(persona_key: str) -> str:
     return format_alert(
         f"Persona Switched: {p['name']}",
         f"{p['icon']} Your neural assistant is now configured as <b>{p['name']}</b>.\nContext personality adapted.",
-        "SUCCESS"
+        "SUCCESS",
     )
 
 
@@ -245,7 +254,7 @@ def get_history_locked_msg() -> str:
     return format_alert(
         "Chat Memory Locked",
         "Zenith's rolling context memory (retaining recent messages for multi-turn conversations) requires a Pro membership.\n\nActivate using <code>/activate YOUR-KEY</code>.",
-        "PRO"
+        "PRO",
     )
 
 
@@ -262,7 +271,7 @@ def get_history_list_msg(history: list) -> str:
 
     lines = [
         format_header("Context Memory", "Rolling 10-Message Buffer", f"{len(history)} MSGS"),
-        "<b>Recent Turn Log:</b>"
+        "<b>Recent Turn Log:</b>",
     ]
     for msg in history[-6:]:
         role_icon = "👤 <b>You:</b>" if msg.role == "user" else "🤖 <b>Zenith:</b>"
@@ -278,7 +287,7 @@ def get_history_cleared_msg(deleted: int) -> str:
     return format_alert(
         "Memory Purged Successfully",
         f"Cleared <b>{deleted}</b> messages from context buffer.\nNeural state reset to clean starting baseline.",
-        "SUCCESS"
+        "SUCCESS",
     )
 
 
@@ -309,7 +318,7 @@ def get_activate_help() -> str:
     return format_alert(
         "License Activation",
         "Enter your license key using the format:\n<code>/activate ZENITH-XXXX-XXXX</code>\n\nContact @roshhellwett to acquire your Pro bundle key.",
-        "PRO"
+        "PRO",
     )
 
 
@@ -317,7 +326,7 @@ def get_zenith_no_query_msg() -> str:
     return format_alert(
         "Missing Query Parameter",
         "Please provide your question alongside the command:\n<code>/zenith [your question here]</code>\n\nOr reply directly to any message with <code>/zenith</code>.",
-        "WARNING"
+        "WARNING",
     )
 
 
@@ -325,7 +334,7 @@ def get_queue_full_msg() -> str:
     return format_alert(
         "System At Max Capacity",
         "The neural cluster is processing maximum concurrent queries.\nPlease retry your request in a few seconds.",
-        "WARNING"
+        "WARNING",
     )
 
 
@@ -333,7 +342,7 @@ def get_worker_error_msg() -> str:
     return format_alert(
         "Neural Link Interrupted",
         "Lost connection during response synthesis. Our fallback circuit breaker is re-routing.\nPlease try your query again.",
-        "ERROR"
+        "ERROR",
     )
 
 
@@ -370,10 +379,12 @@ def get_ai_key_status_msg(has_key: bool):
         f"  3. Link it right here using:\n"
         f"     <code>/setkey gsk_your_api_key</code>"
     )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🌐 Get Free Groq API Key", url="https://console.groq.com")],
-        [InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")]
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🌐 Get Free Groq API Key", url="https://console.groq.com")],
+            [InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")],
+        ]
+    )
     return text, kb
 
 
@@ -381,7 +392,7 @@ def get_ai_key_set_success_msg():
     text = format_alert(
         "Groq API Key Verified!",
         "Your private API key has been securely linked and validated with high-speed inference clusters.\n\nYou now have full access to all AI commands via <code>/zenith [question]</code>!",
-        "SUCCESS"
+        "SUCCESS",
     )
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")]])
     return text, kb
@@ -389,9 +400,7 @@ def get_ai_key_set_success_msg():
 
 def get_ai_key_deleted_msg():
     text = format_alert(
-        "API Key Disconnected",
-        "Your private Groq API key has been removed from our encrypted store.",
-        "INFO"
+        "API Key Disconnected", "Your private Groq API key has been removed from our encrypted store.", "INFO"
     )
     return text, InlineKeyboardMarkup([[InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")]])
 
@@ -417,7 +426,11 @@ def get_feature_help_msg(feature: str, is_pro: bool = False) -> tuple:
             f"Performs comprehensive multi-pass web sweeps and synthesizes authoritative reports.\n\n"
             f"<b>Command Syntax:</b>\n<code>/research [TOPIC]</code>\n\n"
             f"Or select an interactive sample below to execute immediately:\n"
-            + ("\n<i>⚡ Pro Active — Full investigative pipeline unlocked.</i>" if is_pro else "\n<i>🔒 Pro Membership required to run deep research.</i>")
+            + (
+                "\n<i>⚡ Pro Active — Full investigative pipeline unlocked.</i>"
+                if is_pro
+                else "\n<i>🔒 Pro Membership required to run deep research.</i>"
+            )
         ),
         "summarize": (
             f"{format_header('Precision Summarizer', 'Condense Documents & Links', 'ACTIVE')}\n"
@@ -431,14 +444,22 @@ def get_feature_help_msg(feature: str, is_pro: bool = False) -> tuple:
             f"Generates production-grade, modular, clean code in any language with detailed architecture notes.\n\n"
             f"<b>Command Syntax:</b>\n<code>/code [DESCRIPTION]</code>\n\n"
             f"Or trigger an instant architectural build below:\n"
-            + ("\n<i>⚡ Pro Active — Full code generation unlocked.</i>" if is_pro else "\n<i>🔒 Pro Membership required to run code architect.</i>")
+            + (
+                "\n<i>⚡ Pro Active — Full code generation unlocked.</i>"
+                if is_pro
+                else "\n<i>🔒 Pro Membership required to run code architect.</i>"
+            )
         ),
         "imagine": (
             f"{format_header('Visual Prompt Crafter', 'Optimized AI Art Engineering', 'PRO' if is_pro else 'LOCKED')}\n"
             f"Designs rich, lighting-aware, high-precision prompts for Midjourney v6, DALL-E 3, and Stable Diffusion.\n\n"
             f"<b>Command Syntax:</b>\n<code>/imagine [DESCRIPTION]</code>\n\n"
             f"Or test with our visual concept templates below:\n"
-            + ("\n<i>⚡ Pro Active — Full visual engineering unlocked.</i>" if is_pro else "\n<i>🔒 Pro Membership required to run visual prompt crafter.</i>")
+            + (
+                "\n<i>⚡ Pro Active — Full visual engineering unlocked.</i>"
+                if is_pro
+                else "\n<i>🔒 Pro Membership required to run visual prompt crafter.</i>"
+            )
         ),
     }
     message = messages.get(feature, "Feature documentation unavailable.")
@@ -482,7 +503,7 @@ def get_limit_reached_msg(feature: str, current: int, limit: int) -> str:
     return format_alert(
         f"Limit Exceeded: {feature}",
         f"You have utilized <code>{current} / {limit}</code> requests for today.\nQuotas refresh automatically at midnight UTC.\n\nUpgrade to Zenith Pro for 12x higher limits and unlimited access.",
-        "WARNING"
+        "WARNING",
     )
 
 
@@ -536,7 +557,7 @@ def get_summarize_limit_reached() -> str:
     return format_alert(
         "Daily Limit Reached",
         "You have utilized your 1 free summary for today.\n\nUpgrade to Zenith Pro for unlimited summarization of long documents, articles, and video transcripts.\nUse <code>/activate YOUR-KEY</code> to upgrade.",
-        "PRO"
+        "PRO",
     )
 
 
@@ -554,7 +575,7 @@ def get_persona_locked() -> str:
     return format_alert(
         "Persona Restricted",
         "Switching away from the Default assistant requires a Pro subscription.\nUse <code>/activate YOUR-KEY</code> to unlock all 6 personas.",
-        "PRO"
+        "PRO",
     )
 
 
@@ -562,15 +583,13 @@ def get_persona_unknown(valid: str) -> str:
     return format_alert(
         "Invalid Persona Identifier",
         f"The requested persona does not exist.\n\n<b>Valid profiles:</b> <code>{valid}</code>\n\nExample: <code>/persona coder</code>",
-        "WARNING"
+        "WARNING",
     )
 
 
 def get_persona_already_using(name: str) -> str:
     return format_alert(
-        "Already Active",
-        f"Your neural assistant is currently operating with the <b>{name}</b> profile.",
-        "INFO"
+        "Already Active", f"Your neural assistant is currently operating with the <b>{name}</b> profile.", "INFO"
     )
 
 

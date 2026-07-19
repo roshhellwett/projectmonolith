@@ -85,7 +85,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tier = await resolve_tier(update.effective_user.id)
     keyboard = crypto_ui.get_back_button()
-    await update.message.reply_text(crypto_ui.get_help_msg(is_pro=tier.is_pro), reply_markup=keyboard, parse_mode="HTML")
+    await update.message.reply_text(
+        crypto_ui.get_help_msg(is_pro=tier.is_pro), reply_markup=keyboard, parse_mode="HTML"
+    )
 
 
 async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -218,7 +220,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             eth_p = btc_data.get("ethereum", {}).get("usd", 0)
             eth_c = btc_data.get("ethereum", {}).get("usd_24h_change", 0)
             await query.edit_message_text(
-                crypto_ui.get_market_card(fng_val, fng_class, gauge_bar, btc_p, btc_c, eth_p, eth_c, gainers, losers, is_pro),
+                crypto_ui.get_market_card(
+                    fng_val, fng_class, gauge_bar, btc_p, btc_c, eth_p, eth_c, gainers, losers, is_pro
+                ),
                 reply_markup=crypto_ui.get_back_button(),
                 parse_mode="HTML",
             )
@@ -386,8 +390,15 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await query.edit_message_text(msg, reply_markup=crypto_ui.get_back_button(), parse_mode="HTML")
                 else:
                     await UsageRepo.set_selected_model(user_id, model_id)
-                    text = f"✅ <b>Active Engine Switched!</b>\nNow using: <b>{AVAILABLE_MODELS[model_id]['icon']} {AVAILABLE_MODELS[model_id]['name']}</b>\n\n" + crypto_ui.get_crypto_model_selector_msg(model_id)
-                    await query.edit_message_text(text, reply_markup=crypto_ui.get_crypto_model_selector_keyboard(model_id, is_pro=is_pro), parse_mode="HTML")
+                    text = (
+                        f"✅ <b>Active Engine Switched!</b>\nNow using: <b>{AVAILABLE_MODELS[model_id]['icon']} {AVAILABLE_MODELS[model_id]['name']}</b>\n\n"
+                        + crypto_ui.get_crypto_model_selector_msg(model_id)
+                    )
+                    await query.edit_message_text(
+                        text,
+                        reply_markup=crypto_ui.get_crypto_model_selector_keyboard(model_id, is_pro=is_pro),
+                        parse_mode="HTML",
+                    )
 
         elif query.data.startswith("ui_noop"):
             pass
@@ -435,7 +446,9 @@ async def price_alert_checker():
                 )
                 if triggered:
                     await PriceAlertRepo.trigger_alert(alert.id)
-                    text = crypto_ui.get_price_alert_triggered(alert.token_symbol, alert.direction, alert.target_price, current)
+                    text = crypto_ui.get_price_alert_triggered(
+                        alert.token_symbol, alert.direction, alert.target_price, current
+                    )
                     with contextlib.suppress(asyncio.QueueFull):
                         alert_queue.put_nowait((alert.user_id, text))
         except Exception as e:
@@ -581,14 +594,15 @@ async def start_service():
     track_task(asyncio.create_task(safe_loop("sub_monitor", subscription_monitor)))
 
 
-async def stop_service():
+async def stop_service(dispose_db: bool = False):
     for t in list(background_tasks):
         t.cancel()
     if bot_app:
         await bot_app.stop()
         await bot_app.shutdown()
     await close_market_client()
-    await dispose_engine()
+    if dispose_db:
+        await dispose_engine()
 
 
 @router.post("/webhook/crypto/{secret}")

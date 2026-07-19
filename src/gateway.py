@@ -124,11 +124,11 @@ async def lifespan(app: FastAPI):
     try:
         await asyncio.wait_for(
             asyncio.gather(
-                run_group_bot.stop_service(),
-                run_ai_bot.stop_service(),
-                run_crypto_bot.stop_service(),
-                run_support_bot.stop_service(),
-                run_admin_bot.stop_service(),
+                run_group_bot.stop_service(dispose_db=False),
+                run_ai_bot.stop_service(dispose_db=False),
+                run_crypto_bot.stop_service(dispose_db=False),
+                run_support_bot.stop_service(dispose_db=False),
+                run_admin_bot.stop_service(dispose_db=False),
                 return_exceptions=True,
             ),
             timeout=15.0,

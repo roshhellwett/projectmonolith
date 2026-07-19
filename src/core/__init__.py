@@ -90,4 +90,3 @@ __all__ = [
     "get_crypto_stages",
     "get_group_stages",
 ]
-
