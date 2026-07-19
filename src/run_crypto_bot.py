@@ -348,6 +348,14 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(crypto_ui.get_new_pairs_loading())
             await show_new_pairs(query.message, is_pro)
 
+        elif query.data == "ai_show_key_setup":
+            has_key = await SubscriptionRepo.get_groq_key(user_id)
+            if has_key:
+                text, kb = crypto_ui.get_ai_key_status_msg(True)
+            else:
+                text, kb = crypto_ui.get_ai_no_key_msg()
+            await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+
         elif query.data.startswith("ui_noop"):
             pass
 

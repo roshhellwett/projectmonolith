@@ -121,7 +121,21 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     persona = usage.get("persona", "default")
     days_left = await SubscriptionRepo.get_days_left(user_id)
 
-    text = get_welcome_msg(is_pro, days_left, usage, persona)
+    api_key = await SubscriptionRepo.get_groq_key(user_id)
+    if not api_key:
+        text = (
+            "<b>Zenith AI Terminal</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "Welcome! To use AI features, you need to connect your Groq API key.\n\n"
+            "1. Go to <b>console.groq.com</b> \u2192 API Keys\n"
+            "2. Create a free key\n"
+            "3. Send it in the <b>Crypto Bot</b>:\n"
+            "<code>/setkey gsk_your_api_key</code>\n\n"
+            "Once set, come back here and use /zenith to ask anything!"
+        )
+    else:
+        text = get_welcome_msg(is_pro, days_left, usage, persona)
+
     await update.message.reply_text(text, reply_markup=get_ai_dashboard(is_pro, persona, usage), parse_mode="HTML")
 
 

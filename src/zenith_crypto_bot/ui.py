@@ -20,6 +20,8 @@ def get_main_dashboard(is_pro: bool = False, alert_count: int = 0, alert_limit: 
          InlineKeyboardButton("Smart Money Pulse", callback_data="ui_volume")],
         [InlineKeyboardButton("New Pair Scanner", callback_data="ui_new_pairs"),
          InlineKeyboardButton("Live Orderflow", callback_data="ui_whale_radar")],
+        [InlineKeyboardButton("AI Co-Pilot", callback_data="ai_followup_what is in my portfolio?"),
+         InlineKeyboardButton("Set Groq Key", callback_data="ai_show_key_setup")],
         [InlineKeyboardButton(f"{tier} ACCESS", callback_data="ui_pro_info"),
          InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
     ]
