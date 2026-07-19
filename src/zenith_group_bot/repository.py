@@ -111,6 +111,36 @@ class SettingsRepo:
 
     @staticmethod
     @db_retry
+    async def get_raid_mode(chat_id: int) -> bool:
+        settings = await SettingsRepo.get_settings(chat_id)
+        if not settings:
+            return False
+        if settings.raid_expires_at and utc_now() > settings.raid_expires_at:
+            if settings.raid_mode:
+                async with AsyncSessionLocal() as session:
+                    stmt = update(GroupSettings).where(GroupSettings.chat_id == chat_id).values(raid_mode=False)
+                    await session.execute(stmt)
+                    await session.commit()
+                    settings_cache.pop(chat_id, None)
+            return False
+        return bool(settings.raid_mode)
+
+    @staticmethod
+    @db_retry
+    async def set_raid_mode(chat_id: int, active: bool, expires_in_minutes: int = 30):
+        async with AsyncSessionLocal() as session:
+            expires = utc_now() + timedelta(minutes=expires_in_minutes) if active else None
+            stmt = (
+                update(GroupSettings)
+                .where(GroupSettings.chat_id == chat_id)
+                .values(raid_mode=active, raid_expires_at=expires)
+            )
+            await session.execute(stmt)
+            await session.commit()
+            settings_cache.pop(chat_id, None)
+
+    @staticmethod
+    @db_retry
     async def wipe_group_container(chat_id: int, owner_id: int) -> bool:
         async with AsyncSessionLocal() as session:
             stmt = select(GroupSettings).where(GroupSettings.chat_id == chat_id, GroupSettings.owner_id == owner_id)
@@ -151,6 +181,14 @@ class GroupRepo:
             result = await session.execute(stmt)
             await session.commit()
             return result.scalar()
+
+    @staticmethod
+    @db_retry
+    async def get_strikes(user_id: int, chat_id: int) -> int:
+        async with AsyncSessionLocal() as session:
+            stmt = select(GroupStrike).where(GroupStrike.user_id == user_id, GroupStrike.chat_id == chat_id)
+            record = (await session.execute(stmt)).scalar_one_or_none()
+            return record.strike_count if record else 0
 
     @staticmethod
     @db_retry

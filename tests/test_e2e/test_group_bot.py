@@ -8,7 +8,6 @@ from zenith_group_bot.flood_control import (
     get_warning_count,
     is_flooding,
 )
-from zenith_group_bot.pro_handlers import is_raid_mode, set_raid_mode
 from zenith_group_bot.word_list import BANNED_WORDS, SPAM_DOMAINS
 
 
@@ -59,14 +58,10 @@ class TestFloodControl:
         assert isinstance(action, str)
         assert isinstance(duration, int)
 
-    def test_is_raid_mode_default(self):
-        assert is_raid_mode(chat_id=12345) is False
-
-    def test_set_and_clear_raid_mode(self):
-        set_raid_mode(chat_id=54321, active=True)
-        assert is_raid_mode(chat_id=54321) is True
-        set_raid_mode(chat_id=54321, active=False)
-        assert is_raid_mode(chat_id=54321) is False
+    def test_raid_mode_on_model(self):
+        from zenith_group_bot.models import GroupSettings
+        assert hasattr(GroupSettings, "raid_mode")
+        assert hasattr(GroupSettings, "raid_expires_at")
 
 
 class TestGroupFilters:

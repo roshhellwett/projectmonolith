@@ -1,5 +1,4 @@
 import contextlib
-import html
 
 from cachetools import TTLCache
 from telegram import ChatPermissions, Update
@@ -10,7 +9,6 @@ from core.logger import setup_logger
 from core.subscription import SubscriptionRepo
 from zenith_group_bot.filters import scan_for_abuse, scan_for_spam
 from zenith_group_bot.flood_control import is_flooding
-from zenith_group_bot.pro_handlers import is_raid_mode
 from zenith_group_bot.repository import (
     AuditLogRepo,
     CustomWordRepo,
@@ -18,6 +16,20 @@ from zenith_group_bot.repository import (
     MemberRepo,
     SettingsRepo,
     WelcomeRepo,
+)
+from zenith_group_bot.ui import (
+    get_confirm_forgive,
+    get_confirm_reset,
+    get_forgive_admin_error,
+    get_forgive_id_error,
+    get_forgive_no_target,
+    get_forgive_result,
+    get_reset_admin_error,
+    get_reset_not_configured,
+    get_reset_owner_error,
+    get_reset_private_error,
+    get_reset_result,
+    get_violation_notification,
 )
 
 logger = setup_logger("GROUP_APP")
@@ -55,7 +67,7 @@ async def _try_delete(message, chat_id: int) -> bool:
             count = _permission_errors.get(error_key, 0)
             _permission_errors[error_key] = count + 1
             if count + 1 >= 3:
-                logger.warning(f"⚡ Circuit breaker tripped for chat {chat_id}. Pausing deletions.")
+                logger.warning(f"Circuit breaker tripped for chat {chat_id}. Pausing deletions.")
         return False
     except Exception:
         return False
@@ -65,12 +77,11 @@ async def _notify_owner(settings, context, user, reason: str):
     with contextlib.suppress(Exception):
         await context.bot.send_message(
             chat_id=settings.owner_id,
-            text=(
-                f"🚨 <b>VIOLATION DETECTED</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"<b>Group:</b> <code>{html.escape(settings.group_name or str(settings.chat_id))}</code>\n"
-                f"<b>User:</b> {html.escape(user.first_name or '')} (<code>{user.id}</code>)\n"
-                f"<b>Reason:</b> {html.escape(reason)}\n"
+            text=get_violation_notification(
+                settings.group_name or str(settings.chat_id),
+                user.first_name or "",
+                user.id,
+                reason,
             ),
             parse_mode="HTML",
         )
@@ -101,7 +112,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ban_threshold = await _get_ban_threshold(strength)
     username = user.username or ""
 
-    if is_raid_mode(chat_id) and not await _is_admin_cached(chat_id, user_id, context):
+    if await SettingsRepo.get_raid_mode(chat_id) and not await _is_admin_cached(chat_id, user_id, context):
         if await _try_delete(msg, chat_id):
             await AuditLogRepo.log_action(chat_id, user_id, username, "DELETED", "Anti-raid lockdown", context.bot.id)
         return
@@ -130,7 +141,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id, user_id, username, "BANNED", f"Strike threshold ({ban_threshold}) reached", context.bot.id
                 )
             except Exception:
-                pass
+                logger.warning(f"Failed to ban user {user_id} in chat {chat_id} (spam threshold)")
         await _notify_owner(settings, context, user, f"Spam link (Strike {strikes})")
         return
 
@@ -163,7 +174,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             context.bot.id,
                         )
                     except Exception:
-                        pass
+                        logger.warning(f"Failed to ban user {user_id} in chat {chat_id} (abuse threshold)")
                 await _notify_owner(settings, context, user, f"Abuse detected (Strike {strikes})")
             return
 
@@ -180,8 +191,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id, user_id, username, "BANNED", "Flood + strike threshold", context.bot.id
                 )
             except Exception:
-                pass
-        await _notify_owner(settings, context, user, f"Flooding (Strike {strikes})")
+                logger.warning(f"Failed to ban user {user_id} in chat {chat_id} (flood threshold)")
 
 
 async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -198,7 +208,7 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if member.is_bot:
             continue
 
-        if is_raid_mode(chat_id):
+        if await SettingsRepo.get_raid_mode(chat_id):
             try:
                 await context.bot.restrict_chat_member(
                     chat_id,
@@ -214,7 +224,7 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     context.bot.id,
                 )
             except Exception:
-                pass
+                logger.warning(f"Failed to restrict new member {member.id} in raid mode (chat {chat_id})")
             continue
 
         await MemberRepo.register_new_member(member.id, chat_id)
@@ -224,18 +234,9 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
             welcome_config = await WelcomeRepo.get_welcome(chat_id)
             if welcome_config:
                 welcome_text = (
-                    welcome_config.message_template.replace(
-                        "{name}",
-                        member.first_name or "there",
-                    )
-                    .replace(
-                        "{username}",
-                        f"@{member.username}" if member.username else member.first_name or "there",
-                    )
-                    .replace(
-                        "{group}",
-                        msg.chat.title or "our group",
-                    )
+                    welcome_config.message_template.replace("{name}", member.first_name or "there")
+                    .replace("{username}", f"@{member.username}" if member.username else member.first_name or "there")
+                    .replace("{group}", msg.chat.title or "our group")
                 )
                 try:
                     if welcome_config.send_dm:
@@ -250,7 +251,7 @@ async def cmd_forgive(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type not in ("group", "supergroup"):
         return
     if not await _is_admin_cached(update.effective_chat.id, update.effective_user.id, context):
-        return await update.message.reply_text("⛔ Admin only.")
+        return await update.message.reply_text(get_forgive_admin_error())
 
     target_id = None
     if update.message.reply_to_message:
@@ -259,27 +260,53 @@ async def cmd_forgive(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             target_id = int(context.args[0])
         except ValueError:
-            return await update.message.reply_text("⚠️ Invalid user ID.")
+            return await update.message.reply_text(get_forgive_id_error())
 
     if not target_id:
-        return await update.message.reply_text("⚠️ Reply to a user or provide their ID.")
+        return await update.message.reply_text(get_forgive_no_target())
 
-    forgiven = await GroupRepo.forgive_user(target_id, update.effective_chat.id)
-    await update.message.reply_text("✅ Strikes cleared." if forgiven else "⚠️ No strikes found for this user.")
+    strikes = await GroupRepo.get_strikes(target_id, update.effective_chat.id)
+    target_name = update.message.reply_to_message.from_user.first_name if update.message.reply_to_message else None
+
+    confirm_text, confirm_kb = get_confirm_forgive(target_id, target_name, strikes)
+    await update.message.reply_text(confirm_text, reply_markup=confirm_kb, parse_mode="HTML")
+
+
+async def cmd_forgive_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = int(query.data.replace("grp_forgive_", ""))
+    chat_id = update.effective_chat.id
+
+    forgiven = await GroupRepo.forgive_user(user_id, chat_id)
+    await query.edit_message_text(get_forgive_result(forgiven))
 
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == "private":
-        return await update.message.reply_text("⚠️ Use this in the group you want to reset.")
+        return await update.message.reply_text(get_reset_private_error())
     if not await _is_admin_cached(update.effective_chat.id, update.effective_user.id, context):
-        return await update.message.reply_text("⛔ Admin only.")
+        return await update.message.reply_text(get_reset_admin_error())
 
     settings = await SettingsRepo.get_settings(update.effective_chat.id)
     if not settings:
-        return await update.message.reply_text("⚠️ This group is not configured.")
+        return await update.message.reply_text(get_reset_not_configured())
     if update.effective_user.id != settings.owner_id:
-        return await update.message.reply_text("⛔ Only the group owner can reset.")
+        return await update.message.reply_text(get_reset_owner_error())
 
-    wiped = await SettingsRepo.wipe_group_container(update.effective_chat.id, update.effective_user.id)
-    msg = "✅ Group data wiped. Run /setup to reconfigure." if wiped else "⚠️ Reset failed."
-    await update.message.reply_text(msg)
+    confirm_text, confirm_kb = get_confirm_reset(settings.group_name)
+    await update.message.reply_text(confirm_text, reply_markup=confirm_kb, parse_mode="HTML")
+
+
+async def cmd_reset_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = update.effective_chat.id
+    user_id = query.from_user.id
+    settings = await SettingsRepo.get_settings(chat_id)
+
+    if not settings or settings.owner_id != user_id:
+        return await query.edit_message_text("Reset failed.")
+
+    wiped = await SettingsRepo.wipe_group_container(chat_id, user_id)
+    await query.edit_message_text(get_reset_result(wiped))

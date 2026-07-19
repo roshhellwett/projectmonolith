@@ -11,6 +11,7 @@ from core.config import SUPPORT_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL, is_owner
 from core.database import dispose_engine
 from core.logger import setup_logger
 from zenith_crypto_bot.repository import SubscriptionRepo
+from zenith_support_bot import ui as support_ui
 from zenith_support_bot.ai_responder import generate_ai_response
 from zenith_support_bot.notifications import notify_admin_new_ticket, set_notification_bot
 from zenith_support_bot.pro_handlers import (
@@ -24,24 +25,8 @@ from zenith_support_bot.pro_handlers import (
     cmd_savereply,
     cmd_stats,
 )
-from zenith_support_bot.repository import (
-    FAQRepo,
-    TicketRepo,
-    seed_default_faq,
-)
+from zenith_support_bot.repository import FAQRepo, TicketRepo, seed_default_faq
 from zenith_support_bot.scheduler import start_ticket_scheduler, stop_ticket_scheduler
-from zenith_support_bot.ui import (
-    get_all_tickets_keyboard,
-    get_back_button,
-    get_faq_keyboard,
-    get_priority_keyboard,
-    get_support_dashboard,
-    get_ticket_created_msg,
-    get_ticket_detail_keyboard,
-    get_ticket_keyboard,
-    get_ticket_status_msg,
-    get_welcome_msg,
-)
 from zenith_support_bot.user_handlers import (
     handle_ticket_close_callback,
     handle_ticket_reply_callback,
@@ -80,8 +65,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     open_tickets = await TicketRepo.count_open_tickets(user_id)
 
     await update.message.reply_text(
-        get_welcome_msg(first_name, is_pro, days_left, open_tickets, is_owner_user),
-        reply_markup=get_support_dashboard(is_pro, open_tickets, is_owner_user),
+        support_ui.get_welcome_msg(first_name, is_pro, days_left, open_tickets, is_owner_user),
+        reply_markup=support_ui.get_support_dashboard(is_pro, open_tickets, is_owner_user),
         parse_mode="HTML",
     )
 
@@ -92,57 +77,35 @@ async def cmd_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
     days_left = await SubscriptionRepo.get_days_left(user_id)
 
     if not is_owner_user and days_left <= 0:
-        await update.message.reply_text(
-            "🎫 <b>Subscribers Only</b>\n\n"
-            "You need an active subscription to create support tickets.\n\n"
-            "Use <code>/activate [KEY]</code> to activate your subscription.",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(support_ui.get_subs_only_msg(), parse_mode="HTML")
         return
 
     is_pro = days_left > 0
-    username = update.effective_user.username or update.effective_user.first_name or "Unknown"
-
     max_tickets = 999 if is_owner_user else (15 if is_pro else 3)
     open_tickets = await TicketRepo.count_open_tickets(user_id)
 
     if open_tickets >= max_tickets:
         upgrade_msg = ""
         if not is_owner_user and not is_pro:
-            upgrade_msg = "💎 Upgrade to Pro for 15 tickets!"
-        await update.message.reply_text(
-            f"⚠️ <b>Ticket Limit Reached</b>\n\n"
-            f"You have {open_tickets} open ticket(s). Maximum allowed: {max_tickets}\n\n"
-            f"{upgrade_msg}",
-            parse_mode="HTML",
-        )
+            upgrade_msg = "Upgrade to Pro for 15 tickets!"
+        await update.message.reply_text(support_ui.get_ticket_limit_msg(open_tickets, max_tickets, upgrade_msg), parse_mode="HTML")
         return
 
     if not context.args:
-        await update.message.reply_text(
-            "🎫 <b>Create Support Ticket</b>\n\n"
-            "Usage: <code>/ticket [subject] | [description]</code>\n\n"
-            "Example: <code>/ticket Login Issue | I can't log into my account</code>",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(support_ui.get_ticket_help(), parse_mode="HTML")
         return
 
     args = " ".join(context.args).split(" | ")
     if len(args) < 2:
-        await update.message.reply_text(
-            "⚠️ Use <code>|</code> to separate subject and description.\n\n"
-            "Example: <code>/ticket Login Issue | I can't log into my account</code>",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(support_ui.get_ticket_pipe_error(), parse_mode="HTML")
         return
 
     subject = args[0].strip()
     description = args[1].strip()
+    username = update.effective_user.username or update.effective_user.first_name or "Unknown"
 
-    msg = await update.message.reply_text("<i>Creating ticket...</i>", parse_mode="HTML")
-
+    msg = await update.message.reply_text("Creating ticket...")
     ticket = await TicketRepo.create_ticket(user_id, username, subject, description)
-
     asyncio.create_task(notify_admin_new_ticket(ticket.id, user_id, username, subject, description))
 
     ai_response = None
@@ -155,29 +118,26 @@ async def cmd_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"AI response failed: {e}")
 
     await msg.edit_text(
-        get_ticket_created_msg(ticket.id, ai_response),
-        reply_markup=get_back_button(),
+        support_ui.get_ticket_created_msg(ticket.id, ai_response),
+        reply_markup=support_ui.get_back_button(),
         parse_mode="HTML",
     )
 
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text(
-            "⚠️ <b>Usage:</b> <code>/status [TICKET_ID]</code>\n\n" "Example: <code>/status 5</code>",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(support_ui.get_status_usage(), parse_mode="HTML")
         return
 
     try:
         ticket_id = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("⚠️ Invalid ticket ID.")
+        await update.message.reply_text(support_ui.get_status_invalid())
         return
 
     ticket = await TicketRepo.get_ticket(ticket_id)
     if not ticket:
-        await update.message.reply_text("⚠️ Ticket not found.")
+        await update.message.reply_text(support_ui.get_status_not_found())
         return
 
     user_id = update.effective_user.id
@@ -186,8 +146,8 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_owner_user = is_owner(user_id)
 
     await update.message.reply_text(
-        get_ticket_status_msg(ticket, is_pro, is_owner_user),
-        reply_markup=get_ticket_detail_keyboard(
+        support_ui.get_ticket_status_msg(ticket, is_pro, is_owner_user),
+        reply_markup=support_ui.get_ticket_detail_keyboard(
             ticket.id, is_owner_user, is_pro, is_owner_user, ticket.user_id == user_id
         ),
         parse_mode="HTML",
@@ -199,15 +159,12 @@ async def cmd_mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tickets = await TicketRepo.get_user_tickets(user_id, open_only=False)
 
     if not tickets:
-        await update.message.reply_text(
-            "🎫 <b>Your Tickets</b>\n\nNo tickets found. Use /ticket to create one.",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(support_ui.get_my_tickets_empty(), parse_mode="HTML")
         return
 
     await update.message.reply_text(
-        "🎫 <b>Your Tickets</b>",
-        reply_markup=get_ticket_keyboard(tickets),
+        "<b>Your Tickets</b>",
+        reply_markup=support_ui.get_ticket_keyboard(tickets),
         parse_mode="HTML",
     )
 
@@ -219,33 +176,26 @@ async def cmd_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_owner_user = is_owner(user_id)
 
     faqs = await FAQRepo.get_all_faqs(limit=50 if (is_pro or is_owner_user) else 10)
-
     if not faqs:
-        await update.message.reply_text(
-            "❓ <b>FAQ</b>\n\nNo FAQ entries available.",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(support_ui.get_faq_empty(), parse_mode="HTML")
         return
 
     await update.message.reply_text(
-        "❓ <b>Frequently Asked Questions</b>",
-        reply_markup=get_faq_keyboard(faqs),
+        support_ui.get_faq_loaded(),
+        reply_markup=support_ui.get_faq_keyboard(faqs),
         parse_mode="HTML",
     )
 
 
 async def cmd_close(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text(
-            "⚠️ <b>Usage:</b> <code>/close [TICKET_ID]</code>\n\n" "Example: <code>/close 5</code>",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(support_ui.get_close_usage(), parse_mode="HTML")
         return
 
     try:
         ticket_id = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("⚠️ Invalid ticket ID.")
+        await update.message.reply_text(support_ui.get_close_invalid())
         return
 
     user_id = update.effective_user.id
@@ -257,23 +207,14 @@ async def cmd_close(update: Update, context: ContextTypes.DEFAULT_TYPE):
         success = await TicketRepo.close_ticket(ticket_id, user_id)
 
     if success:
-        await update.message.reply_text(
-            f"✅ <b>Ticket Closed</b>\n\nTicket #{ticket_id} has been closed.",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(support_ui.get_close_success(ticket_id), parse_mode="HTML")
     else:
-        await update.message.reply_text(
-            "⚠️ Could not close ticket. It may already be closed or you don't own this ticket.",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(support_ui.get_close_failure(), parse_mode="HTML")
 
 
 async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        return await update.message.reply_text(
-            "⚠️ <b>Invalid Format.</b> Use: <code>/activate [YOUR_KEY]</code>",
-            parse_mode="HTML",
-        )
+        return await update.message.reply_text(support_ui.get_activate_help(), parse_mode="HTML")
     key_string = context.args[0].strip()
     success, msg = await SubscriptionRepo.redeem_key(update.effective_user.id, key_string)
     await update.message.reply_text(msg, parse_mode="HTML")
@@ -293,45 +234,15 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if query.data == "sup_main_menu":
             open_tickets = await TicketRepo.count_open_tickets(user_id)
             await query.edit_message_text(
-                get_welcome_msg(first_name, is_pro, days_left, open_tickets, is_owner_user),
-                reply_markup=get_support_dashboard(is_pro, open_tickets, is_owner_user),
+                support_ui.get_welcome_msg(first_name, is_pro, days_left, open_tickets, is_owner_user),
+                reply_markup=support_ui.get_support_dashboard(is_pro, open_tickets, is_owner_user),
                 parse_mode="HTML",
             )
 
         elif query.data == "sup_status":
-            if is_owner_user:
-                status = "👑 <b>OWNER</b> - Full Access"
-                features = (
-                    "\n<b>Owner Features:</b>\n"
-                    "• Unlimited tickets\n"
-                    "• All Pro features\n"
-                    "• Admin panel\n"
-                    "• View all tickets\n"
-                    "• Manage FAQs\n"
-                    "• Resolve tickets"
-                )
-            elif is_pro:
-                status = f"🟢 <b>Active</b> — {days_left} days remaining"
-                features = (
-                    "\n<b>Pro Features:</b>\n"
-                    "• 15 open tickets (vs 3 free)\n"
-                    "• AI auto-response\n"
-                    "• Priority support\n"
-                    "• Custom FAQ builder\n"
-                    "• Canned responses\n"
-                    "• Analytics\n"
-                    "• Auto-close tickets\n"
-                    "• Satisfaction ratings"
-                )
-            else:
-                status = "🔴 <b>Inactive</b> — Standard Tier"
-                features = ""
             await query.edit_message_text(
-                f"<b>💎 Zenith Pro</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"<b>Status:</b> {status}{features}\n\n"
-                f"<b>Activation:</b>\n<code>/activate ZENITH-XXXX-XXXX</code>\n\n"
-                f"<i>User ID: {user_id}</i>",
-                reply_markup=get_back_button(),
+                support_ui.get_pro_status_msg(is_pro, days_left, is_owner_user),
+                reply_markup=support_ui.get_back_button(),
                 parse_mode="HTML",
             )
 
@@ -339,14 +250,14 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tickets = await TicketRepo.get_user_tickets(user_id, open_only=False)
             if not tickets:
                 await query.edit_message_text(
-                    "🎫 <b>Your Tickets</b>\n\nNo tickets found. Use /ticket to create one.",
-                    reply_markup=get_back_button(),
+                    support_ui.get_my_tickets_empty(),
+                    reply_markup=support_ui.get_back_button(),
                     parse_mode="HTML",
                 )
             else:
                 await query.edit_message_text(
-                    "🎫 <b>Your Tickets</b>",
-                    reply_markup=get_ticket_keyboard(tickets),
+                    "<b>Your Tickets</b>",
+                    reply_markup=support_ui.get_ticket_keyboard(tickets),
                     parse_mode="HTML",
                 )
 
@@ -354,59 +265,51 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             faqs = await FAQRepo.get_all_faqs(limit=50 if (is_pro or is_owner_user) else 10)
             if not faqs:
                 await query.edit_message_text(
-                    "❓ <b>FAQ</b>\n\nNo FAQ entries available.",
-                    reply_markup=get_back_button(),
+                    support_ui.get_faq_empty(),
+                    reply_markup=support_ui.get_back_button(),
                     parse_mode="HTML",
                 )
             else:
                 await query.edit_message_text(
-                    "❓ <b>Frequently Asked Questions</b>",
-                    reply_markup=get_faq_keyboard(faqs),
+                    support_ui.get_faq_loaded(),
+                    reply_markup=support_ui.get_faq_keyboard(faqs),
                     parse_mode="HTML",
                 )
 
         elif query.data == "sup_new_ticket":
             await query.edit_message_text(
-                "🎫 <b>Create New Ticket</b>\n\n"
-                "Use command: <code>/ticket [subject] | [description]</code>\n\n"
-                "Example: <code>/ticket Login Issue | I can't log into my account</code>",
-                reply_markup=get_back_button(),
+                support_ui.get_new_ticket_guide(),
+                reply_markup=support_ui.get_back_button(),
                 parse_mode="HTML",
             )
 
         elif query.data == "sup_stats":
             if not is_pro and not is_owner_user:
                 await query.edit_message_text(
-                    "🔒 <b>Pro Feature: Analytics</b>\n\nUpgrade to Pro to view ticket statistics.",
-                    reply_markup=get_back_button(),
+                    support_ui.get_stats_pro_feature_msg(),
+                    reply_markup=support_ui.get_back_button(),
                     parse_mode="HTML",
                 )
                 return
 
             stats = await TicketRepo.get_ticket_stats()
             await query.edit_message_text(
-                f"📊 <b>Support Analytics</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"<b>Total Tickets:</b> {stats['total']}\n"
-                f"<b>Open:</b> {stats['open']}\n"
-                f"<b>In Progress:</b> {stats['in_progress']}\n"
-                f"<b>Resolved:</b> {stats['resolved']}\n"
-                f"<b>Closed:</b> {stats['closed']}\n\n"
-                f"<b>Avg. Rating:</b> {stats['avg_rating']} / 5 ⭐",
-                reply_markup=get_back_button(),
+                support_ui.get_stats_msg(stats),
+                reply_markup=support_ui.get_back_button(),
                 parse_mode="HTML",
             )
 
         elif query.data == "sup_canned":
             if not is_pro and not is_owner_user:
                 await query.edit_message_text(
-                    "🔒 <b>Pro Feature: Canned Responses</b>\n\nUpgrade to Pro to access saved reply templates.",
-                    reply_markup=get_back_button(),
+                    support_ui.get_canned_feature_msg(),
+                    reply_markup=support_ui.get_back_button(),
                     parse_mode="HTML",
                 )
                 return
             await query.edit_message_text(
-                "💾 Use /savereply to add, /replies to view, /reply to use.",
-                reply_markup=get_back_button(),
+                support_ui.get_canned_help_msg(),
+                reply_markup=support_ui.get_back_button(),
                 parse_mode="HTML",
             )
 
@@ -414,13 +317,13 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ticket_id = int(query.data.split("_")[-1])
             ticket = await TicketRepo.get_ticket(ticket_id)
             if not ticket:
-                await query.edit_message_text("⚠️ Ticket not found.", reply_markup=get_back_button())
+                await query.edit_message_text(support_ui.get_ticket_not_found_msg(), reply_markup=support_ui.get_back_button())
                 return
 
             is_ticket_owner = ticket.user_id == user_id
             await query.edit_message_text(
-                get_ticket_status_msg(ticket, is_pro, is_owner_user),
-                reply_markup=get_ticket_detail_keyboard(
+                support_ui.get_ticket_status_msg(ticket, is_pro, is_owner_user),
+                reply_markup=support_ui.get_ticket_detail_keyboard(
                     ticket.id, is_owner_user, is_pro, is_owner_user, is_ticket_owner
                 ),
                 parse_mode="HTML",
@@ -430,13 +333,20 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             faq_id = int(query.data.split("_")[-1])
             faq = await FAQRepo.get_faq(faq_id)
             if not faq:
-                await query.edit_message_text("⚠️ FAQ not found.", reply_markup=get_back_button())
+                await query.edit_message_text(support_ui.get_ticket_not_found_msg(), reply_markup=support_ui.get_back_button())
                 return
 
             await query.edit_message_text(
-                f"❓ <b>{faq.question}</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"{faq.answer}\n\n<i>Category: {faq.category}</i>",
-                reply_markup=get_back_button(),
+                support_ui.get_faq_detail(faq.question, faq.answer, faq.category),
+                reply_markup=support_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
+        elif query.data.startswith("sup_close_confirm_"):
+            ticket_id = int(query.data.split("_")[-1])
+            await query.edit_message_text(
+                support_ui.get_confirm_close_ticket_msg(ticket_id),
+                reply_markup=support_ui.get_confirm_close_ticket(ticket_id),
                 parse_mode="HTML",
             )
 
@@ -448,29 +358,26 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 success = await TicketRepo.close_ticket(ticket_id, user_id)
             if success:
                 await query.edit_message_text(
-                    f"✅ Ticket #{ticket_id} closed.",
-                    reply_markup=get_back_button(),
+                    support_ui.get_close_success(ticket_id),
+                    reply_markup=support_ui.get_back_button(),
                     parse_mode="HTML",
                 )
             else:
                 await query.edit_message_text(
-                    "⚠️ Could not close ticket.",
-                    reply_markup=get_back_button(),
+                    support_ui.get_close_failure(),
+                    reply_markup=support_ui.get_back_button(),
                     parse_mode="HTML",
                 )
 
         elif query.data.startswith("sup_priority_"):
             ticket_id = int(query.data.split("_")[-1])
             if not is_pro and not is_owner_user:
-                await query.edit_message_text(
-                    "🔒 Pro feature.",
-                    reply_markup=get_back_button(),
-                    parse_mode="HTML",
-                )
+                msg, kb = support_ui.get_pro_feature_msg("Priority Support")
+                await query.edit_message_text(msg, reply_markup=kb, parse_mode="HTML")
                 return
             await query.edit_message_text(
                 f"Select priority for ticket #{ticket_id}:",
-                reply_markup=get_priority_keyboard(ticket_id),
+                reply_markup=support_ui.get_priority_keyboard(ticket_id),
                 parse_mode="HTML",
             )
 
@@ -480,49 +387,47 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             priority = parts[3]
             await TicketRepo.set_priority(ticket_id, priority)
             await query.edit_message_text(
-                f"✅ Priority set to <b>{priority.upper()}</b>",
-                reply_markup=get_back_button(),
+                support_ui.get_priority_success(ticket_id, priority),
+                reply_markup=support_ui.get_back_button(),
                 parse_mode="HTML",
             )
 
         elif query.data.startswith("sup_resolve_"):
             ticket_id = int(query.data.split("_")[-1])
             if not is_owner_user:
-                await query.edit_message_text("⛔ Admin only.", reply_markup=get_back_button())
+                await query.edit_message_text(support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button())
                 return
             await query.edit_message_text(
-                f"✅ Use /resolve {ticket_id} [response] to resolve this ticket.",
-                reply_markup=get_back_button(),
+                f"Use /resolve {ticket_id} [response] to resolve this ticket.",
+                reply_markup=support_ui.get_back_button(),
                 parse_mode="HTML",
             )
 
         elif query.data == "sup_all_tickets":
             if not is_owner_user:
-                await query.edit_message_text("⛔ Admin only.", reply_markup=get_back_button())
+                await query.edit_message_text(support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button())
                 return
             tickets = await TicketRepo.get_all_tickets(limit=50)
             if not tickets:
                 await query.edit_message_text(
-                    "🎫 No tickets yet.",
-                    reply_markup=get_back_button(),
+                    support_ui.get_all_tickets_empty(),
+                    reply_markup=support_ui.get_back_button(),
                     parse_mode="HTML",
                 )
             else:
                 await query.edit_message_text(
-                    "🎫 <b>All Tickets (Admin View)</b>",
-                    reply_markup=get_all_tickets_keyboard(tickets),
+                    support_ui.get_all_tickets_loaded(),
+                    reply_markup=support_ui.get_all_tickets_keyboard(tickets),
                     parse_mode="HTML",
                 )
 
         elif query.data == "sup_add_faq_admin":
             if not is_owner_user:
-                await query.edit_message_text("⛔ Admin only.", reply_markup=get_back_button())
+                await query.edit_message_text(support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button())
                 return
             await query.edit_message_text(
-                "➕ <b>Add FAQ (Admin)</b>\n\n"
-                "Use command: <code>/addfaq [question] | [answer]</code>\n\n"
-                "Example: <code>/addfaq How to activate? | Use /activate [KEY]</code>",
-                reply_markup=get_back_button(),
+                support_ui.get_addfaq_help(),
+                reply_markup=support_ui.get_back_button(),
                 parse_mode="HTML",
             )
 
@@ -657,7 +562,6 @@ async def start_service():
             logger.warning(f"Failed to set webhook: {e}")
 
     track_task(asyncio.create_task(safe_loop("auto_close", auto_close_stale_tickets)))
-
     await start_ticket_scheduler()
 
 

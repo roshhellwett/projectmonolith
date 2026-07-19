@@ -1,5 +1,4 @@
 import asyncio
-import html
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request, Response
@@ -17,15 +16,25 @@ from core.config import GROUP_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
 from core.database import dispose_engine
 from core.logger import setup_logger
 from zenith_crypto_bot.repository import SubscriptionRepo
-from zenith_group_bot.group_app import cmd_forgive, cmd_reset, handle_message, handle_new_member
+from zenith_group_bot.group_app import (
+    cmd_forgive,
+    cmd_forgive_confirm,
+    cmd_reset,
+    cmd_reset_confirm,
+    handle_message,
+    handle_new_member,
+)
 from zenith_group_bot.pro_handlers import (
     cmd_addword,
+    cmd_addword_confirm,
     cmd_analytics,
     cmd_antiraid,
     cmd_auditlog,
     cmd_delschedule,
     cmd_delword,
+    cmd_delword_confirm,
     cmd_schedule,
+    cmd_schedule_confirm,
     cmd_schedules,
     cmd_welcome,
     cmd_welcomeoff,
@@ -36,7 +45,16 @@ from zenith_group_bot.repository import (
     SettingsRepo,
 )
 from zenith_group_bot.setup_flow import cmd_setup, setup_callback
-from zenith_group_bot.ui import get_admin_dashboard, get_back_button
+from zenith_group_bot.ui import (
+    get_activate_help,
+    get_admin_dashboard,
+    get_back_button,
+    get_dashboard_help_msg,
+    get_dashboard_main_msg,
+    get_group_list_msg,
+    get_start_group_msg,
+    get_status_msg,
+)
 
 logger = setup_logger("SVC_GROUP")
 router = APIRouter()
@@ -47,43 +65,14 @@ bg_tasks = []
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
-        return await update.message.reply_text(
-            "👋 Use <code>/setup</code> in your group to get started.\n" "Message me in DMs for the dashboard.",
-            parse_mode="HTML",
-        )
+        return await update.message.reply_text(get_start_group_msg())
 
     user_id = update.effective_user.id
     is_pro = await SubscriptionRepo.is_pro(user_id)
     groups = await SettingsRepo.get_owned_groups(user_id)
     days_left = await SubscriptionRepo.get_days_left(user_id)
 
-    max_groups = 5 if is_pro else 1
-    if is_pro:
-        status = f"💎 <b>PRO ACTIVE</b> — {days_left} day{'s' if days_left != 1 else ''} remaining"
-    else:
-        status = "🆓 <b>FREE TIER</b> — 1 group, basic protection"
-
-    active = sum(1 for g in groups if g.is_active)
-    text = (
-        f"<b>🛡️ ZENITH GROUP HQ</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"{status}\n"
-        f"<b>Groups:</b> {active}/{max_groups} active\n\n"
-        f"<b>Commands:</b>\n"
-        f"• <code>/setup</code> — Configure a group (in-group)\n"
-        f"• <code>/activate [KEY]</code> — Activate Pro\n"
-    )
-    if is_pro:
-        text += (
-            "\n<b>Pro Commands</b> (use in group):\n"
-            "• <code>/addword</code> / <code>/delword</code> — Custom filters\n"
-            "• <code>/antiraid</code> — Anti-raid shield\n"
-            "• <code>/analytics</code> — Moderation stats\n"
-            "• <code>/schedule</code> — Scheduled messages\n"
-            "• <code>/welcome</code> — Welcome messages\n"
-            "• <code>/auditlog</code> — Action history"
-        )
-
+    text = get_dashboard_main_msg(is_pro, groups, days_left)
     await update.message.reply_text(
         text,
         reply_markup=get_admin_dashboard(is_pro, groups),
@@ -93,10 +82,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        return await update.message.reply_text(
-            "🔑 <b>Activate Pro</b>\n\n" "<b>Usage:</b> <code>/activate [YOUR_KEY]</code>",
-            parse_mode="HTML",
-        )
+        return await update.message.reply_text(get_activate_help(), parse_mode="HTML")
     key = context.args[0].strip()
     success, msg = await SubscriptionRepo.redeem_key(update.effective_user.id, key)
     await update.message.reply_text(msg, parse_mode="HTML")
@@ -119,12 +105,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if data == "grp_main_menu":
             groups = await SettingsRepo.get_owned_groups(user_id)
             days_left = await SubscriptionRepo.get_days_left(user_id)
-            max_groups = 5 if is_pro else 1
-            status = f"💎 <b>PRO</b> — {days_left}d remaining" if is_pro else "🆓 <b>FREE</b>"
-            active = sum(1 for g in groups if g.is_active)
-            text = (
-                f"<b>🛡️ ZENITH GROUP HQ</b>\n" f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n" f"{status} | {active}/{max_groups} groups"
-            )
+            text = get_dashboard_main_msg(is_pro, groups, days_left)
             await query.edit_message_text(
                 text,
                 reply_markup=get_admin_dashboard(is_pro, groups),
@@ -133,39 +114,12 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif data == "grp_status":
             days = await SubscriptionRepo.get_days_left(user_id)
-            if is_pro:
-                text = (
-                    "💎 <b>PRO SUBSCRIPTION</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                    f"<b>Status:</b> ✅ Active\n<b>Remaining:</b> {days} days\n\n"
-                    "<b>Pro Benefits:</b>\n"
-                    "• Up to 5 protected groups\n"
-                    "• Custom word filters (200/group)\n"
-                    "• Anti-raid lockdown shield\n"
-                    "• Moderation analytics dashboard\n"
-                    "• Scheduled announcements\n"
-                    "• Custom welcome messages\n"
-                    "• Full audit log"
-                )
-            else:
-                text = (
-                    "🆓 <b>FREE TIER</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                    "<b>Limits:</b>\n"
-                    "• 1 group only\n• Default word list\n• Basic moderation\n\n"
-                    "<code>/activate [KEY]</code>"
-                )
+            text = get_status_msg(is_pro, days)
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
         elif data == "grp_list":
             groups = await SettingsRepo.get_owned_groups(user_id)
-            if not groups:
-                text = "📋 <b>My Groups</b>\n\nNo groups configured. Use /setup in your group."
-            else:
-                lines = ["📋 <b>MY GROUPS</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n"]
-                for g in groups:
-                    status = "✅ Active" if g.is_active else "⏸️ Inactive"
-                    name = g.group_name or f"Group {g.chat_id}"
-                    lines.append(f"• <b>{html.escape(name)}</b> — {status}")
-                text = "\n".join(lines)
+            text = get_group_list_msg(groups)
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
         elif data in (
@@ -175,15 +129,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "grp_schedule_help",
             "grp_welcome_help",
         ):
-            help_texts = {
-                "grp_analytics_pick": "📊 <b>Analytics</b>\n\nUse in your group:\n<code>/analytics</code>",
-                "grp_audit_pick": "📜 <b>Audit Log</b>\n\nUse in your group:\n<code>/auditlog [count]</code>",
-                "grp_words_help": "📝 <b>Custom Words</b>\n\nUse in group:\n<code>/addword [word]</code>\n<code>/delword [word]</code>\n<code>/wordlist</code>",
-                "grp_schedule_help": "⏰ <b>Schedules</b>\n\nUse in group:\n<code>/schedule HH:MM [message]</code>\n<code>/schedules</code>\n<code>/delschedule [id]</code>",
-                "grp_welcome_help": "👋 <b>Welcome</b>\n\nUse in group:\n<code>/welcome Hello {name}!</code>\n<code>/welcomeoff</code>",
-            }
+            text = get_dashboard_help_msg(data)
             await query.edit_message_text(
-                help_texts[data],
+                text,
                 reply_markup=get_back_button(),
                 parse_mode="HTML",
             )
@@ -239,6 +187,11 @@ async def start_service():
     bot_app.add_handler(CommandHandler("auditlog", cmd_auditlog))
     bot_app.add_handler(CommandHandler("antiraid", cmd_antiraid))
 
+    bot_app.add_handler(CallbackQueryHandler(cmd_addword_confirm, pattern=r"^grp_addword_confirm_"))
+    bot_app.add_handler(CallbackQueryHandler(cmd_delword_confirm, pattern=r"^grp_delword_confirm_"))
+    bot_app.add_handler(CallbackQueryHandler(cmd_schedule_confirm, pattern=r"^grp_schedule_confirm_"))
+    bot_app.add_handler(CallbackQueryHandler(cmd_forgive_confirm, pattern=r"^grp_forgive_"))
+    bot_app.add_handler(CallbackQueryHandler(cmd_reset_confirm, pattern=r"^grp_reset_confirm$"))
     bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
 
     bot_app.add_handler(MessageHandler(filters.ChatType.GROUPS & ~filters.COMMAND, handle_message))

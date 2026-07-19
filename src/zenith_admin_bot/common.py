@@ -30,7 +30,7 @@ def rate_limit_admin(seconds: int = 10):
                 last_time = _admin_command_timestamps[key]
                 if now - last_time < seconds:
                     if update.message:
-                        await update.message.reply_text(f"⏳ Please wait {seconds} seconds between {command} commands.")
+                        await update.message.reply_text(f"Please wait {seconds} seconds between {command} commands.")
                     return
 
             _admin_command_timestamps[key] = now
@@ -46,9 +46,9 @@ def admin_only(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != ADMIN_USER_ID:
             if update.message:
-                await update.message.reply_text("⛔ Unauthorized.")
+                await update.message.reply_text("Unauthorized.")
             elif update.callback_query:
-                await update.callback_query.answer("⛔ Unauthorized.", show_alert=True)
+                await update.callback_query.answer("Unauthorized.", show_alert=True)
             return
         return await func(update, context)
 

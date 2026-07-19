@@ -1,11 +1,22 @@
-import html
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
 from core.subscription import SubscriptionRepo
 from zenith_group_bot.repository import SettingsRepo
+from zenith_group_bot.ui import (
+    get_setup_complete_msg,
+    get_setup_dm_failed,
+    get_setup_dm_sent,
+    get_setup_expired,
+    get_setup_failed,
+    get_setup_group_error,
+    get_setup_limit_reached,
+    get_setup_not_admin,
+    get_setup_start_msg,
+    get_setup_step2_msg,
+    get_setup_verify_error,
+)
 
 logger = setup_logger("SETUP_FLOW")
 
@@ -13,17 +24,17 @@ setup_state = {}
 
 FEATURES_KEYBOARD = InlineKeyboardMarkup(
     [
-        [InlineKeyboardButton("🛡️ Anti-Spam Only", callback_data="setup_feat_spam")],
-        [InlineKeyboardButton("🚫 Anti-Abuse Only", callback_data="setup_feat_abuse")],
-        [InlineKeyboardButton("⚔️ Both (Recommended)", callback_data="setup_feat_both")],
+        [InlineKeyboardButton("Anti-Spam Only", callback_data="setup_feat_spam")],
+        [InlineKeyboardButton("Anti-Abuse Only", callback_data="setup_feat_abuse")],
+        [InlineKeyboardButton("Both (Recommended)", callback_data="setup_feat_both")],
     ]
 )
 
 STRENGTH_KEYBOARD = InlineKeyboardMarkup(
     [
-        [InlineKeyboardButton("🟢 Low (5 strikes)", callback_data="setup_str_low")],
-        [InlineKeyboardButton("🟡 Medium (3 strikes)", callback_data="setup_str_medium")],
-        [InlineKeyboardButton("🔴 High (2 strikes)", callback_data="setup_str_high")],
+        [InlineKeyboardButton("Low (5 strikes)", callback_data="setup_str_low")],
+        [InlineKeyboardButton("Medium (3 strikes)", callback_data="setup_str_medium")],
+        [InlineKeyboardButton("High (2 strikes)", callback_data="setup_str_high")],
     ]
 )
 
@@ -32,7 +43,7 @@ async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
 
     if msg.chat.type not in ("group", "supergroup"):
-        return await msg.reply_text("⚠️ Add this bot to your group and use /setup in the group chat.")
+        return await msg.reply_text(get_setup_group_error())
 
     chat_id = msg.chat_id
     user_id = msg.from_user.id
@@ -40,9 +51,9 @@ async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         member = await context.bot.get_chat_member(chat_id, user_id)
         if member.status not in ("administrator", "creator"):
-            return await msg.reply_text("⛔ Only group admins can run /setup.")
+            return await msg.reply_text(get_setup_not_admin())
     except Exception:
-        return await msg.reply_text("⚠️ Cannot verify admin status. Make sure I'm an admin.")
+        return await msg.reply_text(get_setup_verify_error())
 
     is_pro = await SubscriptionRepo.is_pro(user_id)
     existing_groups = await SettingsRepo.count_owned_groups(user_id)
@@ -53,27 +64,15 @@ async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_new_group:
         max_groups = 5 if is_pro else 1
         if existing_groups >= max_groups:
-            tier_msg = (
-                f"⚠️ <b>Group limit reached</b>\n\n" f"You have <b>{existing_groups}/{max_groups}</b> active groups.\n\n"
-            )
-            if not is_pro:
-                tier_msg += (
-                    "💎 Upgrade to <b>Zenith Pro</b> for up to <b>5 groups</b>.\n" "<code>/activate [YOUR_KEY]</code>"
-                )
-            else:
-                tier_msg += "Pro limit: 5 groups. Use /reset in an old group to free up a slot."
-            return await msg.reply_text(tier_msg, parse_mode="HTML")
+            msg_text = get_setup_limit_reached(existing_groups, max_groups, is_pro)
+            return await msg.reply_text(msg_text, parse_mode="HTML")
 
     group_name = msg.chat.title or f"Group {chat_id}"
 
     try:
         await context.bot.send_message(
             chat_id=user_id,
-            text=(
-                f"⚙️ <b>SETUP: {html.escape(group_name)}</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"<b>Step 1/2:</b> Select protection features:"
-            ),
+            text=get_setup_start_msg(group_name),
             reply_markup=FEATURES_KEYBOARD,
             parse_mode="HTML",
         )
@@ -82,9 +81,9 @@ async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "group_name": group_name,
             "step": "features",
         }
-        await msg.reply_text("✅ Check your DMs — I sent the setup wizard!")
+        await msg.reply_text(get_setup_dm_sent())
     except Exception:
-        await msg.reply_text("⚠️ I can't DM you. Start a private chat with me first.")
+        await msg.reply_text(get_setup_dm_failed())
 
 
 async def setup_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -93,7 +92,7 @@ async def setup_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
 
     if user_id not in setup_state:
-        return await query.edit_message_text("⚠️ Session expired. Run /setup again in your group.")
+        return await query.edit_message_text(get_setup_expired())
 
     data = query.data
     state = setup_state[user_id]
@@ -103,10 +102,7 @@ async def setup_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state["features"] = feature
         state["step"] = "strength"
         await query.edit_message_text(
-            f"⚙️ <b>SETUP: {html.escape(state['group_name'])}</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"✅ Features: <b>{feature.capitalize()}</b>\n\n"
-            f"<b>Step 2/2:</b> Select enforcement strength:",
+            get_setup_step2_msg(state["group_name"], feature),
             reply_markup=STRENGTH_KEYBOARD,
             parse_mode="HTML",
         )
@@ -126,33 +122,10 @@ async def setup_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             is_pro = await SubscriptionRepo.is_pro(user_id)
-            pro_section = ""
-            if is_pro:
-                pro_section = (
-                    "\n\n<b>💎 PRO COMMANDS:</b>\n"
-                    "• <code>/addword [word]</code> — Custom word filter\n"
-                    "• <code>/antiraid on/off</code> — Anti-raid lockdown\n"
-                    "• <code>/analytics</code> — Moderation stats\n"
-                    "• <code>/schedule HH:MM [msg]</code> — Scheduled messages\n"
-                    "• <code>/welcome [msg]</code> — Custom welcome\n"
-                    "• <code>/auditlog</code> — View audit log"
-                )
-
-            await query.edit_message_text(
-                f"✅ <b>SETUP COMPLETE</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"<b>Group:</b> {html.escape(state['group_name'])}\n"
-                f"<b>Features:</b> {state['features'].capitalize()}\n"
-                f"<b>Strength:</b> {strength.capitalize()}\n"
-                f"<b>Status:</b> ✅ Active{pro_section}\n\n"
-                f"<b>Core Commands:</b>\n"
-                f"• <code>/forgive</code> — Clear user strikes\n"
-                f"• <code>/reset</code> — Wipe group data\n"
-                f"• <code>/setup</code> — Reconfigure",
-                parse_mode="HTML",
-            )
+            msg_text = get_setup_complete_msg(state["group_name"], state["features"], strength, is_pro)
+            await query.edit_message_text(msg_text, parse_mode="HTML")
         except Exception as e:
             logger.error(f"Setup save failed: {e}")
-            await query.edit_message_text("❌ Setup failed. Please try again.")
+            await query.edit_message_text(get_setup_failed())
         finally:
             setup_state.pop(user_id, None)

@@ -1,96 +1,78 @@
+from html import escape
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import ADMIN_USER_ID
-from core.formatters import format_progress_bar
-
-PERSONAS = {
-    "default": {"emoji": "🤖", "name": "Default", "description": "General purpose AI assistant"},
-    "coder": {"emoji": "💻", "name": "Coder", "description": "Code expert - debugging, writing, explaining"},
-    "writer": {"emoji": "✍️", "name": "Writer", "description": "Creative writing, content creation"},
-    "analyst": {"emoji": "📊", "name": "Analyst", "description": "Data analysis, insights, reports"},
-    "tutor": {"emoji": "🎓", "name": "Tutor", "description": "Teaching, explanations, learning"},
-    "debate": {"emoji": "⚔️", "name": "Debate", "description": "Argumentative discussions"},
-    "roast": {"emoji": "🔥", "name": "Roast", "description": "Witty comebacks and roasts"},
-}
+from core.formatters import format_divider, format_progress_bar
+from zenith_ai_bot.prompts import PERSONAS
 
 
 def get_ai_dashboard(is_pro: bool, persona: str, usage: dict) -> InlineKeyboardMarkup:
     persona_info = PERSONAS.get(persona, PERSONAS["default"])
-    persona_label = f"{persona_info['emoji']} {persona_info['name']}"
+    persona_label = f"{persona_info['icon']} {persona_info['name']}"
 
-    message_limit = usage.get("message_limit", 10) if not is_pro else usage.get("message_limit", 100)
+    message_limit = usage.get("message_limit", 100) if is_pro else usage.get("message_limit", 10)
     messages_used = usage.get("messages_used", 0)
-
     message_bar = format_progress_bar(messages_used, message_limit)
 
+    tier_label = "PRO ACTIVE" if is_pro else "FREE TIER"
     rows = [
+        [InlineKeyboardButton(tier_label, callback_data="ai_status")],
         [
-            InlineKeyboardButton(
-                f"{'💎' if is_pro else '🆓'} {'PRO ACTIVE' if is_pro else 'FREE TIER'}", callback_data="ai_status"
-            )
+            InlineKeyboardButton(f"Persona: {persona_label}", callback_data="ai_personas"),
+            InlineKeyboardButton(f"{message_bar}", callback_data="ai_usage"),
         ],
         [
-            InlineKeyboardButton(f"🎭 Persona: {persona_label}", callback_data="ai_personas"),
-            InlineKeyboardButton(f"📊 {message_bar}", callback_data="ai_usage"),
+            InlineKeyboardButton("Research", callback_data="ai_research_help"),
+            InlineKeyboardButton("Summarize", callback_data="ai_summarize_help"),
         ],
         [
-            InlineKeyboardButton("🔬 Research", callback_data="ai_research_help"),
-            InlineKeyboardButton("📝 Summarize", callback_data="ai_summarize_help"),
+            InlineKeyboardButton("Code", callback_data="ai_code_help"),
+            InlineKeyboardButton("Imagine", callback_data="ai_imagine_help"),
         ],
-        [
-            InlineKeyboardButton("💻 Code", callback_data="ai_code_help"),
-            InlineKeyboardButton("🎨 Imagine", callback_data="ai_imagine_help"),
-        ],
-        [InlineKeyboardButton("💬 Chat History", callback_data="ai_history")],
+        [InlineKeyboardButton("Chat History", callback_data="ai_history")],
     ]
     if not is_pro:
-        rows.append([InlineKeyboardButton("💬 Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
+        rows.append([InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
     return InlineKeyboardMarkup(rows)
 
 
 def get_persona_keyboard(current: str, is_pro: bool = False) -> InlineKeyboardMarkup:
-    available_personas = PERSONAS if is_pro else {"default": PERSONAS["default"]}
-
+    available = PERSONAS if is_pro else {"default": PERSONAS["default"]}
     rows = []
-    for key, info in available_personas.items():
-        marker = " ✅" if key == current else ""
-        rows.append(
-            [InlineKeyboardButton(f"{info['emoji']} {info['name']}{marker}", callback_data=f"ai_persona_{key}")]
-        )
-
+    for key, info in available.items():
+        marker = " \u2714" if key == current else ""
+        rows.append([InlineKeyboardButton(f"{info['icon']} {info['name']}{marker}", callback_data=f"ai_persona_{key}")])
     if not is_pro:
-        rows.append([InlineKeyboardButton("💎 Unlock More Personas", url=f"tg://user?id={ADMIN_USER_ID}")])
-
-    rows.append([InlineKeyboardButton("🔙 Back", callback_data="ai_main_menu")])
+        rows.append([InlineKeyboardButton("Unlock More Personas", url=f"tg://user?id={ADMIN_USER_ID}")])
+    rows.append([InlineKeyboardButton("Back", callback_data="ai_main_menu")])
     return InlineKeyboardMarkup(rows)
 
 
 def get_persona_preview_msg(persona_key: str) -> str:
-    """Get the preview message for a persona."""
     info = PERSONAS.get(persona_key, PERSONAS["default"])
-
-    return f"<b>{info['emoji']} {info['name']}</b>\n\n" f"{info['description']}\n\n" f"<i>Switch to this persona?</i>"
+    return f"<b>{info['icon']} {info['name']}</b>\n\n{info.get('description', '')}\n\nSwitch to this persona?"
 
 
 def get_confirm_persona_switch(persona_key: str) -> InlineKeyboardMarkup:
     info = PERSONAS.get(persona_key, PERSONAS["default"])
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton(f"✅ Switch to {info['name']}", callback_data=f"ai_switch_persona_{persona_key}")],
-            [InlineKeyboardButton("🔙 Cancel", callback_data="ai_personas")],
+            [InlineKeyboardButton(f"Switch to {info['name']}", callback_data=f"ai_switch_persona_{persona_key}")],
+            [InlineKeyboardButton("Cancel", callback_data="ai_personas")],
         ]
     )
 
 
 def get_back_button() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Terminal", callback_data="ai_main_menu")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="ai_main_menu")]])
 
 
 def get_history_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("🗑️ Clear History", callback_data="ai_clear_history_confirm")],
-            [InlineKeyboardButton("🔙 Back", callback_data="ai_main_menu")],
+            [InlineKeyboardButton("Clear History", callback_data="ai_clear_history_confirm")],
+            [InlineKeyboardButton("Back", callback_data="ai_main_menu")],
         ]
     )
 
@@ -98,238 +80,354 @@ def get_history_keyboard() -> InlineKeyboardMarkup:
 def get_confirm_clear_history() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("✅ Yes, Clear All", callback_data="ai_clear_history")],
-            [InlineKeyboardButton("✖ Cancel", callback_data="ai_history")],
+            [InlineKeyboardButton("Yes, Clear All", callback_data="ai_clear_history")],
+            [InlineKeyboardButton("Cancel", callback_data="ai_history")],
         ]
     )
 
 
 def get_confirm_clear_history_msg() -> str:
     return (
-        "⚠️ <b>Clear Chat History?</b>\n\n"
+        "<b>Clear Chat History?</b>\n\n"
         "This will delete all your conversation history with the AI.\n"
         "This action cannot be undone."
     )
 
 
 def get_usage_card(usage: dict, is_pro: bool = False) -> str:
-    """Format usage display card."""
-    message_limit = usage.get("message_limit", 10) if not is_pro else usage.get("message_limit", 100)
-    messages_used = usage.get("messages_used", 0)
-    messages_remaining = max(0, message_limit - messages_used)
+    q_limit = 60 if is_pro else 5
+    s_limit = "Unlimited" if is_pro else "1"
+    lines = [
+        "<b>Today's Usage</b>",
+        format_divider(),
+        "",
+        f"Queries: {usage['queries']}/{q_limit}",
+        f"Summaries: {usage['summarizes']}/{s_limit}",
+        f"Active Persona: {usage['persona'].capitalize()}",
+        "",
+        "Usage resets daily at midnight UTC.",
+    ]
+    return "\n".join(lines)
 
-    message_bar = format_progress_bar(messages_used, message_limit)
 
-    message = f"""
-<b>📊 Daily Usage</b>
-━━━━━━━━━━━━━━━━━━━━━━━━
-
-<b>💬 Messages:</b>
-{message_bar}
-<i>{messages_remaining}/{message_limit} remaining</i>
-"""
-
+def get_welcome_msg(is_pro: bool, days_left: int, usage: dict, persona: str) -> str:
+    p = PERSONAS.get(persona, PERSONAS["default"])
     if is_pro:
-        search_remaining = usage.get("searches_remaining", "Unlimited")
-        research_remaining = usage.get("research_remaining", "Unlimited")
-
-        message += f"""
-<b>🔍 Searches:</b> {search_remaining}
-<b>🔬 Research:</b> {research_remaining}
-"""
-
-    message += "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
-
-    if not is_pro and messages_used >= message_limit * 0.8:
-        message += "<i>⚠️ You're running low on messages! Upgrade to PRO for 100/day.</i>"
-
-    return message
-
-
-def get_feature_help_msg(feature: str, is_pro: bool = False) -> tuple:
-    """Get help message and keyboard for a feature."""
-    help_messages = {
-        "research": (
-            "🔬 <b>Deep Research</b>\n\n"
-            "Perform multi-pass research on any topic and get a synthesized report.\n\n"
-            "<b>Usage:</b> /research [topic]\n\n"
-            "<b>Example:</b>\n"
-            "/research impact of Bitcoin on global economy"
-        ),
-        "summarize": (
-            "📝 <b>Document Summarizer</b>\n\n"
-            "Summarize articles, YouTube videos, or long documents.\n\n"
-            "<b>Usage:</b> /summarize [URL or text]\n\n"
-            "<b>Example:</b>\n"
-            "/summarize https://example.com/article"
-        ),
-        "code": (
-            "💻 <b>Code Expert</b>\n\n"
-            "Generate code, debug issues, or explain programming concepts.\n\n"
-            "<b>Usage:</b> /code [your prompt]\n\n"
-            "<b>Example:</b>\n"
-            "/code write a Python function to fibonacci"
-        ),
-        "imagine": (
-            "🎨 <b>Image Prompt Crafter</b>\n\n"
-            "Generate optimized prompts for AI image generators like Midjourney, DALL-E.\n\n"
-            "<b>Usage:</b> /imagine [your idea]\n\n"
-            "<b>Example:</b>\n"
-            "/imagine a cyberpunk city at night"
-        ),
-    }
-
-    message = help_messages.get(feature, "Feature help not available.")
-
-    if feature not in help_messages:
-        return message, get_back_button()
-
-    if feature in ["research", "summarize"] and not is_pro:
-        message += "\n\n🔒 <b>Pro Feature</b>\nUpgrade to PRO to unlock this feature."
-        keyboard = InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton("💬 Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
-                [InlineKeyboardButton("🔙 Back", callback_data="ai_main_menu")],
-            ]
-        )
+        status = f"PRO Active \u2014 {days_left} day{'s' if days_left != 1 else ''} remaining"
     else:
-        keyboard = get_back_button()
+        status = "FREE Tier \u2014 Upgrade for unlimited power"
 
-    return message, keyboard
+    q_limit = 60 if is_pro else 5
+    lines = [
+        "Zenith AI Terminal",
+        format_divider(),
+        "",
+        status,
+        f"Persona: {p['name']}",
+        f"Queries Today: {usage['queries']}/{q_limit}",
+        "",
+        "Commands:",
+        "\u2022 /zenith [question] \u2014 Ask anything",
+        "\u2022 /persona [name] \u2014 Switch AI personality",
+        "\u2022 /research [topic] \u2014 Deep research",
+        "\u2022 /summarize [text] \u2014 Summarize text",
+        "\u2022 /code [desc] \u2014 Code generator",
+        "\u2022 /imagine [desc] \u2014 Image prompts",
+        "\u2022 /history \u2014 Chat memory",
+        "",
+        "Pro Required for research, code, imagine, history, non-default personas.",
+    ]
+    return "\n".join(f"<b>{line}</b>" if i == 0 else line for i, line in enumerate(lines))
 
 
-def get_typing_indicator_msg() -> str:
-    return "⏳ <i>Thinking...</i>"
-
-
-def get_generating_response_msg(persona: str = None) -> str:
-    """Message shown while AI is generating response."""
-    persona_info = PERSONAS.get(persona, PERSONAS["default"])
-    return f"🤖 <i>{persona_info['name']} is typing...</i>"
-
-
-def get_pro_feature_msg(feature: str) -> tuple:
-    """Returns message and keyboard for locked pro feature."""
-    message = (
-        f"🔒 <b>Pro Feature: {feature}</b>\n\n"
-        "This feature is available exclusively for PRO members.\n\n"
-        "💎 <b>Pro Benefits (₹149/month):</b>\n"
-        "• Unlimited messages\n"
-        "• 7 AI personas\n"
-        "• Deep research\n"
-        "• Document summarizer\n"
-        "• Code interpreter\n"
-        "• Chat history\n"
-        "• Image prompt crafter"
+def get_status_msg(is_pro: bool, days: int) -> str:
+    if is_pro:
+        return (
+            f"<b>Pro Subscription</b>\n{format_divider()}\n\n"
+            f"Status: Active\n"
+            f"Remaining: {days} day{'s' if days != 1 else ''}\n\n"
+            f"<b>Pro Benefits:</b>\n"
+            f"\u2022 60 queries/hour (12x Free)\n"
+            f"\u2022 4096 token responses (4x Free)\n"
+            f"\u2022 6 AI Personas\n"
+            f"\u2022 Deep Research Mode\n"
+            f"\u2022 Code Generator\n"
+            f"\u2022 Image Prompt Crafter\n"
+            f"\u2022 Chat Memory (10 messages)\n"
+            f"\u2022 Unlimited Summarization"
+        )
+    return (
+        f"<b>Free Tier</b>\n{format_divider()}\n\n"
+        f"<b>Limits:</b>\n"
+        f"\u2022 5 queries/hour\n"
+        f"\u2022 1024 token responses\n"
+        f"\u2022 Default persona only\n"
+        f"\u2022 1 summary/day\n\n"
+        f"Unlock everything:\n"
+        f"/activate [YOUR_KEY]"
     )
 
-    keyboard = InlineKeyboardMarkup(
+
+def get_personas_locked_msg() -> str:
+    return (
+        "<b>Pro Feature: AI Personas</b>\n\n"
+        "Switch between specialized AI personalities:\n"
+        "\u2022 Coder \u2014 Production-grade code\n"
+        "\u2022 Writer \u2014 Creative content\n"
+        "\u2022 Analyst \u2014 Strategic analysis\n"
+        "\u2022 Tutor \u2014 Patient teaching\n"
+        "\u2022 Debate \u2014 Devil's advocate\n"
+        "\u2022 Roast \u2014 Comedy roasts\n\n"
+        "/activate [YOUR_KEY]"
+    )
+
+
+def get_personas_select_msg() -> str:
+    return "<b>Select Persona</b>\n\nChoose your AI personality:"
+
+
+def get_persona_switched_msg(persona_key: str) -> str:
+    p = PERSONAS.get(persona_key, PERSONAS["default"])
+    return f"Persona Switched\n\n{p['icon']} Now talking to {p['name']}"
+
+
+def get_history_locked_msg() -> str:
+    return (
+        "<b>Pro Feature: Chat Memory</b>\n\n"
+        "Zenith remembers your last 10 messages for contextual follow-ups.\n\n"
+        "/activate [YOUR_KEY]"
+    )
+
+
+def get_history_empty_msg() -> str:
+    return "<b>Chat Memory</b>\n\nNo history yet. Start chatting with /zenith!"
+
+
+def get_history_list_msg(history: list) -> str:
+    if not history:
+        return get_history_empty_msg()
+
+    lines = ["<b>Chat Memory</b>", format_divider(), ""]
+    for msg in history[-6:]:
+        role_icon = "User" if msg.role == "user" else "Zenith"
+        preview = escape(msg.content[:80] + ("..." if len(msg.content) > 80 else ""))
+        lines.append(f"<b>{role_icon}</b> <i>{escape(preview)}</i>")
+
+    count = len(history)
+    lines.append(f"\n{count} messages stored. Last 10 used for context.")
+    return "\n".join(lines)
+
+
+def get_history_cleared_msg(deleted: int) -> str:
+    return f"History Cleared\n\n{deleted} messages removed."
+
+
+def get_help_msg(is_pro: bool) -> str:
+    lines = [
+        "<b>Zenith AI Bot \u2014 Full Guide</b>",
+        format_divider(),
+        "",
+        "<b>Main Commands:</b>",
+        "\u2022 /start \u2014 Start the bot and see dashboard",
+        "\u2022 /zenith [question] \u2014 Ask AI anything",
+        "\u2022 /help \u2014 Show this help message",
+        "",
+        "<b>Personas:</b>",
+        "\u2022 /persona \u2014 View/switch AI personality",
+        "  Available: Default, Coder, Writer, Analyst, Tutor, Debate, Roast",
+        "",
+        "<b>Text Tools:</b>",
+        "\u2022 /summarize [text] \u2014 Summarize long text",
+        "  (Reply to a message with /summarize)",
+        "",
+        "<b>Pro Features:</b>",
+        "\u2022 /research [topic] \u2014 Deep research on any topic",
+        "\u2022 /code [description] \u2014 Generate code in any language",
+        "\u2022 /imagine [description] \u2014 Create image prompts",
+        "\u2022 /history \u2014 View chat memory",
+        "",
+        "<b>Pro Benefits:</b>",
+        "\u2022 Unlimited messages",
+        "\u2022 7 AI personas",
+        "\u2022 Longer responses",
+        "\u2022 Priority support",
+        "",
+        "<b>Group Usage:</b>",
+        "Add bot to groups and use:",
+        "\u2022 /ask [question] \u2014 Ask AI in group",
+        "\u2022 /grouphelp \u2014 Group-specific help",
+        "",
+        "<b>Upgrade to Pro:</b>",
+        "Contact @admin to get your activation key!",
+    ]
+    return "\n".join(lines)
+
+
+def get_activate_help() -> str:
+    return "<b>Activate Pro</b>\n\n" "Usage: /activate [YOUR_KEY]\n\n" "Contact admin to purchase a Pro key."
+
+
+def get_zenith_no_query_msg() -> str:
+    return "Please provide a question or reply to a message with /zenith !"
+
+
+def get_queue_full_msg() -> str:
+    return "Zenith AI is currently at maximum capacity. Please try again shortly."
+
+
+def get_worker_error_msg() -> str:
+    return "Connection to AI lost. Please try again."
+
+
+def get_activate_help_msg() -> str:
+    return "<b>Activate Pro</b>\n\n" "Usage: /activate [YOUR_KEY]\n\n" "Contact admin to purchase a Pro key."
+
+
+def get_activate_help_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("💬 Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
-            [InlineKeyboardButton("🔑 Activate Key", callback_data="ai_activate_help")],
-            [InlineKeyboardButton("🔙 Back", callback_data="ai_main_menu")],
+            [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
+            [InlineKeyboardButton("Back", callback_data="ai_main_menu")],
         ]
     )
 
+
+# Feature help messages
+def get_feature_help_msg(feature: str, is_pro: bool = False) -> tuple:
+    messages = {
+        "research": (
+            "<b>Deep Research</b>\n\n"
+            "Multi-source research with news and web analysis.\n\n"
+            "Usage: /research [TOPIC]\n" + ("Available with your Pro subscription." if is_pro else "Pro Required")
+        ),
+        "summarize": (
+            "<b>Text Summarizer</b>\n\n"
+            "Condense long texts into key takeaways.\n\n"
+            "Usage: /summarize [TEXT]\n"
+            "Or reply to any message with /summarize\n\n"
+            f"Limit: {'Unlimited' if is_pro else '1/day (500 words max)'}"
+        ),
+        "code": (
+            "<b>Code Generator</b>\n\n"
+            "Production-ready code from natural language.\n\n"
+            "Usage: /code [DESCRIPTION]\n" + ("Available with your Pro subscription." if is_pro else "Pro Required")
+        ),
+        "imagine": (
+            "<b>Image Prompt Crafter</b>\n\n"
+            "Optimized prompts for Midjourney, DALL-E, Stable Diffusion.\n\n"
+            "Usage: /imagine [DESCRIPTION]\n" + ("Available with your Pro subscription." if is_pro else "Pro Required")
+        ),
+    }
+    message = messages.get(feature, "Feature help not available.")
+    if feature in ("research", "code", "imagine") and not is_pro:
+        message += "\n\nPro Feature. Upgrade to PRO to unlock."
+    return message, get_back_button()
+
+
+def get_pro_feature_msg(feature: str) -> tuple:
+    message = (
+        f"Pro Feature: {feature}\n\n"
+        "This feature is available exclusively for PRO members.\n\n"
+        "Pro Benefits:\n"
+        "\u2022 Unlimited messages\n"
+        "\u2022 7 AI personas\n"
+        "\u2022 Deep research\n"
+        "\u2022 Document summarizer\n"
+        "\u2022 Code interpreter\n"
+        "\u2022 Chat history\n"
+        "\u2022 Image prompt crafter"
+    )
+    keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
+            [InlineKeyboardButton("Activate Key", callback_data="ai_activate_help")],
+            [InlineKeyboardButton("Back", callback_data="ai_main_menu")],
+        ]
+    )
     return message, keyboard
 
 
 def get_limit_reached_msg(feature: str, current: int, limit: int) -> str:
-    """Message when user hits a limit."""
     return (
-        f"🚫 <b>Limit Reached: {feature}</b>\n\n"
+        f"Limit Reached: {feature}\n\n"
         f"You've used {current}/{limit} for today.\n\n"
-        "⏰ Resets at midnight UTC.\n\n"
-        "💎 Upgrade to PRO for higher limits."
+        "Resets at midnight UTC.\n\n"
+        "Upgrade to PRO for higher limits."
     )
 
 
-def get_ai_welcome_msg(name: str, is_pro: bool, days_left: int = 0, usage: dict = None) -> str:
-    """Welcome message for AI bot."""
-    tier_badge = "💎 PRO" if is_pro else "🆓 Free"
-    tier_info = f"{days_left} days remaining" if is_pro else "Limited features"
-
-    message_limit = usage.get("message_limit", 10) if not is_pro else usage.get("message_limit", 100)
-    messages_used = usage.get("messages_used", 0)
-    messages_remaining = max(0, message_limit - messages_used)
-
-    message = f"""
-<b>🤖 Zenith AI Assistant</b>
-━━━━━━━━━━━━━━━━━━━━━━━━
-
-👋 Welcome, <b>{name}</b>!
-
-<b>Tier:</b> {tier_badge} ({tier_info})
-
-<b>Today's Usage:</b>
-💬 Messages: {messages_remaining}/{message_limit} remaining
-"""
-
-    if not is_pro:
-        message += """
-━━━━━━━━━━━━━━━━━━━━━━━━
-💎 <b>Upgrade to PRO:</b>
-• 100 messages/day
-• 6 AI personas
-• Deep research
-• Document summarizer
-• Code interpreter
-"""
-
-    message += """
-━━━━━━━━━━━━━━━━━━━━━━━━
-<b>Commands:</b>
-• /ask [question] - Chat with AI
-• /persona - Switch AI personality
-• /research - Deep research
-• /summarize - Summarize content
-• /code - Code assistance
-• /imagine - Image prompts
-• /history - View chat history
-"""
-
-    return message
-
-
-def get_history_list_msg(history: list) -> str:
-    """Format chat history list."""
-    if not history:
-        return "💬 <b>Chat History</b>\n\nNo messages yet. Start chatting with /ask!"
-
-    message = "💬 <b>Chat History</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-
-    for i, msg in enumerate(history[-10:], 1):
-        role = msg.get("role", "user")
-        content = msg.get("content", "")[:50]
-        if len(msg.get("content", "")) > 50:
-            content += "..."
-
-        emoji = "👤" if role == "user" else "🤖"
-        message += f"{i}. {emoji} {content}\n"
-
-    message += "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    message += "<i>Use /clear to delete all history.</i>"
-
-    return message
-
-
-def get_no_search_results_msg() -> str:
+def get_research_help() -> str:
     return (
-        "🔍 <b>No Results Found</b>\n\n"
-        "I couldn't find any relevant information for your query.\n\n"
-        "Try:\n"
-        "• Using different keywords\n"
-        "• Being more specific\n"
-        "• Checking the spelling"
+        "<b>Deep Research</b>\n\n"
+        "Format: /research [TOPIC]\n\n"
+        "Examples:\n"
+        "\u2022 /research AI regulation in Europe 2025\n"
+        "\u2022 /research best programming languages for fintech\n"
+        "\u2022 /research electric vehicle market trends\n\n"
+        "Tip: Be specific for better results."
     )
 
 
-def get_research_progress_msg(stage: str) -> str:
-    """Get progress message for research stages."""
-    stages = {
-        "searching": "🔍 Searching for information...",
-        "analyzing": "📊 Analyzing sources...",
-        "synthesizing": "✨ Synthesizing report...",
-        "complete": "✅ Research complete!",
-    }
-    return stages.get(stage, stage)
+def get_code_help() -> str:
+    return (
+        "<b>Code Generator</b>\n\n"
+        "Format: /code [DESCRIPTION]\n\n"
+        "Examples:\n"
+        "\u2022 /code Python FastAPI REST endpoint for user auth with JWT\n"
+        "\u2022 /code React component for a sortable data table\n"
+        "\u2022 /code Bash script to backup PostgreSQL database"
+    )
+
+
+def get_summarize_help() -> str:
+    return (
+        "<b>Text Summarizer</b>\n\n"
+        "Usage:\n"
+        "\u2022 /summarize [text]\n"
+        "\u2022 Reply to any message with /summarize"
+    )
+
+
+def get_imagine_help() -> str:
+    return (
+        "<b>Image Prompt Crafter</b>\n\n"
+        "Format: /imagine [DESCRIPTION]\n\n"
+        "Examples:\n"
+        "\u2022 /imagine a cyberpunk city at sunset with neon lights\n"
+        "\u2022 /imagine portrait of an astronaut in a flower field\n"
+        "\u2022 /imagine minimalist logo for a tech startup\n\n"
+        "Tip: Be descriptive for better prompts."
+    )
+
+
+def get_summarize_limit_reached() -> str:
+    return (
+        "Daily limit reached (1/day Free tier).\n\n"
+        "Upgrade to Zenith Pro for unlimited summaries.\n"
+        "/activate [YOUR_KEY]"
+    )
+
+
+def get_persona_help() -> str:
+    personas_list = "\n".join(f"  \u2022 {v['icon']} <code>{k}</code> \u2014 {v['name']}" for k, v in PERSONAS.items())
+    return f"<b>AI Personas</b>\n\n" f"{personas_list}\n\n" f"Usage: /persona [name]\n\n" f"Example: /persona coder"
+
+
+def get_persona_locked() -> str:
+    return "\n\nPro required for non-default personas."
+
+
+def get_persona_unknown(valid: str) -> str:
+    return f"Unknown Persona\n\n" f"Available personas: {valid}\n\n" f"Usage: /persona coder"
+
+
+def get_persona_already_using(name: str) -> str:
+    return f"Already Using\n\nYou're already using {name} persona."
+
+
+def get_code_no_query() -> str:
+    return get_code_help()
+
+
+def get_imagine_no_query() -> str:
+    return get_imagine_help()

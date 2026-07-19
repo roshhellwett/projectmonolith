@@ -1,63 +1,63 @@
+from html import escape
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import ADMIN_USER_ID
+from core.formatters import format_divider
+
+# ============================================================
+# KEYBOARD BUILDERS
+# ============================================================
 
 
 def get_admin_dashboard(is_pro: bool, groups: list, usage: dict = None) -> InlineKeyboardMarkup:
     group_limit = 5 if is_pro else 1
     group_count = len(groups)
 
+    tier_label = "PRO ACTIVE" if is_pro else "FREE TIER"
     rows = [
-        [
-            InlineKeyboardButton(
-                f"{'💎' if is_pro else '🆓'} {'PRO ACTIVE' if is_pro else 'FREE TIER'}", callback_data="grp_status"
-            )
-        ],
-        [InlineKeyboardButton(f"📋 My Groups ({group_count}/{group_limit})", callback_data="grp_list")],
+        [InlineKeyboardButton(tier_label, callback_data="grp_status")],
+        [InlineKeyboardButton(f"Groups ({group_count}/{group_limit})", callback_data="grp_list")],
     ]
 
     if is_pro:
         rows.extend(
             [
                 [
-                    InlineKeyboardButton("📊 Analytics", callback_data="grp_analytics_pick"),
-                    InlineKeyboardButton("📜 Audit Log", callback_data="grp_audit_pick"),
+                    InlineKeyboardButton("Analytics", callback_data="grp_analytics_pick"),
+                    InlineKeyboardButton("Audit Log", callback_data="grp_audit_pick"),
                 ],
                 [
-                    InlineKeyboardButton("📝 Custom Words", callback_data="grp_words_help"),
-                    InlineKeyboardButton("⏰ Schedules", callback_data="grp_schedule_help"),
+                    InlineKeyboardButton("Custom Words", callback_data="grp_words_help"),
+                    InlineKeyboardButton("Schedules", callback_data="grp_schedule_help"),
                 ],
-                [InlineKeyboardButton("👋 Welcome", callback_data="grp_welcome_help")],
+                [InlineKeyboardButton("Welcome", callback_data="grp_welcome_help")],
             ]
         )
     else:
-        rows.append([InlineKeyboardButton("💬 Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
+        rows.append([InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
     return InlineKeyboardMarkup(rows)
 
 
 def get_group_picker(groups: list, action_prefix: str, is_pro: bool = False) -> InlineKeyboardMarkup:
     rows = []
-
     for g in groups[:5]:
         name = g.group_name or f"Group {g.chat_id}"
-        status = "✅" if g.is_active else "⏸️"
-        members = getattr(g, "member_count", "N/A")
-
-        label = f"{status} {name}"
-        if members != "N/A":
-            label += f" ({members}👥)"
-
+        status = "Active" if g.is_active else "Inactive"
+        members = getattr(g, "member_count", None)
+        label = f"{name} — {status}"
+        if members is not None:
+            label += f" ({members})"
         rows.append([InlineKeyboardButton(label, callback_data=f"{action_prefix}_{g.chat_id}")])
 
     if not is_pro and len(groups) >= 1:
-        rows.append([InlineKeyboardButton("💎 Upgrade to Add More Groups", url=f"tg://user?id={ADMIN_USER_ID}")])
+        rows.append([InlineKeyboardButton("Upgrade for More Groups", url=f"tg://user?id={ADMIN_USER_ID}")])
 
-    rows.append([InlineKeyboardButton("🔙 Back", callback_data="grp_main_menu")])
+    rows.append([InlineKeyboardButton("Back", callback_data="grp_main_menu")])
     return InlineKeyboardMarkup(rows)
 
 
 def get_group_settings_keyboard(chat_id: int, group_settings: dict = None) -> InlineKeyboardMarkup:
-    """Get settings keyboard for a specific group."""
     anti_spam = group_settings.get("anti_spam", True) if group_settings else True
     anti_abuse = group_settings.get("anti_abuse", True) if group_settings else True
     flood_control = group_settings.get("flood_control", True) if group_settings else True
@@ -65,361 +65,711 @@ def get_group_settings_keyboard(chat_id: int, group_settings: dict = None) -> In
     rows = [
         [
             InlineKeyboardButton(
-                f"🤖 Anti-Spam {'✅' if anti_spam else '❌'}", callback_data=f"grp_toggle_spam_{chat_id}"
-            ),
+                f"Anti-Spam: {'On' if anti_spam else 'Off'}", callback_data=f"grp_toggle_spam_{chat_id}"
+            )
         ],
         [
             InlineKeyboardButton(
-                f"🔞 Anti-Abuse {'✅' if anti_abuse else '❌'}", callback_data=f"grp_toggle_abuse_{chat_id}"
-            ),
+                f"Anti-Abuse: {'On' if anti_abuse else 'Off'}", callback_data=f"grp_toggle_abuse_{chat_id}"
+            )
         ],
         [
             InlineKeyboardButton(
-                f"🌊 Flood Control {'✅' if flood_control else '❌'}", callback_data=f"grp_toggle_flood_{chat_id}"
-            ),
+                f"Flood Control: {'On' if flood_control else 'Off'}", callback_data=f"grp_toggle_flood_{chat_id}"
+            )
         ],
-        [InlineKeyboardButton("⚙️ Configure", callback_data=f"grp_config_{chat_id}")],
-        [InlineKeyboardButton("🔙 Back to Groups", callback_data="grp_list")],
+        [InlineKeyboardButton("Configure", callback_data=f"grp_config_{chat_id}")],
+        [InlineKeyboardButton("Back to Groups", callback_data="grp_list")],
     ]
-
     return InlineKeyboardMarkup(rows)
 
 
 def get_back_button() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back", callback_data="grp_main_menu")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="grp_main_menu")]])
+
+
+# ============================================================
+# CONFIRMATION DIALOGS
+# ============================================================
 
 
 def get_confirm_forgive(user_id: int, user_name: str = None, strikes: int = 0) -> tuple:
-    """Get confirmation message and keyboard for forgiving strikes."""
     name = user_name or f"User {user_id}"
-
-    message = (
-        f"⚠️ <b>Confirm Forgive?</b>\n\n"
-        f"<b>User:</b> {name}\n"
-        f"<b>Current Strikes:</b> {strikes}\n\n"
+    msg = (
+        f"<b>Confirm Forgive</b>\n\n"
+        f"User: {name}\n"
+        f"Current strikes: {strikes}\n\n"
         f"This will clear all strikes for this user."
     )
-
-    keyboard = InlineKeyboardMarkup(
+    kb = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("✅ Yes, Forgive", callback_data=f"grp_forgive_{user_id}")],
-            [InlineKeyboardButton("✖ Cancel", callback_data="grp_list")],
+            [InlineKeyboardButton("Yes, Forgive", callback_data=f"grp_forgive_{user_id}")],
+            [InlineKeyboardButton("Cancel", callback_data="grp_list")],
         ]
     )
-
-    return message, keyboard
+    return msg, kb
 
 
 def get_confirm_reset(group_name: str = None) -> tuple:
-    """Get confirmation for resetting group settings."""
     name = group_name or "this group"
-
-    message = (
-        f"🚨 <b>⚠️ RESET {name.upper()}?</b>\n\n"
-        f"This will:\n"
-        f"• Delete all group settings\n"
-        f"• Remove all custom words\n"
-        f"• Clear all scheduled messages\n"
-        f"• Clear all moderation history\n\n"
-        f"<b>This action cannot be undone!</b>"
+    msg = (
+        f"<b>Reset {escape(name.upper())}?</b>\n\n"
+        f"<b>This will:</b>\n"
+        f"\u2022 Delete all group settings\n"
+        f"\u2022 Remove all custom words\n"
+        f"\u2022 Clear all scheduled messages\n"
+        f"\u2022 Clear all moderation history\n\n"
+        f"This action cannot be undone."
     )
-
-    keyboard = InlineKeyboardMarkup(
+    kb = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("🚨 Yes, Reset Everything", callback_data="grp_reset_confirm")],
-            [InlineKeyboardButton("✖ Cancel", callback_data="grp_list")],
+            [InlineKeyboardButton("Yes, Reset Everything", callback_data="grp_reset_confirm")],
+            [InlineKeyboardButton("Cancel", callback_data="grp_list")],
         ]
     )
-
-    return message, keyboard
+    return msg, kb
 
 
 def get_confirm_add_word(word: str) -> tuple:
-    """Get confirmation for adding a custom word."""
-    message = (
-        f"⚠️ <b>Add Banned Word?</b>\n\n"
-        f"<b>Word:</b> <code>{word}</code>\n\n"
+    msg = (
+        f"<b>Add Banned Word?</b>\n\n"
+        f"Word: <code>{escape(word)}</code>\n\n"
         f"This word will be automatically deleted when posted."
     )
-
-    keyboard = InlineKeyboardMarkup(
+    kb = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("✅ Add Word", callback_data=f"grp_addword_confirm_{word}")],
-            [InlineKeyboardButton("✖ Cancel", callback_data="grp_words_help")],
+            [InlineKeyboardButton("Add Word", callback_data=f"grp_addword_confirm_{word}")],
+            [InlineKeyboardButton("Cancel", callback_data="grp_words_help")],
         ]
     )
-
-    return message, keyboard
+    return msg, kb
 
 
 def get_confirm_delete_word(word: str) -> tuple:
-    """Get confirmation for deleting a custom word."""
-    message = (
-        f"⚠️ <b>Remove Banned Word?</b>\n\n"
-        f"<b>Word:</b> <code>{word}</code>\n\n"
+    msg = (
+        f"<b>Remove Banned Word?</b>\n\n"
+        f"Word: <code>{escape(word)}</code>\n\n"
         f"This word will no longer be filtered."
     )
-
-    keyboard = InlineKeyboardMarkup(
+    kb = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("✅ Remove Word", callback_data=f"grp_delword_confirm_{word}")],
-            [InlineKeyboardButton("✖ Cancel", callback_data="grp_words_help")],
+            [InlineKeyboardButton("Remove Word", callback_data=f"grp_delword_confirm_{word}")],
+            [InlineKeyboardButton("Cancel", callback_data="grp_words_help")],
         ]
     )
+    return msg, kb
 
-    return message, keyboard
+
+def get_confirm_schedule(time_str: str, schedule_text: str) -> tuple:
+    msg = f"<b>Confirm Schedule?</b>\n\n" f"Time (UTC): {time_str}\n" f"Message: {escape(schedule_text[:100])}..."
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Confirm", callback_data=f"grp_schedule_confirm_{time_str}")],
+            [InlineKeyboardButton("Cancel", callback_data="grp_schedule_help")],
+        ]
+    )
+    return msg, kb
 
 
-def get_word_list_msg(words: list, group_name: str = None) -> str:
-    """Format custom word list."""
-    name = group_name or "this group"
+# ============================================================
+# DASHBOARD MESSAGES
+# ============================================================
 
-    if not words:
+
+def get_start_group_msg() -> str:
+    return "Use /setup in your group to get started. Message me in DMs for the dashboard."
+
+
+def get_dashboard_main_msg(is_pro: bool, groups: list, days_left: int = 0) -> str:
+    max_groups = 5 if is_pro else 1
+    active = sum(1 for g in groups if g.is_active)
+
+    if is_pro:
+        status = f"PRO Active \u2014 {days_left} day{'s' if days_left != 1 else ''} remaining"
+    else:
+        status = "FREE Tier \u2014 1 group, basic protection"
+
+    lines = [
+        "Zenith Group Moderator",
+        format_divider(),
+        "",
+        status,
+        f"Groups: {active}/{max_groups} active",
+        "",
+        "Commands:",
+        "\u2022 /setup \u2014 Configure a group (in-group)",
+        "\u2022 /activate [KEY] \u2014 Activate Pro",
+    ]
+
+    if is_pro:
+        lines += [
+            "",
+            "Pro Commands (use in group):",
+            "\u2022 /addword / /delword \u2014 Custom filters",
+            "\u2022 /antiraid \u2014 Anti-raid shield",
+            "\u2022 /analytics \u2014 Moderation stats",
+            "\u2022 /schedule \u2014 Scheduled messages",
+            "\u2022 /welcome \u2014 Welcome messages",
+            "\u2022 /auditlog \u2014 Action history",
+        ]
+
+    return "\n".join(f"<b>{line}</b>" if i == 0 else line for i, line in enumerate(lines))
+
+
+def get_status_msg(is_pro: bool, days: int = 0) -> str:
+    if is_pro:
         return (
-            f"📝 <b>Custom Words - {name}</b>\n\n"
-            f"No custom words added yet.\n\n"
-            f"Use /addword [word] to add filters."
+            f"<b>Pro Subscription</b>\n{format_divider()}\n\n"
+            f"Status: Active\n"
+            f"Remaining: {days} days\n\n"
+            f"<b>Pro Benefits:</b>\n"
+            f"\u2022 Up to 5 protected groups\n"
+            f"\u2022 Custom word filters (200/group)\n"
+            f"\u2022 Anti-raid lockdown shield\n"
+            f"\u2022 Moderation analytics dashboard\n"
+            f"\u2022 Scheduled announcements\n"
+            f"\u2022 Custom welcome messages\n"
+            f"\u2022 Full audit log"
         )
+    return (
+        f"<b>Free Tier</b>\n{format_divider()}\n\n"
+        f"<b>Limits:</b>\n"
+        f"\u2022 1 group only\n"
+        f"\u2022 Default word list\n"
+        f"\u2022 Basic moderation\n\n"
+        f"/activate [KEY] to upgrade"
+    )
 
-    message = f"📝 <b>Custom Words - {name}</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
 
-    for i, word in enumerate(words[:20], 1):
-        message += f"{i}. <code>{word}</code>\n"
+def get_group_list_msg(groups: list) -> str:
+    if not groups:
+        return "<b>My Groups</b>\n\nNo groups configured. Use /setup in your group."
 
-    if len(words) > 20:
-        message += f"\n<i>...and {len(words) - 20} more</i>"
+    lines = ["<b>My Groups</b>", format_divider(), ""]
+    for g in groups:
+        status = "Active" if g.is_active else "Inactive"
+        name = g.group_name or f"Group {g.chat_id}"
+        lines.append(f"\u2022 <b>{escape(name)}</b> \u2014 {status}")
+    return "\n".join(lines)
 
-    message += "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    message += f"<i>Total: {len(words)} words</i>"
 
-    return message
+def get_dashboard_help_msg(callback: str) -> str:
+    help_texts = {
+        "grp_analytics_pick": ("<b>Analytics</b>\n\nUse in your group:\n" "/analytics"),
+        "grp_audit_pick": ("<b>Audit Log</b>\n\nUse in your group:\n" "/auditlog [count]"),
+        "grp_words_help": (
+            "<b>Custom Words</b>\n\nUse in group:\n" "/addword [word]\n" "/delword [word]\n" "/wordlist"
+        ),
+        "grp_schedule_help": (
+            "<b>Schedules</b>\n\nUse in group:\n" "/schedule HH:MM [message]\n" "/schedules\n" "/delschedule [id]"
+        ),
+        "grp_welcome_help": ("<b>Welcome</b>\n\nUse in group:\n" "/welcome Hello {name}!\n" "/welcomeoff"),
+    }
+    return help_texts.get(callback, "")
+
+
+def get_activate_help() -> str:
+    return "<b>Activate Pro</b>\n\nUsage: /activate [YOUR_KEY]"
+
+
+# ============================================================
+# PRO FEATURE MESSAGES
+# ============================================================
+
+
+def get_word_help() -> str:
+    return (
+        "<b>Custom Word Filter</b>\n\n"
+        "Usage: /addword [WORD]\n\n"
+        "Example:\n"
+        "/addword scam\n\n"
+        "Added words will trigger automatic deletion."
+    )
+
+
+def get_addword_result(word: str, count: int, success: bool = True) -> str:
+    if success:
+        return (
+            f"Word Added\n\n"
+            f"<code>{escape(word)}</code> will now trigger message deletion.\n\n"
+            f"Total custom words: {count}/200"
+        )
+    return "Already Added\n\nThis word is already in the filter."
+
+
+def get_delword_result(word: str, success: bool = True) -> str:
+    if success:
+        return f"Word Removed\n\n<code>{escape(word)}</code> is no longer filtered."
+    return "Word Not Found\n\n" "This word is not in your filter list.\n" "Use /wordlist to see all filtered words."
+
+
+def get_delword_help() -> str:
+    return "<b>Remove Custom Word</b>\n\n" "Usage: /delword [WORD]\n\n" "Example:\n" "/delword scam"
+
+
+def get_wordlist_msg(words: list, count: int, limit: int = 200) -> str:
+    if not words:
+        return "<b>Custom Word Filter</b>\n\nNo custom words added yet.\n/addword [WORD]"
+
+    word_list = ", ".join(f"<code>{escape(w)}</code>" for w in words[:50])
+    return f"<b>Custom Word Filter ({count}/{limit})</b>\n\n{word_list}"
 
 
 def get_word_limit_msg(current: int, limit: int) -> str:
-    """Message when word limit is reached."""
     return (
-        f"🚫 <b>Word Limit Reached</b>\n\n"
+        f"<b>Word Limit Reached</b>\n\n"
         f"You've added {current}/{limit} custom words.\n\n"
-        f"Remove some words to add more, or upgrade to PRO for 200 words."
+        f"Remove some words to add more, or upgrade to PRO for {limit} words."
     )
 
 
-def get_schedule_list_msg(schedules: list, group_name: str = None) -> str:
-    """Format scheduled messages list."""
-    name = group_name or "this group"
-
-    if not schedules:
-        return (
-            f"⏰ <b>Scheduled Messages - {name}</b>\n\n"
-            f"No scheduled messages.\n\n"
-            f"Use /schedule HH:MM [message] to create one."
-        )
-
-    message = f"⏰ <b>Scheduled Messages - {name}</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-
-    for i, sched in enumerate(schedules[:10], 1):
-        time = sched.get("time", "N/A")
-        msg_preview = sched.get("message", "")[:30]
-        if len(sched.get("message", "")) > 30:
-            msg_preview += "..."
-
-        message += f"{i}. 🕐 {time}\n   📝 {msg_preview}\n\n"
-
-    message += "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    message += f"<i>Total: {len(schedules)} scheduled messages</i>"
-
-    return message
-
-
-def get_confirm_schedule(time: str, message: str) -> tuple:
-    """Get confirmation for scheduling a message."""
-    message = f"⏰ <b>Confirm Schedule?</b>\n\n" f"<b>Time (UTC):</b> {time}\n" f"<b>Message:</b> {message[:100]}..."
-
-    keyboard = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("✅ Confirm", callback_data=f"grp_schedule_confirm_{time}")],
-            [InlineKeyboardButton("✖ Cancel", callback_data="grp_schedule_help")],
-        ]
+def get_schedule_help() -> str:
+    return (
+        "<b>Scheduled Messages</b>\n\n"
+        "Format: /schedule [HH:MM] [MESSAGE]\n\n"
+        "Examples:\n"
+        "\u2022 /schedule 09:00 Good morning!\n"
+        "\u2022 /schedule 20:00 Please read the pinned rules.\n\n"
+        "Times are in UTC. Messages repeat daily."
     )
 
-    return message, keyboard
+
+def get_schedule_time_error() -> str:
+    return (
+        "<b>Invalid Time Format</b>\n\n"
+        "Use HH:MM in 24-hour format.\n\n"
+        "Examples:\n"
+        "\u2022 09:00 (9 AM)\n"
+        "\u2022 14:30 (2:30 PM)\n"
+        "\u2022 23:59 (11:59 PM)"
+    )
 
 
-def get_analytics_card(analytics: dict, period: str = "24h") -> str:
-    """Format analytics card."""
-    total_actions = analytics.get("total_actions", 0)
-    deleted_count = analytics.get("deleted_messages", 0)
-    banned_count = analytics.get("banned_users", 0)
-    muted_count = analytics.get("muted_users", 0)
+def get_schedule_length_error() -> str:
+    return "<b>Message Too Long</b>\n\nMessage must be under 1000 characters."
 
-    message = f"""
-<b>📊 Moderation Analytics - {period}</b>
-━━━━━━━━━━━━━━━━━━━━━━━━
 
-<b>📈 Total Actions:</b> {total_actions}
-<b>🗑️ Messages Deleted:</b> {deleted_count}
-<b>🚫 Users Banned:</b> {banned_count}
-<b>🔇 Users Muted:</b> {muted_count}
+def get_schedule_limit_reached(limit: int) -> str:
+    return (
+        f"<b>Schedule Limit Reached</b>\n\n"
+        f"You've reached the maximum of {limit} scheduled messages.\n\n"
+        f"Delete some to add more."
+    )
 
-<b>📊 Action Breakdown:</b>
-"""
 
-    categories = analytics.get("categories", {})
-    for cat, count in categories.items():
-        if count > 0:
-            message += f"• {cat}: {count}\n"
+def get_schedule_success(hour: int, minute: int, message_text: str, sid: int) -> str:
+    return (
+        f"Message Scheduled\n\n"
+        f"Time: {hour:02d}:{minute:02d} UTC (daily)\n"
+        f"Message: {escape(message_text[:100])}...\n\n"
+        f"ID: <code>{sid}</code>\n\n"
+        f"Delete with /delschedule {sid}"
+    )
 
-    message += "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
 
-    top_violators = analytics.get("top_violators", [])
+def get_schedules_list(items: list) -> str:
+    if not items:
+        return "<b>Scheduled Messages</b>\n\nNo active schedules.\n/schedule 09:00 Good morning!"
+
+    lines = ["<b>Scheduled Messages</b>", format_divider(), ""]
+    for s in items:
+        preview = s.message_text[:60] + "..." if len(s.message_text) > 60 else s.message_text
+        lines.append(f"<b>#{s.id}</b> \u2014 {s.hour:02d}:{s.minute:02d} UTC")
+        lines.append(f"  <i>{escape(preview)}</i>\n")
+    lines.append("Delete with /delschedule [ID]")
+    return "\n".join(lines)
+
+
+def get_delschedule_result(deleted: bool) -> str:
+    return "Schedule removed." if deleted else "Schedule not found or not owned by you."
+
+
+def get_welcome_help() -> str:
+    return (
+        "<b>Custom Welcome Message</b>\n\n"
+        "Format: /welcome [MESSAGE]\n\n"
+        "<b>Variables:</b>\n"
+        "\u2022 {name} \u2014 User's first name\n"
+        "\u2022 {username} \u2014 User's @username\n"
+        "\u2022 {group} \u2014 Group name\n\n"
+        "Example:\n"
+        "/welcome Welcome {name}! Please read the pinned rules.\n\n"
+        "Disable with /welcomeoff"
+    )
+
+
+def get_welcome_length_error() -> str:
+    return "Welcome message must be under 500 characters."
+
+
+def get_welcome_success(preview: str) -> str:
+    return f"Welcome Message Set\n\n" f"Preview:\n" f"<i>{escape(preview)}</i>\n\n" f"Disable with /welcomeoff"
+
+
+def get_welcomeoff_result(disabled: bool) -> str:
+    return "Custom welcome disabled." if disabled else "No active welcome config found."
+
+
+def get_analytics_msg(day_stats: dict, week_stats: dict, total: int, top_violators: list) -> str:
+    deleted_24h = day_stats.get("DELETED", 0)
+    warned_24h = day_stats.get("WARNED", 0)
+    banned_24h = day_stats.get("BANNED", 0)
+    quarantine_24h = day_stats.get("QUARANTINE", 0)
+
+    deleted_7d = week_stats.get("DELETED", 0)
+    warned_7d = week_stats.get("WARNED", 0)
+    banned_7d = week_stats.get("BANNED", 0)
+
+    lines = [
+        "<b>Moderation Analytics</b>",
+        format_divider(),
+        "",
+        "<b>Last 24 Hours:</b>",
+        f"  Messages Deleted: {deleted_24h}",
+        f"  Warnings Issued: {warned_24h}",
+        f"  Users Banned: {banned_24h}",
+        f"  Quarantine Blocks: {quarantine_24h}",
+        "",
+        "<b>Last 7 Days:</b>",
+        f"  Deleted: {deleted_7d} | Warned: {warned_7d} | Banned: {banned_7d}",
+        "",
+        f"<b>Total All-Time Actions:</b> {total}",
+    ]
+
     if top_violators:
-        message += "<b>🔴 Top Violators:</b>\n"
-        for i, (user, strikes) in enumerate(top_violators[:3], 1):
-            message += f"{i}. {user}: {strikes} strikes\n"
+        lines.extend(
+            [
+                "",
+                "<b>Top Violators (7 Days):</b>",
+            ]
+        )
+        for rank, (username, uid, count) in enumerate(top_violators, 1):
+            name = f"@{username}" if username else f"<code>{uid}</code>"
+            lines.append(f"  {rank}. {name} \u2014 {count} violations")
 
-    return message
+    return "\n".join(lines)
 
 
 def get_audit_log_msg(entries: list) -> str:
-    """Format audit log."""
     if not entries:
-        return "📜 <b>Audit Log</b>\n\nNo recent actions."
+        return "<b>Audit Log</b>\n\nNo moderation actions recorded yet."
 
-    message = "📜 <b>Recent Moderation Actions</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+    lines = ["<b>Moderation Audit Log</b>", format_divider(), ""]
+    action_icons = {"DELETED": "Deleted", "WARNED": "Warned", "BANNED": "Banned", "QUARANTINE": "Restricted"}
 
-    for entry in entries[:15]:
-        action = entry.get("action", "Unknown")
-        user = entry.get("user", "N/A")
-        reason = entry.get("reason", "")[:30]
-        timestamp = entry.get("timestamp", "")
+    for log in entries:
+        action_label = action_icons.get(log.action, log.action)
+        name = f"@{log.username}" if log.username else f"ID:{log.user_id}"
+        time_str = log.created_at.strftime("%d/%m %H:%M") if log.created_at else "?"
+        reason_short = (log.reason[:40] + "...") if log.reason and len(log.reason) > 40 else (log.reason or "N/A")
+        lines.append(f"<b>{action_label}</b> | {name} | {time_str}")
+        lines.append(f"   <i>{escape(reason_short)}</i>")
 
-        emoji = {
-            "delete": "🗑️",
-            "ban": "🚫",
-            "mute": "🔇",
-            "warn": "⚠️",
-            "unmute": "🔊",
-            "unban": "✅",
-        }.get(action, "❓")
-
-        message += f"{emoji} <b>{action.upper()}</b>\n"
-        message += f"   👤 {user}\n"
-        if reason:
-            message += f"   📝 {reason}...\n"
-        message += f"   🕐 {timestamp}\n\n"
-
-    return message
+    return "\n".join(lines)
 
 
-def get_antiraid_status(is_active: bool, expiry: str = None) -> str:
-    """Format anti-raid shield status."""
-    status = "🛡️ <b>Anti-Raid Shield: ACTIVE</b>"
-    if expiry:
-        status += f"\n<i>Expires: {expiry}</i>"
+def get_antiraid_status_msg(is_active: bool, expiry: str = None) -> str:
+    if is_active:
+        msg = (
+            "<b>Anti-Raid: Active</b>\n\n"
+            "All messages from non-admin members will be deleted.\n"
+            "New joins will be auto-restricted."
+        )
+        if expiry:
+            msg += f"\n\nExpires: {expiry}"
+        msg += "\n\nDisable with /antiraid off"
+    else:
+        msg = (
+            "<b>Anti-Raid: Inactive</b>\n\n"
+            "Usage:\n"
+            "\u2022 /antiraid on \u2014 Enable lockdown\n"
+            "\u2022 /antiraid off \u2014 Disable lockdown\n\n"
+            "When active: all new members are auto-muted. "
+            "No messages from non-admins for the duration."
+        )
+    return msg
 
-    if not is_active:
-        status = "🛡️ <b>Anti-Raid Shield: Inactive</b>"
 
-    status += "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    status += "When active:\n"
-    status += "• New members are muted\n"
-    status += "• Links and media restricted\n"
-    status += "• Anti-raid mode auto-expires after 30 minutes"
+def get_antiraid_toggle_msg(activated: bool) -> str:
+    if activated:
+        return (
+            "<b>Anti-Raid Lockdown Activated</b>\n\n"
+            "All messages from non-admin members will be deleted.\n"
+            "New joins will be auto-restricted.\n\n"
+            "Disable with /antiraid off"
+        )
+    return "<b>Anti-Raid Lockdown Deactivated</b>\n\n" "Normal moderation resumed."
 
-    return status
+
+# ============================================================
+# FORGIVE / RESET MESSAGES
+# ============================================================
 
 
-def get_welcome_msg(name: str, is_pro: bool, days_left: int = 0, groups_count: int = 0) -> str:
-    """Welcome message for group bot."""
-    tier = "💎 PRO" if is_pro else "🆓 Free"
-    group_limit = 5 if is_pro else 1
+def get_forgive_admin_error() -> str:
+    return "Admin only. Ask a group admin to perform this action."
 
-    message = f"""
-<b>🛡️ Zenith Group Moderator</b>
-━━━━━━━━━━━━━━━━━━━━━━━━
 
-👋 Welcome, <b>{name}</b>!
+def get_forgive_id_error() -> str:
+    return "Invalid user ID."
 
-<b>Tier:</b> {tier}
-<b>Groups:</b> {groups_count}/{group_limit}
-"""
 
-    if is_pro:
-        message += f"\n<i>Pro expires in {days_left} days</i>"
+def get_forgive_no_target() -> str:
+    return "Reply to a user or provide their ID."
 
-    message += """
-━━━━━━━━━━━━━━━━━━━━━━━━
 
-<b>Setup in your group:</b>
-1. Add bot to group
-2. Make it admin
-3. Use /setup to configure
+def get_forgive_result(success: bool) -> str:
+    return "Strikes cleared." if success else "No strikes found for this user."
 
-<b>Commands:</b>
-• /setup - Configure moderation
-• /forgive - Remove user strikes
-• /analytics - View stats
-• /auditlog - View actions
-"""
 
+def get_reset_private_error() -> str:
+    return "Use this in the group you want to reset."
+
+
+def get_reset_admin_error() -> str:
+    return "Admin only."
+
+
+def get_reset_not_configured() -> str:
+    return "This group is not configured. Run /setup to begin."
+
+
+def get_reset_owner_error() -> str:
+    return "Only the group owner can reset."
+
+
+def get_reset_result(success: bool) -> str:
+    return "Group data wiped. Run /setup to reconfigure." if success else "Reset failed."
+
+
+# ============================================================
+# SETUP WIZARD MESSAGES
+# ============================================================
+
+
+def get_setup_group_error() -> str:
+    return "Add this bot to your group and use /setup in the group chat."
+
+
+def get_setup_not_admin() -> str:
+    return "Only group admins can run /setup."
+
+
+def get_setup_verify_error() -> str:
+    return "Cannot verify admin status. Make sure I'm an admin."
+
+
+def get_setup_limit_reached(existing_groups: int, max_groups: int, is_pro: bool) -> str:
+    msg = f"<b>Group limit reached</b>\n\n" f"You have {existing_groups}/{max_groups} active groups.\n\n"
     if not is_pro:
-        message += """
-💎 <b>Upgrade to PRO:</b>
-• Up to 5 groups
-• 200 custom words
-• Anti-raid shield
-• Scheduled messages
-• Custom welcome
-"""
-
-    return message
+        msg += "Upgrade to Zenith Pro for up to 5 groups.\n/activate [YOUR_KEY]"
+    else:
+        msg += "Pro limit: 5 groups. Use /reset in an old group to free up a slot."
+    return msg
 
 
-def get_pro_feature_msg(feature: str) -> tuple:
-    """Message for pro-only features."""
-    messages = {
-        "custom_words": (
-            "📝 <b>Custom Words (Pro)</b>\n\n"
-            "Add custom banned words and phrases to filter specific content.\n\n"
-            "Use /addword [word] to add."
-        ),
-        "schedules": (
-            "⏰ <b>Scheduled Messages (Pro)</b>\n\n"
-            "Schedule daily recurring messages in your group.\n\n"
-            "Use /schedule HH:MM [message] to create."
-        ),
-        "welcome": (
-            "👋 <b>Custom Welcome (Pro)</b>\n\n"
-            "Set a personalized welcome message for new members.\n\n"
-            "Use /welcome [message] to set.\n"
-            "Use {name}, {username}, {group} as variables."
-        ),
-        "analytics": (
-            "📊 <b>Analytics (Pro)</b>\n\n" "View detailed moderation statistics.\n\n" "Use /analytics to view."
-        ),
-        "antiraid": (
-            "🛡️ <b>Anti-Raid Shield (Pro)</b>\n\n"
-            "Enable instant lockdown when raid is detected.\n\n"
-            "Use /antiraid on to enable."
-        ),
-    }
+def get_setup_dm_sent() -> str:
+    return "Check your DMs \u2014 I sent the setup wizard!"
 
-    message = messages.get(feature, "Pro feature")
 
-    keyboard = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("💬 Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
-            [InlineKeyboardButton("🔙 Back", callback_data="grp_main_menu")],
-        ]
+def get_setup_dm_failed() -> str:
+    return "I can't DM you. Start a private chat with me first."
+
+
+def get_setup_expired() -> str:
+    return "Session expired. Run /setup again in your group."
+
+
+def get_setup_start_msg(group_name: str, step: int = 1, total_steps: int = 2) -> str:
+    return (
+        f"<b>Setup: {escape(group_name)}</b>\n"
+        f"{format_divider()}\n\n"
+        f"<b>Step {step}/{total_steps}:</b> Select protection features:"
     )
 
-    return message, keyboard
 
-
-def get_limit_reached_msg(feature: str, current: int, limit: int) -> str:
-    """Message when limit is reached."""
+def get_setup_step2_msg(group_name: str, feature: str) -> str:
     return (
-        f"🚫 <b>Limit Reached: {feature}</b>\n\n"
-        f"You've reached {current}/{limit}.\n\n"
-        "Upgrade to PRO for higher limits."
+        f"<b>Setup: {escape(group_name)}</b>\n"
+        f"{format_divider()}\n\n"
+        f"Features: <b>{feature.capitalize()}</b>\n\n"
+        f"<b>Step 2/2:</b> Select enforcement strength:"
+    )
+
+
+def get_setup_complete_msg(group_name: str, feature: str, strength: str, is_pro: bool) -> str:
+    lines = [
+        "<b>Setup Complete</b>",
+        format_divider(),
+        "",
+        f"Group: {escape(group_name)}",
+        f"Features: {feature.capitalize()}",
+        f"Strength: {strength.capitalize()}",
+        "Status: Active",
+    ]
+    if is_pro:
+        lines += [
+            "",
+            "<b>Pro Commands:</b>",
+            "\u2022 /addword [word] \u2014 Custom word filter",
+            "\u2022 /antiraid on/off \u2014 Anti-raid lockdown",
+            "\u2022 /analytics \u2014 Moderation stats",
+            "\u2022 /schedule HH:MM [msg] \u2014 Scheduled messages",
+            "\u2022 /welcome [msg] \u2014 Custom welcome",
+            "\u2022 /auditlog \u2014 View audit log",
+        ]
+    lines += [
+        "",
+        "<b>Core Commands:</b>",
+        "\u2014 /forgive \u2014 Clear user strikes",
+        "\u2014 /reset \u2014 Wipe group data",
+        "\u2014 /setup \u2014 Reconfigure",
+    ]
+    return "\n".join(lines)
+
+
+def get_setup_failed() -> str:
+    return "Setup failed. Please try again."
+
+
+# ============================================================
+# AI / CRYPTO GROUP MESSAGES
+# ============================================================
+
+
+def get_ai_ask_help() -> str:
+    return "<b>Ask Zenith AI</b>\n\n" "Usage: /ask [your question]\n\n" "Example: /ask What's the weather like today?"
+
+
+def get_ai_error() -> str:
+    return "AI service temporarily unavailable. Please try again in a few moments."
+
+
+def get_ai_truncation_notice() -> str:
+    return "\n\nUpgrade to Pro for longer responses."
+
+
+def get_ai_help_msg(is_pro: bool) -> str:
+    lines = [
+        "<b>Group Bot Help</b>",
+        format_divider(),
+        "",
+        "<b>AI Commands:</b>",
+        "\u2022 /ask [question] \u2014 Ask AI anything",
+        "\u2022 /persona \u2014 View available personas (Pro)",
+        "",
+        "<b>Crypto Commands:</b>",
+        "\u2022 /price [coin] \u2014 Get price info",
+        "\u2022 /alert [coin] [above/below] [price] \u2014 Set alert (Pro)",
+        "",
+        "<b>Flood Protection:</b>",
+        "\u2022 Free: 5 commands/min, 15s cooldown",
+        "\u2022 Pro: 20 commands/min, 5s cooldown",
+    ]
+    if is_pro:
+        lines += [
+            "",
+            "<b>Pro Features:</b>",
+            "\u2022 Unlimited AI queries",
+            "\u2022 All 7 AI personas",
+            "\u2022 Deep research",
+            "\u2022 Code generator",
+            "\u2022 Price alerts",
+            "\u2022 Wallet tracking",
+        ]
+    return "\n".join(lines)
+
+
+def get_flood_cooldown(name: str, remaining: int) -> str:
+    return f"{name}, please wait {remaining}s between commands."
+
+
+def get_flood_warning(name: str) -> str:
+    return f"{name}, you're sending too many commands!"
+
+
+def get_flood_mute(name: str, duration: int) -> str:
+    return f"{name} has been muted for {duration//3600}h due to spam."
+
+
+def get_flood_kick(name: str) -> str:
+    return f"{name} has been removed for repeated spam."
+
+
+def get_token_not_found(symbol: str) -> str:
+    return f"Token <code>{escape(symbol)}</code> not found."
+
+
+def get_price_card(name: str, symbol: str, price: float, change: float, is_pro: bool, data: dict = None) -> str:
+    direction = "Up" if change >= 0 else "Down"
+    lines = [
+        f"<b>{escape(name)} ({symbol})</b>",
+        format_divider(),
+        "",
+        f"Price: ${price:,.2f}",
+        f"24h: {direction} ({change:+.2f}%)",
+    ]
+    if is_pro and data:
+        mc = data.get("market_cap")
+        vol = data.get("total_volume")
+        if mc is not None:
+            lines.append(f"Market Cap: ${mc:,.0f}")
+        if vol is not None:
+            lines.append(f"Volume 24h: ${vol:,.0f}")
+    return "\n".join(lines)
+
+
+def get_alert_pro_msg() -> str:
+    return (
+        "<b>Price Alerts (Pro Only)</b>\n\n"
+        "Create price alerts to get notified when tokens hit your target price.\n\n"
+        "<b>Pro Benefits:</b>\n"
+        "\u2022 Unlimited price alerts\n"
+        "\u2022 Wallet tracking\n"
+        "\u2022 Portfolio manager\n\n"
+        "Contact @admin to upgrade."
+    )
+
+
+def get_alert_redirect() -> str:
+    return (
+        "<b>Price Alerts</b>\n\n"
+        "Use /alert in private chat with @ZenithCryptoBot to create alerts.\n\n"
+        "Example: /alert BTC above 100000"
+    )
+
+
+def get_market_overview(btc_data: dict, eth_data: dict, fng: dict = None, is_pro: bool = False) -> str:
+    lines = [
+        "<b>Market Overview</b>",
+        format_divider(),
+        "",
+        f"BTC: ${btc_data.get('usd', 0):,.0f} ({btc_data.get('usd_24h_change', 0):+.1f}%)",
+        f"ETH: ${eth_data.get('usd', 0):,.0f} ({eth_data.get('usd_24h_change', 0):+.1f}%)",
+    ]
+    if is_pro and fng:
+        fng_val = fng.get("value", 0)
+        fng_class = fng.get("classification", "N/A")
+        lines.append(f"\nFear & Greed: {fng_val}/100 \u2014 {fng_class}")
+    elif fng:
+        lines.append("\nFear & Greed: [Pro Required]")
+    return "\n".join(lines)
+
+
+def get_gas_redirect() -> str:
+    return "<b>Gas Tracker</b>\n\nUse /gas in private chat with @ZenithCryptoBot for gas prices."
+
+
+# ============================================================
+# VIOLATION NOTIFICATION
+# ============================================================
+
+
+def get_violation_notification(group_name: str, user_name: str, user_id: int, reason: str) -> str:
+    return (
+        f"<b>Violation Detected</b>\n"
+        f"{format_divider()}\n\n"
+        f"Group: <code>{escape(group_name)}</code>\n"
+        f"User: {escape(user_name)} (<code>{user_id}</code>)\n"
+        f"Reason: {escape(reason)}"
     )

@@ -14,6 +14,8 @@ class GroupSettings(Base):
     is_active = Column(Boolean, default=False)
     ai_enabled = Column(Boolean, default=False)
     crypto_enabled = Column(Boolean, default=False)
+    raid_mode = Column(Boolean, default=False)
+    raid_expires_at = Column(DateTime, nullable=True)
     setup_date = Column(DateTime, default=utc_now)
 
 

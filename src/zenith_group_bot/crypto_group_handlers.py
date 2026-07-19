@@ -4,10 +4,22 @@ import time
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
+from core.animation import send_loading_message
 from core.logger import setup_logger
 from core.subscription import SubscriptionRepo, get_fear_greed_index, get_prices, resolve_token_id
 from zenith_group_bot.flood_control import add_warning, check_bot_command_limit, get_flood_action
 from zenith_group_bot.repository import SettingsRepo
+from zenith_group_bot.ui import (
+    get_alert_pro_msg,
+    get_alert_redirect,
+    get_flood_cooldown,
+    get_flood_mute,
+    get_flood_warning,
+    get_gas_redirect,
+    get_market_overview,
+    get_price_card,
+    get_token_not_found,
+)
 
 logger = setup_logger("GROUP_CRYPTO")
 
@@ -36,26 +48,18 @@ async def cmd_group_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_flooding:
         if remaining > 0:
             with contextlib.suppress(Exception):
-                await update.message.reply_text(
-                    f"⏳ {update.effective_user.first_name}, please wait {remaining}s between commands.",
-                    parse_mode="HTML",
-                )
+                await update.message.reply_text(get_flood_cooldown(update.effective_user.first_name, remaining))
         else:
             warning_count = add_warning(user_id)
             action, duration = get_flood_action(warning_count, is_pro)
 
             if action == "warn":
                 with contextlib.suppress(Exception):
-                    await update.message.reply_text(
-                        f"⚠️ {update.effective_user.first_name}, you're sending too many commands!", parse_mode="HTML"
-                    )
+                    await update.message.reply_text(get_flood_warning(update.effective_user.first_name))
             elif action == "mute":
                 try:
                     await context.bot.restrict_chat_member(chat_id, user_id, until_date=int(time.time()) + duration)
-                    await update.message.reply_text(
-                        f"🔇 {update.effective_user.first_name} muted for {duration//3600}h due to spam.",
-                        parse_mode="HTML",
-                    )
+                    await update.message.reply_text(get_flood_mute(update.effective_user.first_name, duration))
                 except Exception as e:
                     logger.error(f"Failed to mute: {e}")
             elif action == "kick":
@@ -72,26 +76,14 @@ async def cmd_group_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prices = await get_prices([token_id])
 
     if token_id not in prices:
-        await update.message.reply_text(f"⚠️ Token <code>{symbol}</code> not found.", parse_mode="HTML")
+        await update.message.reply_text(get_token_not_found(symbol), parse_mode="HTML")
         return
 
     data = prices[token_id]
     price = data.get("usd", 0)
     change = data.get("usd_24h_change", 0)
 
-    icon = "🟢" if change >= 0 else "🔴"
-
-    msg = (
-        f"💰 <b>{data.get('name', symbol)} ({symbol})</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"<b>Price:</b> ${price:,.2f}\n"
-        f"{icon} <b>24h:</b> {change:+.2f}%\n"
-    )
-
-    if is_pro:
-        msg += f"<b>Market Cap:</b> ${data.get('market_cap', 'N/A'):,.}\n"
-        msg += f"<b>Volume 24h:</b> ${data.get('total_volume', 'N/A'):,.}\n"
-
+    msg = get_price_card(data.get("name", symbol), symbol, price, change, is_pro, data)
     await update.message.reply_text(msg, parse_mode="HTML")
 
 
@@ -103,24 +95,10 @@ async def cmd_group_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_pro = await SubscriptionRepo.is_pro(user_id)
 
     if not is_pro:
-        await update.message.reply_text(
-            "🔔 <b>Price Alerts (Pro Only)</b>\n\n"
-            "Create price alerts to get notified when tokens hit your target price.\n\n"
-            "💎 <b>Pro Benefits (₹149/month):</b>\n"
-            "• Unlimited price alerts\n"
-            "• Wallet tracking\n"
-            "• Portfolio manager\n\n"
-            "Contact @admin to upgrade!",
-            parse_mode="HTML",
-        )
+        await update.message.reply_text(get_alert_pro_msg(), parse_mode="HTML")
         return
 
-    await update.message.reply_text(
-        "🔔 <b>Price Alerts</b>\n\n"
-        "Use /alert in private chat with @ZenithCryptoBot to create alerts.\n\n"
-        "Example: <code>/alert BTC above 100000</code>",
-        parse_mode="HTML",
-    )
+    await update.message.reply_text(get_alert_redirect(), parse_mode="HTML")
 
 
 async def cmd_group_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -140,38 +118,27 @@ async def cmd_group_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_flooding:
         return
 
-    msg = await update.message.reply_text("<i>Loading market data...</i>", parse_mode="HTML")
+    loading = await send_loading_message(update, context, "Loading market data...")
 
     fng = await get_fear_greed_index()
     prices = await get_prices(["bitcoin", "ethereum"])
 
-    fng_val = fng.get("value", 0) if fng else 0
-    fng_class = fng.get("classification", "N/A") if fng else "N/A"
-
     btc = prices.get("bitcoin", {})
     eth = prices.get("ethereum", {})
 
-    lines = [
-        "📊 <b>MARKET OVERVIEW</b>\n" "━━━━━━━━━━━━━━━━━━━━━━━━━━\n",
-        f"<b>BTC:</b> ${btc.get('usd', 0):,.0f} ({btc.get('usd_24h_change', 0):+.1f}%)",
-        f"<b>ETH:</b> ${eth.get('usd', 0):,.0f} ({eth.get('usd_24h_change', 0):+.1f}%)",
-    ]
+    msg = get_market_overview(btc, eth, fng, is_pro)
 
-    if is_pro and fng:
-        lines.append(f"\n<b>Fear & Greed:</b> {fng_val}/100 - {fng_class}")
-    elif fng:
-        lines.append("\n<b>Fear & Greed:</b> <i>[Pro Required]</i>")
-
-    await msg.edit_text("\n".join(lines), parse_mode="HTML")
+    if loading:
+        await loading.edit_text(msg, parse_mode="HTML")
+    else:
+        await update.message.reply_text(msg, parse_mode="HTML")
 
 
 async def cmd_group_gas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.message.chat.type not in ["group", "supergroup"]:
         return
 
-    await update.message.reply_text(
-        "⛽ <b>Gas Tracker</b>\n\n" "Use /gas in private chat with @ZenithCryptoBot for gas prices.", parse_mode="HTML"
-    )
+    await update.message.reply_text(get_gas_redirect(), parse_mode="HTML")
 
 
 def register_group_crypto_handlers(app):
