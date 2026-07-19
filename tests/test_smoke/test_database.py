@@ -56,11 +56,25 @@ class TestDbRetry:
         async def always_fail():
             nonlocal call_count
             call_count += 1
-            raise ValueError("fail")
+            raise ConnectionError("fail")
 
-        with pytest.raises(ValueError, match="fail"):
+        with pytest.raises(ConnectionError, match="fail"):
             await always_fail()
         assert call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_retry_does_not_retry_logic_errors(self):
+        call_count = 0
+
+        @db_retry
+        async def logic_error():
+            nonlocal call_count
+            call_count += 1
+            raise ValueError("invalid logic")
+
+        with pytest.raises(ValueError, match="invalid logic"):
+            await logic_error()
+        assert call_count == 1
 
     @pytest.mark.asyncio
     async def test_retry_succeeds_on_retry(self):

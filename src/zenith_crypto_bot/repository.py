@@ -1,10 +1,10 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from core.database import get_session
+from core.database import AsyncSessionLocal, db_retry
 from core.logger import setup_logger
 from zenith_crypto_bot.models import (
     ActivationKey,
@@ -17,8 +17,6 @@ from zenith_crypto_bot.models import (
 )
 
 logger = setup_logger("CRYPTO_DB")
-
-AsyncSessionLocal = get_session()
 
 
 class SubscriptionRepo:
@@ -344,8 +342,11 @@ class PriceAlertRepo:
     @staticmethod
     async def count_user_alerts(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
-            stmt = select(PriceAlert).where(PriceAlert.user_id == user_id, PriceAlert.is_triggered == False)
-            return len((await session.execute(stmt)).scalars().all())
+            stmt = select(func.count()).select_from(PriceAlert).where(
+                PriceAlert.user_id == user_id, PriceAlert.is_triggered == False
+            )
+            result = await session.execute(stmt)
+            return result.scalar() or 0
 
 
 class WalletTrackerRepo:
@@ -402,8 +403,11 @@ class WalletTrackerRepo:
     @staticmethod
     async def count_user_wallets(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
-            stmt = select(TrackedWallet).where(TrackedWallet.user_id == user_id)
-            return len((await session.execute(stmt)).scalars().all())
+            stmt = select(func.count()).select_from(TrackedWallet).where(
+                TrackedWallet.user_id == user_id
+            )
+            result = await session.execute(stmt)
+            return result.scalar() or 0
 
 
 class WatchlistRepo:
@@ -451,5 +455,8 @@ class WatchlistRepo:
     @staticmethod
     async def count_watchlist(user_id: int) -> int:
         async with AsyncSessionLocal() as session:
-            stmt = select(WatchlistToken).where(WatchlistToken.user_id == user_id)
-            return len((await session.execute(stmt)).scalars().all())
+            stmt = select(func.count()).select_from(WatchlistToken).where(
+                WatchlistToken.user_id == user_id
+            )
+            result = await session.execute(stmt)
+            return result.scalar() or 0

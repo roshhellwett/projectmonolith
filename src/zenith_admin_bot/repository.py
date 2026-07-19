@@ -2,13 +2,11 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
-from core.database import get_session
+from core.database import AsyncSessionLocal, db_retry
 from core.logger import setup_logger
 from zenith_admin_bot.models import ActionType, AdminAuditLog, BotRegistry, BotStatus
 
 logger = setup_logger("ADMIN_DB")
-
-AsyncSessionLocal = get_session()
 
 
 class AdminRepo:

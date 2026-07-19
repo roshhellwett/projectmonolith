@@ -13,7 +13,18 @@ logger = setup_logger("DATABASE")
 Base = declarative_base()
 
 _engine: AsyncEngine | None = None
-AsyncSessionLocal: sessionmaker | None = None
+_sessionmaker_instance: sessionmaker | None = None
+
+
+class LazyAsyncSessionMaker:
+    """Lazy session maker that acquires a live session dynamically when called or entered."""
+
+    def __call__(self, *args, **kwargs) -> AsyncSession:
+        sm = get_session()
+        return sm(*args, **kwargs)
+
+
+AsyncSessionLocal: LazyAsyncSessionMaker = LazyAsyncSessionMaker()
 
 
 def _resolve_database_url(url: str) -> str:
@@ -55,15 +66,17 @@ def get_engine() -> AsyncEngine:
     return _engine
 
 
+
+
 def get_session() -> sessionmaker:
-    global AsyncSessionLocal
-    if AsyncSessionLocal is None:
-        AsyncSessionLocal = sessionmaker(
+    global _sessionmaker_instance
+    if _sessionmaker_instance is None:
+        _sessionmaker_instance = sessionmaker(
             get_engine(),
             class_=AsyncSession,
             expire_on_commit=False,
         )
-    return AsyncSessionLocal
+    return _sessionmaker_instance
 
 
 async def init_db():
@@ -74,23 +87,47 @@ async def init_db():
 
 
 async def dispose_engine():
-    global _engine
+    global _engine, _sessionmaker_instance
     if _engine is not None:
         await _engine.dispose()
         _engine = None
+        _sessionmaker_instance = None
         logger.info("Database engine disposed")
 
 
 def db_retry(func):
+    """Retry decorator for database operations. Only retries on connection/operational errors."""
+
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
+        last_error = None
         for attempt in range(3):
             try:
                 return await func(*args, **kwargs)
             except Exception as e:
+                error_name = type(e).__name__
+                retryable = isinstance(e, ConnectionError | OSError | TimeoutError | asyncio.TimeoutError) or (
+                    error_name
+                    in (
+                        "OperationalError",
+                        "InterfaceError",
+                        "DisconnectionError",
+                        "ConnectionRefusedError",
+                        "ConnectionDoesNotExistError",
+                        "ConnectionError",
+                        "InternalError",
+                        "InvalidCachedStatementError",
+                        "PoolError",
+                    )
+                )
+                if not retryable:
+                    raise
+                last_error = e
                 if attempt == 2:
                     raise
-                logger.warning(f"DB retry {attempt + 1}/3 in {func.__name__}: {e}")
+                logger.warning(f"DB retry {attempt + 1}/3 in {func.__name__}: {error_name}: {e}")
                 await asyncio.sleep(0.5 * (2**attempt))
+        raise last_error  # Should never reach here, but safety net
 
     return wrapper
+

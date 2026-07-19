@@ -4,14 +4,12 @@ from cachetools import TTLCache
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from core.database import db_retry, get_session
+from core.database import AsyncSessionLocal, db_retry
 from core.logger import setup_logger
 from utils.time_util import utc_now
 from zenith_support_bot.models import CannedResponse, FAQEntry, SupportTicket
 
 logger = setup_logger("SUPPORT_DB")
-
-AsyncSessionLocal = get_session()
 
 ticket_cache = TTLCache(maxsize=1000, ttl=300)
 faq_cache = TTLCache(maxsize=500, ttl=300)

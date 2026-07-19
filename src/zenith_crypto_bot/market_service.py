@@ -1,10 +1,18 @@
 import httpx
+from cachetools import TTLCache
 
+from core.circuit_breaker import get_breaker
 from core.config import ETH_RPC_URL, ETHERSCAN_API_KEY
 from core.logger import setup_logger
 
 logger = setup_logger("MARKET_SVC")
 _http_client: httpx.AsyncClient | None = None
+
+# Response caches — serve stale data when APIs are down
+_price_cache: TTLCache = TTLCache(maxsize=500, ttl=30)  # 30s for prices
+_movers_cache: TTLCache = TTLCache(maxsize=1, ttl=60)  # 60s for top movers
+_fng_cache: TTLCache = TTLCache(maxsize=1, ttl=300)  # 5min for fear & greed
+_gas_cache: TTLCache = TTLCache(maxsize=1, ttl=15)  # 15s for gas prices
 
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 GOPLUS_BASE = "https://api.gopluslabs.io/api/v1"
@@ -80,6 +88,17 @@ def resolve_token_id(symbol_or_id: str) -> str:
 async def get_prices(token_ids: list[str]) -> dict:
     if not token_ids:
         return {}
+
+    breaker = get_breaker("coingecko")
+    cache_key = ",".join(sorted(set(token_ids)))
+
+    if not breaker.can_execute():
+        cached = _price_cache.get(cache_key)
+        if cached:
+            logger.debug("Serving cached prices (circuit open)")
+            return cached
+        return {}
+
     client = get_http_client()
     ids_str = ",".join(set(token_ids))
     try:
@@ -88,13 +107,29 @@ async def get_prices(token_ids: list[str]) -> dict:
             params={"ids": ids_str, "vs_currencies": "usd", "include_24hr_change": "true"},
         )
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        breaker.record_success()
+        _price_cache[cache_key] = data
+        return data
     except Exception as e:
+        breaker.record_failure()
         logger.error(f"CoinGecko price fetch failed: {e}")
+        cached = _price_cache.get(cache_key)
+        if cached:
+            logger.info("Serving stale cached prices")
+            return cached
         return {}
 
 
 async def get_top_movers() -> tuple[list, list]:
+    breaker = get_breaker("coingecko")
+
+    if not breaker.can_execute():
+        cached = _movers_cache.get("movers")
+        if cached:
+            return cached
+        return [], []
+
     client = get_http_client()
     try:
         resp = await client.get(
@@ -113,27 +148,43 @@ async def get_top_movers() -> tuple[list, list]:
         sorted_by_change = sorted(data, key=lambda x: x.get("price_change_percentage_24h") or 0)
         losers = sorted_by_change[:5]
         gainers = sorted_by_change[-5:][::-1]
+        breaker.record_success()
+        _movers_cache["movers"] = (gainers, losers)
         return gainers, losers
     except Exception as e:
+        breaker.record_failure()
         logger.error(f"CoinGecko top movers failed: {e}")
+        cached = _movers_cache.get("movers")
+        if cached:
+            return cached
         return [], []
 
 
 async def search_token(query: str) -> dict | None:
+    breaker = get_breaker("coingecko")
+    if not breaker.can_execute():
+        return None
+
     client = get_http_client()
     try:
         resp = await client.get(f"{COINGECKO_BASE}/search", params={"query": query})
         resp.raise_for_status()
         coins = resp.json().get("coins", [])
+        breaker.record_success()
         if coins:
             c = coins[0]
             return {"id": c["id"], "symbol": c["symbol"].upper(), "name": c["name"]}
     except Exception as e:
+        breaker.record_failure()
         logger.error(f"CoinGecko search failed: {e}")
     return None
 
 
 async def get_token_security(contract: str, chain_id: str = "1") -> dict | None:
+    breaker = get_breaker("goplus")
+    if not breaker.can_execute():
+        return None
+
     client = get_http_client()
     try:
         resp = await client.get(
@@ -143,8 +194,10 @@ async def get_token_security(contract: str, chain_id: str = "1") -> dict | None:
         resp.raise_for_status()
         data = resp.json()
         result = data.get("result", {})
+        breaker.record_success()
         return result.get(contract.lower())
     except Exception as e:
+        breaker.record_failure()
         logger.error(f"GoPlus security scan failed: {e}")
         return None
 
@@ -214,20 +267,26 @@ async def get_wallet_token_txns(wallet_address: str) -> list[dict]:
 
 
 async def get_fear_greed_index() -> dict | None:
+    cached = _fng_cache.get("fng")
+    if cached:
+        return cached
+
     client = get_http_client()
     try:
         resp = await client.get(FEAR_GREED_URL)
         resp.raise_for_status()
         data = resp.json()
         entry = data.get("data", [{}])[0]
-        return {
+        result = {
             "value": int(entry.get("value", 0)),
             "classification": entry.get("value_classification", "Unknown"),
             "timestamp": entry.get("timestamp", ""),
         }
+        _fng_cache["fng"] = result
+        return result
     except Exception as e:
         logger.error(f"Fear & Greed API failed: {e}")
-        return None
+        return cached
 
 
 async def get_gas_prices() -> dict | None:

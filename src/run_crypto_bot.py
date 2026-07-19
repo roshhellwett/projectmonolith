@@ -12,7 +12,9 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandle
 
 from core.config import CRYPTO_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
 from core.database import dispose_engine
+from core.error_handler import handle_bot_error
 from core.logger import setup_logger
+from core.permissions import resolve_tier
 from zenith_crypto_bot import ui as crypto_ui
 from zenith_crypto_bot.ai_handlers import cmd_ai, cmd_delkey, cmd_mykey, cmd_setkey, handle_ai_followup
 from zenith_crypto_bot.market_service import (
@@ -79,9 +81,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await SubscriptionRepo.is_pro(update.effective_user.id)
+    tier = await resolve_tier(update.effective_user.id)
     keyboard = crypto_ui.get_back_button()
-    await update.message.reply_text(crypto_ui.get_help_msg(), reply_markup=keyboard, parse_mode="HTML")
+    await update.message.reply_text(crypto_ui.get_help_msg(is_pro=tier.is_pro), reply_markup=keyboard, parse_mode="HTML")
 
 
 async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -525,6 +527,7 @@ async def start_service():
     bot_app.add_handler(CommandHandler("delkey", cmd_delkey))
     bot_app.add_handler(CallbackQueryHandler(handle_ai_followup, pattern="^ai_followup_"))
     bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
+    bot_app.add_error_handler(handle_bot_error)
 
     await bot_app.initialize()
     await bot_app.start()

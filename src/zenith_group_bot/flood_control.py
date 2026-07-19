@@ -8,7 +8,7 @@ seen_albums = TTLCache(maxsize=5000, ttl=10.0)
 
 user_command_history = TTLCache(maxsize=10000, ttl=60.0)
 user_command_count = TTLCache(maxsize=10000, ttl=3600)
-user_cooldowns = TTLCache(maxsize=10000, ttl=1)
+user_cooldowns = TTLCache(maxsize=10000, ttl=60)
 
 user_warnings = TTLCache(maxsize=5000, ttl=86400)
 
@@ -43,6 +43,8 @@ def check_bot_command_limit(user_id: int, is_pro: bool = False) -> tuple[bool, s
         remaining = int(user_cooldowns[user_id] - now)
         if remaining > 0:
             return True, f"Cooldown active. Wait {remaining}s", remaining
+        else:
+            user_cooldowns.pop(user_id, None)
 
     cooldown = 5 if is_pro else 15
     max_per_minute = 20 if is_pro else 5
@@ -56,8 +58,9 @@ def check_bot_command_limit(user_id: int, is_pro: bool = False) -> tuple[bool, s
 
     if user_id in user_command_history:
         recent_cmds = user_command_history[user_id]
+        while recent_cmds and now - recent_cmds[0] > 60.0:
+            recent_cmds.popleft()
         recent_cmds.append(now)
-        user_command_history[user_id] = recent_cmds
 
         if len(recent_cmds) > max_per_minute:
             return True, f"Rate limit exceeded ({max_per_minute}/min)", -1

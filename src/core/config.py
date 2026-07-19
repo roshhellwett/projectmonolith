@@ -5,6 +5,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ==========================================
+# Feature Flags
+# ==========================================
+MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "false").lower() == "true"
+ENABLE_WHALE_ALERTS = os.getenv("ENABLE_WHALE_ALERTS", "true").lower() == "true"
+ENABLE_NEW_PAIRS = os.getenv("ENABLE_NEW_PAIRS", "true").lower() == "true"
+
+# ==========================================
 # Bot Tokens
 # ==========================================
 GROUP_BOT_TOKEN = os.getenv("GROUP_BOT_TOKEN", "")
@@ -49,6 +56,8 @@ ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY", "")
 # ==========================================
 # AI Services
 # ==========================================
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+SUPPORT_GROQ_API_KEY = os.getenv("SUPPORT_GROQ_API_KEY", "")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 AI_SEARCH_TRIGGERS = ["today", "current", "news", "price", "latest", "search"]
 

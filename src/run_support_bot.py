@@ -9,7 +9,9 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandle
 
 from core.config import SUPPORT_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL, is_owner
 from core.database import dispose_engine
+from core.error_handler import handle_bot_error
 from core.logger import setup_logger
+from core.permissions import resolve_tier
 from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_support_bot import ui as support_ui
 from zenith_support_bot.ai_responder import generate_ai_response
@@ -28,6 +30,7 @@ from zenith_support_bot.pro_handlers import (
 from zenith_support_bot.repository import FAQRepo, TicketRepo, seed_default_faq
 from zenith_support_bot.scheduler import start_ticket_scheduler, stop_ticket_scheduler
 from zenith_support_bot.user_handlers import (
+    handle_ticket_cancel_reply_callback,
     handle_ticket_close_callback,
     handle_ticket_reply_callback,
     handle_ticket_reply_message,
@@ -473,76 +476,30 @@ async def start_service():
     bot_app.add_handler(CommandHandler("close", cmd_close))
     bot_app.add_handler(CommandHandler("activate", cmd_activate))
 
-    async def wrap_priority(u, c):
-        user_id = u.effective_user.id
-        days_left = await SubscriptionRepo.get_days_left(user_id)
-        is_pro = days_left > 0
-        is_owner_user = is_owner(user_id)
-        await cmd_priority(u, c, is_pro, is_owner_user)
+    def with_tier(handler_func, pass_pro=True):
+        async def wrapper(u: Update, c: ContextTypes.DEFAULT_TYPE):
+            tier = await resolve_tier(u.effective_user.id)
+            if pass_pro:
+                await handler_func(u, c, tier.is_pro, tier.is_owner)
+            else:
+                await handler_func(u, c, tier.is_owner)
+        return wrapper
 
-    async def wrap_savereply(u, c):
-        user_id = u.effective_user.id
-        days_left = await SubscriptionRepo.get_days_left(user_id)
-        is_pro = days_left > 0
-        is_owner_user = is_owner(user_id)
-        await cmd_savereply(u, c, is_pro, is_owner_user)
-
-    async def wrap_replies(u, c):
-        user_id = u.effective_user.id
-        days_left = await SubscriptionRepo.get_days_left(user_id)
-        is_pro = days_left > 0
-        is_owner_user = is_owner(user_id)
-        await cmd_replies(u, c, is_pro, is_owner_user)
-
-    async def wrap_reply(u, c):
-        user_id = u.effective_user.id
-        days_left = await SubscriptionRepo.get_days_left(user_id)
-        is_pro = days_left > 0
-        is_owner_user = is_owner(user_id)
-        await cmd_reply(u, c, is_pro, is_owner_user)
-
-    async def wrap_rate(u, c):
-        user_id = u.effective_user.id
-        days_left = await SubscriptionRepo.get_days_left(user_id)
-        is_pro = days_left > 0
-        is_owner_user = is_owner(user_id)
-        await cmd_rate(u, c, is_pro, is_owner_user)
-
-    async def wrap_stats(u, c):
-        user_id = u.effective_user.id
-        days_left = await SubscriptionRepo.get_days_left(user_id)
-        is_pro = days_left > 0
-        is_owner_user = is_owner(user_id)
-        await cmd_stats(u, c, is_pro, is_owner_user)
-
-    async def wrap_resolve(u, c):
-        user_id = u.effective_user.id
-        is_owner_user = is_owner(user_id)
-        await cmd_resolve(u, c, is_owner_user)
-
-    async def wrap_addfaq(u, c):
-        user_id = u.effective_user.id
-        is_owner_user = is_owner(user_id)
-        await cmd_addfaq(u, c, False, is_owner_user)
-
-    async def wrap_delfaq(u, c):
-        user_id = u.effective_user.id
-        is_owner_user = is_owner(user_id)
-        await cmd_delfaq(u, c, is_owner_user)
-
-    bot_app.add_handler(CommandHandler("priority", wrap_priority))
-    bot_app.add_handler(CommandHandler("savereply", wrap_savereply))
-    bot_app.add_handler(CommandHandler("replies", wrap_replies))
-    bot_app.add_handler(CommandHandler("reply", wrap_reply))
-    bot_app.add_handler(CommandHandler("rate", wrap_rate))
-    bot_app.add_handler(CommandHandler("stats", wrap_stats))
-    bot_app.add_handler(CommandHandler("resolve", wrap_resolve))
-    bot_app.add_handler(CommandHandler("addfaq", wrap_addfaq))
-    bot_app.add_handler(CommandHandler("delfaq", wrap_delfaq))
+    bot_app.add_handler(CommandHandler("priority", with_tier(cmd_priority)))
+    bot_app.add_handler(CommandHandler("savereply", with_tier(cmd_savereply)))
+    bot_app.add_handler(CommandHandler("replies", with_tier(cmd_replies)))
+    bot_app.add_handler(CommandHandler("reply", with_tier(cmd_reply)))
+    bot_app.add_handler(CommandHandler("rate", with_tier(cmd_rate)))
+    bot_app.add_handler(CommandHandler("stats", with_tier(cmd_stats)))
+    bot_app.add_handler(CommandHandler("addfaq", with_tier(cmd_addfaq)))
+    bot_app.add_handler(CommandHandler("resolve", with_tier(cmd_resolve, pass_pro=False)))
+    bot_app.add_handler(CommandHandler("delfaq", with_tier(cmd_delfaq, pass_pro=False)))
 
     bot_app.add_handler(CallbackQueryHandler(handle_ticket_reply_callback, pattern=r"^ticket_reply_"))
+    bot_app.add_handler(CallbackQueryHandler(handle_ticket_cancel_reply_callback, pattern=r"^ticket_cancel_reply_"))
     bot_app.add_handler(CallbackQueryHandler(handle_ticket_close_callback, pattern=r"^ticket_close_user_"))
     bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
+    bot_app.add_error_handler(handle_bot_error)
 
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ticket_reply_message))
 

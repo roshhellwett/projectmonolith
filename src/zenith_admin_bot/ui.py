@@ -129,18 +129,70 @@ def format_user_management(user_id: int, sub_details: dict) -> str:
 
 
 def format_bot_health(bots: list) -> str:
+    from core.circuit_breaker import get_all_breaker_statuses
+    from core.db_health import is_db_healthy
+
+    db_icon = "🟢 Healthy" if is_db_healthy() else "🔴 Unhealthy"
+    lines = [
+        f"<b>System & Bot Health</b>\n{format_divider()}\n\n"
+        f"<b>Database:</b> {db_icon}\n"
+    ]
+
+    breakers = get_all_breaker_statuses()
+    if breakers:
+        lines.append("<b>Circuit Breakers:</b>")
+        for b in breakers:
+            state_icon = "🟢" if b["state"] == "closed" else ("🔴" if b["state"] == "open" else "🟡")
+            lines.append(f"   • {b['name']}: {state_icon} {b['state'].upper()} (Fails: {b['recent_failures']})")
+        lines.append("")
+
     if not bots:
-        return f"<b>Bot Health</b>\n{format_divider()}\n\nNo bots registered."
-    lines = [f"<b>Monitored Bots</b>\n{format_divider()}"]
-    for bot in bots:
-        status_icon = "Active" if bot.status == "active" else ("Error" if bot.status == "error" else "Unknown")
-        health = bot.health_status or "unknown"
-        last_check = bot.last_health_check.strftime("%d %b %H:%M") if bot.last_health_check else "Never"
-        lines.append(
-            f"<b>{bot.bot_name}</b>\n"
-            f"   Status: {status_icon} | Health: {health}\n"
-            f"   Last check: {last_check}"
-        )
+        lines.append("No bots registered.")
+    else:
+        lines.append("<b>Monitored Bots:</b>")
+        for bot in bots:
+            status_icon = "🟢 Active" if bot.status == "active" else ("🔴 Error" if bot.status == "error" else "⚪ Inactive")
+            health = bot.health_status or "unknown"
+            last_check = bot.last_health_check.strftime("%d %b %H:%M") if bot.last_health_check else "Never"
+            lines.append(
+                f"• <b>{bot.bot_name}</b>: {status_icon} | Health: {health} ({last_check})"
+            )
+    return "\n".join(lines)
+
+
+def format_platform_metrics() -> str:
+    from core.metrics import get_metrics
+    summary = get_metrics().get_summary()
+    uptime = summary.get("uptime_seconds", 0)
+    mins = int(uptime // 60)
+    secs = int(uptime % 60)
+
+    lines = [
+        f"<b>Platform Telemetry & Metrics</b>\n{format_divider()}\n\n"
+        f"<b>Uptime:</b> {mins}m {secs}s\n"
+    ]
+
+    reqs = summary.get("requests", {})
+    if reqs:
+        lines.append("<b>Request Volumes:</b>")
+        for k, v in reqs.items():
+            lines.append(f"   • {k}: {v:,}")
+        lines.append("")
+
+    errs = summary.get("errors", {})
+    if errs:
+        lines.append("<b>Recorded Errors:</b>")
+        for k, v in errs.items():
+            lines.append(f"   • {k}: {v:,}")
+        lines.append("")
+
+    lats = summary.get("latencies", {})
+    if lats:
+        lines.append("<b>Latency Summaries (ms):</b>")
+        for k, stats in lats.items():
+            if stats["count"] > 0:
+                lines.append(f"   • {k}: p50={stats['p50_ms']}ms | p95={stats['p95_ms']}ms (n={stats['count']})")
+
     return "\n".join(lines)
 
 

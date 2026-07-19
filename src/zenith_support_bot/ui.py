@@ -565,8 +565,14 @@ def get_ticket_status_card(ticket) -> str:
     return "\n".join(lines)
 
 
-def get_user_reply_prompt(ticket_id: int) -> str:
-    return f"<b>Reply to Ticket #{ticket_id}</b>\n\nPlease send your reply to this ticket.\n\nType your response below:"
+def get_user_reply_prompt(ticket_id: int) -> tuple:
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    text = f"<b>Reply to Ticket #{ticket_id}</b>\n\nPlease send your reply to this ticket.\n\nType your response below:"
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Cancel Reply", callback_data=f"ticket_cancel_reply_{ticket_id}")],
+        [InlineKeyboardButton("◀️ Back to Dashboard", callback_data="sup_main_menu")],
+    ])
+    return text, kb
 
 
 def get_user_close_denied() -> str:
@@ -609,7 +615,10 @@ def get_ticket_status_keyboard(ticket):
 
 def get_user_what_next_keyboard():
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    return InlineKeyboardMarkup([[InlineKeyboardButton("View All Tickets", callback_data="support_my_tickets")]])
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("View All Tickets", callback_data="sup_my_tickets")],
+        [InlineKeyboardButton("◀️ Back to Dashboard", callback_data="sup_main_menu")],
+    ])
 
 
 def get_user_what_next_msg() -> str:

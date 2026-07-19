@@ -21,6 +21,7 @@ from zenith_admin_bot.commands import (
     cmd_keygen,
     cmd_keys,
     cmd_lookup,
+    cmd_metrics,
     cmd_revenue_report,
     cmd_revoke,
     cmd_search,
@@ -63,6 +64,7 @@ async def start_service():
     bot_app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     bot_app.add_handler(CommandHandler("audit", cmd_audit))
     bot_app.add_handler(CommandHandler("health", cmd_health))
+    bot_app.add_handler(CommandHandler("metrics", cmd_metrics))
     bot_app.add_handler(CommandHandler("botlist", cmd_botlist))
     bot_app.add_handler(CommandHandler("tickets", cmd_tickets))
     bot_app.add_handler(CommandHandler("ticket", cmd_ticket_detail))

@@ -156,6 +156,11 @@ async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @admin_only
+async def cmd_metrics(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(admin_ui.format_platform_metrics(), parse_mode="HTML")
+
+
+@admin_only
 async def cmd_botlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bots = await BotRegistryRepo.get_all_bots()
     await update.message.reply_text(admin_ui.format_bot_health(bots), parse_mode="HTML")

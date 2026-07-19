@@ -2,17 +2,16 @@ from datetime import date
 
 from sqlalchemy import delete, func, select
 
-from core.database import get_session
+from core.database import AsyncSessionLocal, db_retry
 from core.logger import setup_logger
 from zenith_ai_bot.models import AIConversation, AIUsageLog
 
 logger = setup_logger("AI_REPO")
 
-AsyncSessionLocal = get_session()
-
 
 class ConversationRepo:
     @staticmethod
+    @db_retry
     async def add_message(user_id: int, role: str, content: str):
         async with AsyncSessionLocal() as session:
             session.add(AIConversation(user_id=user_id, role=role, content=content[:2000]))

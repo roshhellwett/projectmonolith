@@ -8,8 +8,8 @@ from core.logger import setup_logger
 
 logger = setup_logger("AI_UTILS")
 
-_rate_free = TTLCache(maxsize=10000, ttl=3600.0)
-_rate_pro = TTLCache(maxsize=10000, ttl=3600.0)
+_rate_free = TTLCache(maxsize=10000, ttl=86400.0)  # 24h window for daily limits
+_rate_pro = TTLCache(maxsize=10000, ttl=3600.0)  # 1h window for hourly limits
 
 PROMPT_INJECTION_PATTERNS = [
     re.compile(r"ignore\s+(all\s+)?previous\s+instructions", re.IGNORECASE),
@@ -35,7 +35,7 @@ def get_db_engine():
 
 async def check_user_ban_status(user_id: int) -> bool:
     try:
-        engine = await get_db_engine()
+        engine = get_db_engine()  # sync function — no await
         if not engine:
             return False
 
@@ -67,9 +67,9 @@ async def check_ai_rate_limit(user_id: int, is_pro: bool = False) -> tuple[bool,
         _rate_pro[user_id] = current + 1
     else:
         current = _rate_free.get(user_id, 0)
-        if current >= 5:
+        if current >= 10:
             return False, (
-                "⏳ <b>Free tier limit reached</b> (5/hour).\n\n"
+                "⏳ <b>Free tier limit reached</b> (10/day).\n\n"
                 "💎 Upgrade to <b>Zenith Pro</b> for <b>60 queries/hour</b>, "
                 "AI personas, deep research, code generation, and more.\n\n"
                 "<code>/activate [YOUR_KEY]</code>"

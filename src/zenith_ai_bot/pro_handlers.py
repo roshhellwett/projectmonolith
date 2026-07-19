@@ -181,13 +181,8 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_pro = await SubscriptionRepo.is_pro(user_id)
 
     if not is_pro:
-        return await update.message.reply_text(
-            "Pro Feature: Code Generator\n\n"
-            "Get production-ready code from natural language descriptions.\n"
-            "Upgrade to Zenith Pro to unlock.\n\n"
-            "/activate [YOUR_KEY]",
-            parse_mode="HTML",
-        )
+        msg, kb = get_pro_feature_msg("Code Generator")
+        return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
     api_key = await SubscriptionRepo.get_groq_key(user_id)
     if not api_key:

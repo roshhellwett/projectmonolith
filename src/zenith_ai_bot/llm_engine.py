@@ -1,5 +1,6 @@
 from groq import AsyncGroq
 
+from core.circuit_breaker import get_breaker
 from core.config import AI_SEARCH_TRIGGERS
 from core.logger import setup_logger
 from zenith_ai_bot.prompts import CODE_PROMPT, IMAGINE_PROMPT, PERSONAS, RESEARCH_PROMPT, SUMMARIZE_PROMPT
@@ -10,7 +11,29 @@ logger = setup_logger("LLM_ENGINE")
 
 
 def get_groq_client(api_key: str) -> AsyncGroq:
-    return AsyncGroq(api_key=api_key, max_retries=2)
+    return AsyncGroq(api_key=api_key, max_retries=2, timeout=30.0)
+
+
+async def _call_groq_with_breaker(client: AsyncGroq, **kwargs) -> str:
+    breaker = get_breaker("groq")
+    if not breaker.can_execute():
+        return "⚠️ AI service is momentarily unavailable due to high demand. Please try again in 1-2 minutes."
+    try:
+        response = await client.chat.completions.create(**kwargs)
+        breaker.record_success()
+        return response.choices[0].message.content
+    except Exception as e:
+        breaker.record_failure()
+        error_str = str(e).lower()
+        if "rate_limit" in error_str or "429" in error_str:
+            logger.warning(f"Groq API rate limit hit: {e}")
+            return "⏳ AI service limit temporarily reached. Please try again in a few seconds."
+        elif "timeout" in error_str:
+            logger.warning(f"Groq API timeout: {e}")
+            return "⏱️ AI generation took too long to respond. Please try a simpler prompt or try again."
+        else:
+            logger.error(f"Groq API error: {e}")
+            return "❌ AI engine encountered an unexpected issue. Please try again."
 
 
 async def process_ai_query(
@@ -51,17 +74,13 @@ async def process_ai_query(
 
     messages.append({"role": "user", "content": final_prompt})
 
-    try:
-        response = await client.chat.completions.create(
-            messages=messages,
-            model="llama-3.3-70b-versatile",
-            temperature=0.5,
-            max_tokens=max_tokens,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Groq API Error: {e}")
-        return "Connection to AI servers lost. Please try again."
+    return await _call_groq_with_breaker(
+        client,
+        messages=messages,
+        model="llama-3.3-70b-versatile",
+        temperature=0.5,
+        max_tokens=max_tokens,
+    )
 
 
 async def process_research(topic: str, api_key: str = None) -> str:
@@ -74,77 +93,61 @@ async def process_research(topic: str, api_key: str = None) -> str:
 
     prompt = f"Research Topic: {topic}\n\n[RESEARCH DATA]\n{research_data}"
 
-    try:
-        response = await client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": RESEARCH_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            model="llama-3.3-70b-versatile",
-            temperature=0.3,
-            max_tokens=4096,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Research mode error: {e}")
-        return "Research engine connection lost. Please try again."
+    return await _call_groq_with_breaker(
+        client,
+        messages=[
+            {"role": "system", "content": RESEARCH_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        model="llama-3.3-70b-versatile",
+        temperature=0.3,
+        max_tokens=4096,
+    )
 
 
 async def process_summarize(text: str, api_key: str = None) -> str:
     if not api_key:
         return "Your Groq API key is not set. Use /setkey in the Crypto Bot to configure it."
     client = get_groq_client(api_key)
-    try:
-        response = await client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": SUMMARIZE_PROMPT},
-                {"role": "user", "content": f"Summarize this:\n\n{text}"},
-            ],
-            model="llama-3.3-70b-versatile",
-            temperature=0.3,
-            max_tokens=2048,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Summarize error: {e}")
-        return "Summarization engine offline. Please try again."
+    return await _call_groq_with_breaker(
+        client,
+        messages=[
+            {"role": "system", "content": SUMMARIZE_PROMPT},
+            {"role": "user", "content": f"Summarize this:\n\n{text}"},
+        ],
+        model="llama-3.3-70b-versatile",
+        temperature=0.3,
+        max_tokens=2048,
+    )
 
 
 async def process_code(description: str, api_key: str = None) -> str:
     if not api_key:
         return "Your Groq API key is not set. Use /setkey in the Crypto Bot to configure it."
     client = get_groq_client(api_key)
-    try:
-        response = await client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": CODE_PROMPT},
-                {"role": "user", "content": description},
-            ],
-            model="llama-3.3-70b-versatile",
-            temperature=0.2,
-            max_tokens=4096,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Code gen error: {e}")
-        return "Code generation engine offline. Please try again."
+    return await _call_groq_with_breaker(
+        client,
+        messages=[
+            {"role": "system", "content": CODE_PROMPT},
+            {"role": "user", "content": description},
+        ],
+        model="llama-3.3-70b-versatile",
+        temperature=0.2,
+        max_tokens=4096,
+    )
 
 
 async def process_imagine(description: str, api_key: str = None) -> str:
     if not api_key:
         return "Your Groq API key is not set. Use /setkey in the Crypto Bot to configure it."
     client = get_groq_client(api_key)
-    try:
-        response = await client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": IMAGINE_PROMPT},
-                {"role": "user", "content": f"Create image generation prompts for: {description}"},
-            ],
-            model="llama-3.3-70b-versatile",
-            temperature=0.7,
-            max_tokens=2048,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Imagine error: {e}")
-        return "Image prompt engine offline. Please try again."
+    return await _call_groq_with_breaker(
+        client,
+        messages=[
+            {"role": "system", "content": IMAGINE_PROMPT},
+            {"role": "user", "content": f"Create image generation prompts for: {description}"},
+        ],
+        model="llama-3.3-70b-versatile",
+        temperature=0.7,
+        max_tokens=2048,
+    )

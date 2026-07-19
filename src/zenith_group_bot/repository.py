@@ -4,7 +4,7 @@ from cachetools import TTLCache
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from core.database import db_retry, get_session
+from core.database import AsyncSessionLocal, db_retry
 from core.logger import setup_logger
 from utils.time_util import utc_now
 from zenith_group_bot.models import (
@@ -18,8 +18,6 @@ from zenith_group_bot.models import (
 )
 
 logger = setup_logger("DB_REPO")
-
-AsyncSessionLocal = get_session()
 
 settings_cache = TTLCache(maxsize=1000, ttl=300)
 quarantine_cache = TTLCache(maxsize=50000, ttl=3600)

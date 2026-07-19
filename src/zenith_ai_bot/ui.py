@@ -331,26 +331,12 @@ def get_feature_help_msg(feature: str, is_pro: bool = False) -> tuple:
     return message, get_back_button()
 
 
+from core.ui_components import pro_feature_locked_msg, pro_upgrade_keyboard
+
+
 def get_pro_feature_msg(feature: str) -> tuple:
-    message = (
-        f"Pro Feature: {feature}\n\n"
-        "This feature is available exclusively for PRO members.\n\n"
-        "Pro Benefits:\n"
-        "\u2022 Unlimited messages\n"
-        "\u2022 7 AI personas\n"
-        "\u2022 Deep research\n"
-        "\u2022 Document summarizer\n"
-        "\u2022 Code interpreter\n"
-        "\u2022 Chat history\n"
-        "\u2022 Image prompt crafter"
-    )
-    keyboard = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
-            [InlineKeyboardButton("Activate Key", callback_data="ai_activate_help")],
-            [InlineKeyboardButton("Back", callback_data="ai_main_menu")],
-        ]
-    )
+    message = pro_feature_locked_msg(feature)
+    keyboard = pro_upgrade_keyboard(back_data="ai_main_menu")
     return message, keyboard
 
 

@@ -20,7 +20,32 @@ async def handle_ticket_reply_callback(update: Update, context: ContextTypes.DEF
         return
 
     context.user_data["pending_ticket_reply"] = ticket_id
-    await query.edit_message_text(support_ui.get_user_reply_prompt(ticket_id), parse_mode="HTML")
+    text, kb = support_ui.get_user_reply_prompt(ticket_id)
+    await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+
+
+async def handle_ticket_cancel_reply_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Reply cancelled.")
+    context.user_data.pop("pending_ticket_reply", None)
+
+    ticket_id = int(query.data.split("_")[-1])
+    ticket = await TicketRepo.get_ticket(ticket_id)
+    if not ticket:
+        await query.edit_message_text(support_ui.get_ticket_not_found_msg(), reply_markup=support_ui.get_back_button())
+        return
+
+    user_id = update.effective_user.id
+    from core.permissions import resolve_tier
+    tier = await resolve_tier(user_id)
+
+    await query.edit_message_text(
+        support_ui.get_ticket_status_msg(ticket, tier.is_pro, tier.is_owner),
+        reply_markup=support_ui.get_ticket_detail_keyboard(
+            ticket.id, tier.is_owner, tier.is_pro, tier.is_owner, ticket.user_id == user_id
+        ),
+        parse_mode="HTML",
+    )
 
 
 async def handle_ticket_close_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):

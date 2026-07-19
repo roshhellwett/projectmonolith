@@ -14,7 +14,9 @@ from telegram.ext import (
 
 from core.config import ADMIN_USER_ID, AI_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
 from core.database import dispose_engine
+from core.error_handler import handle_bot_error
 from core.logger import setup_logger
+from core.permissions import resolve_tier
 from zenith_ai_bot.llm_engine import process_ai_query
 from zenith_ai_bot.pro_handlers import cmd_code, cmd_history, cmd_imagine, cmd_persona, cmd_research, cmd_summarize
 from zenith_ai_bot.prompts import PERSONAS
@@ -141,18 +143,18 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    await SubscriptionRepo.is_pro(user_id)
+    tier = await resolve_tier(user_id)
 
-    text = get_help_msg(is_pro=False)
+    text = get_help_msg(is_pro=tier.is_pro)
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-    keyboard = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
-            [InlineKeyboardButton("Back", callback_data="ai_main_menu")],
-        ]
-    )
+    buttons = []
+    if not tier.is_pro:
+        buttons.append([InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
+    buttons.append([InlineKeyboardButton("Back", callback_data="ai_main_menu")])
+
+    keyboard = InlineKeyboardMarkup(buttons)
 
     await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
@@ -242,9 +244,12 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="HTML",
                 )
 
-        elif query.data.startswith("ai_persona_"):
-            persona_key = query.data.replace("ai_persona_", "")
-            if persona_key in PERSONAS:
+        elif query.data.startswith("ai_persona_") or query.data.startswith("ai_switch_persona_"):
+            persona_key = query.data.replace("ai_persona_", "").replace("ai_switch_persona_", "")
+            if not is_pro:
+                text = get_personas_locked_msg()
+                await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
+            elif persona_key in PERSONAS:
                 await UsageRepo.set_persona(user_id, persona_key)
                 text = get_persona_switched_msg(persona_key)
                 await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
@@ -324,6 +329,7 @@ async def start_service():
     bot_app.add_handler(CommandHandler("activate", cmd_activate))
     bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
     bot_app.add_handler(InlineQueryHandler(inline_query))
+    bot_app.add_error_handler(handle_bot_error)
 
     await bot_app.initialize()
     await bot_app.start()
