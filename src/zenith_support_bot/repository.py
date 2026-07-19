@@ -17,6 +17,7 @@ ticket_cache = TTLCache(maxsize=1000, ttl=300)
 faq_cache = TTLCache(maxsize=500, ttl=300)
 
 
+@db_retry
 async def seed_default_faq():
     default_faqs = [
         {

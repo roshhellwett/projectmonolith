@@ -1,4 +1,5 @@
 import asyncio
+import socket
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -63,11 +64,28 @@ def _validate_environment():
     return len(issues) == 0
 
 
+async def _diagnose_network():
+    """Log DNS resolution for critical external hosts."""
+    hosts = {
+        "Supabase PgBouncer": "aws-0-ap-northeast-1.pooler.supabase.com",
+        "Telegram API": "api.telegram.org",
+        "CoinGecko API": "api.coingecko.com",
+    }
+    for label, host in hosts.items():
+        try:
+            addrs = socket.getaddrinfo(host, 0)
+            ips = list({a[4][0] for a in addrs})
+            logger.info(f"🌐 {label} → {host} resolves to {ips}")
+        except Exception as e:
+            logger.warning(f"🌐 {label} → {host} DNS FAILED: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 MONOLITH STARTING")
 
     _validate_environment()
+    await _diagnose_network()
 
     async def safe_start(name, func):
         try:

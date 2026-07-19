@@ -553,7 +553,11 @@ async def start_service():
     if not SUPPORT_BOT_TOKEN:
         return
 
-    await seed_default_faq()
+    try:
+        await seed_default_faq()
+    except Exception as e:
+        logger.warning(f"FAQ seeding skipped (DB unavailable): {e}")
+
     bot_app = ApplicationBuilder().token(SUPPORT_BOT_TOKEN).build()
 
     bot_app.add_handler(CommandHandler("start", cmd_start))

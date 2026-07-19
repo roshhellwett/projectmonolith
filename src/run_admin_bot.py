@@ -100,7 +100,11 @@ async def start_service():
         except Exception as e:
             logger.error(f"Admin Bot Webhook Failed: {e}")
 
-    await start_monitoring(bot_app)
+    try:
+        await start_monitoring(bot_app)
+    except Exception as e:
+        logger.warning(f"Monitoring startup skipped (DB unavailable): {e}")
+
     logger.info("Admin Bot: Online")
 
 
