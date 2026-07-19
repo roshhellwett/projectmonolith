@@ -216,6 +216,80 @@ class SubscriptionRepo:
             await session.commit()
 
 
+    @staticmethod
+    async def set_groq_key(user_id: int, api_key: str) -> None:
+        async with AsyncSessionLocal() as session:
+            stmt = (
+                pg_insert(CryptoUser)
+                .values(user_id=user_id, groq_api_key=api_key)
+                .on_conflict_do_update(index_elements=["user_id"], set_=dict(groq_api_key=api_key))
+            )
+            await session.execute(stmt)
+            await session.commit()
+
+    @staticmethod
+    async def get_groq_key(user_id: int) -> str | None:
+        async with AsyncSessionLocal() as session:
+            res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
+            user = res.scalar_one_or_none()
+            return user.groq_api_key if user and user.groq_api_key else None
+
+    @staticmethod
+    async def delete_groq_key(user_id: int) -> None:
+        async with AsyncSessionLocal() as session:
+            stmt = (
+                pg_insert(CryptoUser)
+                .values(user_id=user_id)
+                .on_conflict_do_update(index_elements=["user_id"], set_=dict(groq_api_key=None))
+            )
+            await session.execute(stmt)
+            await session.commit()
+
+    @staticmethod
+    async def get_user_ai_context(user_id: int) -> str:
+        async with AsyncSessionLocal() as session:
+            parts = []
+
+            sub_res = await session.execute(select(Subscription).where(Subscription.user_id == user_id))
+            sub = sub_res.scalar_one_or_none()
+            now = datetime.now(UTC)
+            if sub and sub.expires_at > now:
+                days = (sub.expires_at - now).days + 1
+                parts.append(f"Subscription: Pro ({days} days left)")
+            else:
+                parts.append("Subscription: Free tier")
+
+            watch_res = await session.execute(
+                select(WatchlistToken).where(WatchlistToken.user_id == user_id)
+            )
+            tokens = watch_res.scalars().all()
+            if tokens:
+                items = []
+                for t in tokens[:10]:
+                    items.append(f"{t.token_symbol} x{t.quantity} @ ${t.entry_price:,.2f}")
+                parts.append("Portfolio: " + "; ".join(items))
+            else:
+                parts.append("Portfolio: Empty")
+
+            alert_count = await session.execute(
+                select(PriceAlert).where(PriceAlert.user_id == user_id, PriceAlert.is_triggered == False)
+            )
+            alert_total = len(alert_count.scalars().all())
+            parts.append(f"Active Alerts: {alert_total}")
+
+            wallet_total = await session.execute(
+                select(TrackedWallet).where(TrackedWallet.user_id == user_id)
+            )
+            parts.append(f"Tracked Wallets: {len(wallet_total.scalars().all())}")
+
+            audit_total = await session.execute(
+                select(SavedAudit).where(SavedAudit.user_id == user_id)
+            )
+            parts.append(f"Saved Audits: {len(audit_total.scalars().all())}")
+
+            return "\n".join(parts)
+
+
 class PriceAlertRepo:
     @staticmethod
     async def create_alert(

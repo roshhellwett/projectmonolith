@@ -1,10 +1,13 @@
+import os
+
 from groq import AsyncGroq
 
-from core.config import GROQ_API_KEY
 from core.logger import setup_logger
 
 logger = setup_logger("SUPPORT_AI")
 _groq_client: AsyncGroq | None = None
+
+SUPPORT_GROQ_KEY = os.getenv("SUPPORT_GROQ_API_KEY", "")
 
 SUPPORT_SYSTEM_PROMPT = """You are Zenith Support AI, a helpful customer support assistant. Your role is to provide instant, accurate, and friendly responses to user support inquiries.
 
@@ -21,15 +24,19 @@ Guidelines:
 You have access to general troubleshooting knowledge for common issues. For complex or specific technical problems, provide initial guidance and suggest creating a support ticket."""
 
 
-def get_groq_client() -> AsyncGroq:
+def get_groq_client() -> AsyncGroq | None:
+    if not SUPPORT_GROQ_KEY:
+        return None
     global _groq_client
     if _groq_client is None:
-        _groq_client = AsyncGroq(api_key=GROQ_API_KEY, max_retries=2)
+        _groq_client = AsyncGroq(api_key=SUPPORT_GROQ_KEY, max_retries=2)
     return _groq_client
 
 
 async def generate_ai_response(subject: str, description: str) -> str:
     client = get_groq_client()
+    if not client:
+        return "Thank you for your ticket! Our support team will review it shortly."
 
     prompt = f"""Support Ticket:
 Subject: {subject}
@@ -55,6 +62,8 @@ Please provide a helpful, step-by-step solution to address this support inquiry.
 
 async def generate_faq_answer(question: str, faq_context: str = None) -> str:
     client = get_groq_client()
+    if not client:
+        return None
 
     context = f"Relevant FAQ entries:\n{faq_context}\n\n" if faq_context else ""
     prompt = f"""{context}User Question: {question}

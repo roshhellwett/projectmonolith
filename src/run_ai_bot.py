@@ -59,9 +59,21 @@ async def ai_worker():
         try:
             update, context, placeholder_msg, text, history_text, is_pro, persona, history = await task_queue.get()
             try:
+                user_id = update.effective_user.id
+                api_key = await SubscriptionRepo.get_groq_key(user_id)
+                if not api_key:
+                    with contextlib.suppress(Exception):
+                        await context.bot.edit_message_text(
+                            chat_id=placeholder_msg.chat_id,
+                            message_id=placeholder_msg.message_id,
+                            text="To use AI features, set your Groq API key in the Crypto Bot:\n/setkey gsk_xxxx in @YourCryptoBot",
+                        )
+                    task_queue.task_done()
+                    continue
+
                 max_tokens = 4096 if is_pro else 1024
                 ai_response = await process_ai_query(
-                    text, history_text, persona=persona, max_tokens=max_tokens, history=history
+                    text, history_text, persona=persona, max_tokens=max_tokens, history=history, api_key=api_key
                 )
                 clean_html = sanitize_telegram_html(ai_response)
 

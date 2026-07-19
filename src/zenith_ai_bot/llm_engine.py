@@ -1,26 +1,29 @@
 from groq import AsyncGroq
 
-from core.config import AI_SEARCH_TRIGGERS, GROQ_API_KEY
+from core.config import AI_SEARCH_TRIGGERS
 from core.logger import setup_logger
 from zenith_ai_bot.prompts import CODE_PROMPT, IMAGINE_PROMPT, PERSONAS, RESEARCH_PROMPT, SUMMARIZE_PROMPT
 from zenith_ai_bot.search import perform_deep_research, perform_web_search
 from zenith_ai_bot.youtube import get_youtube_transcript
 
 logger = setup_logger("LLM_ENGINE")
-_groq_client: AsyncGroq | None = None
 
 
-def get_groq_client() -> AsyncGroq:
-    global _groq_client
-    if _groq_client is None:
-        _groq_client = AsyncGroq(api_key=GROQ_API_KEY, max_retries=2)
-    return _groq_client
+def get_groq_client(api_key: str) -> AsyncGroq:
+    return AsyncGroq(api_key=api_key, max_retries=2)
 
 
 async def process_ai_query(
-    user_text: str, context_data: str = None, persona: str = "default", max_tokens: int = 1024, history: list = None
+    user_text: str,
+    context_data: str = None,
+    persona: str = "default",
+    max_tokens: int = 1024,
+    history: list = None,
+    api_key: str = None,
 ) -> str:
-    client = get_groq_client()
+    if not api_key:
+        return "Your Groq API key is not set. Use /setkey in the Crypto Bot to configure it."
+    client = get_groq_client(api_key)
     external_context = ""
 
     if "youtube.com/watch" in user_text or "youtu.be/" in user_text:
@@ -58,14 +61,16 @@ async def process_ai_query(
         return response.choices[0].message.content
     except Exception as e:
         logger.error(f"Groq API Error: {e}")
-        return "📡 Connection to AI servers lost. Please try again."
+        return "Connection to AI servers lost. Please try again."
 
 
-async def process_research(topic: str) -> str:
-    client = get_groq_client()
+async def process_research(topic: str, api_key: str = None) -> str:
+    if not api_key:
+        return "Your Groq API key is not set. Use /setkey in the Crypto Bot to configure it."
+    client = get_groq_client(api_key)
     research_data = await perform_deep_research(topic)
     if not research_data:
-        return "⚠️ No research data found for this topic. Try a different query."
+        return "No research data found for this topic. Try a different query."
 
     prompt = f"Research Topic: {topic}\n\n[RESEARCH DATA]\n{research_data}"
 
@@ -82,11 +87,13 @@ async def process_research(topic: str) -> str:
         return response.choices[0].message.content
     except Exception as e:
         logger.error(f"Research mode error: {e}")
-        return "📡 Research engine connection lost. Please try again."
+        return "Research engine connection lost. Please try again."
 
 
-async def process_summarize(text: str) -> str:
-    client = get_groq_client()
+async def process_summarize(text: str, api_key: str = None) -> str:
+    if not api_key:
+        return "Your Groq API key is not set. Use /setkey in the Crypto Bot to configure it."
+    client = get_groq_client(api_key)
     try:
         response = await client.chat.completions.create(
             messages=[
@@ -100,11 +107,13 @@ async def process_summarize(text: str) -> str:
         return response.choices[0].message.content
     except Exception as e:
         logger.error(f"Summarize error: {e}")
-        return "📡 Summarization engine offline. Please try again."
+        return "Summarization engine offline. Please try again."
 
 
-async def process_code(description: str) -> str:
-    client = get_groq_client()
+async def process_code(description: str, api_key: str = None) -> str:
+    if not api_key:
+        return "Your Groq API key is not set. Use /setkey in the Crypto Bot to configure it."
+    client = get_groq_client(api_key)
     try:
         response = await client.chat.completions.create(
             messages=[
@@ -118,11 +127,13 @@ async def process_code(description: str) -> str:
         return response.choices[0].message.content
     except Exception as e:
         logger.error(f"Code gen error: {e}")
-        return "📡 Code generation engine offline. Please try again."
+        return "Code generation engine offline. Please try again."
 
 
-async def process_imagine(description: str) -> str:
-    client = get_groq_client()
+async def process_imagine(description: str, api_key: str = None) -> str:
+    if not api_key:
+        return "Your Groq API key is not set. Use /setkey in the Crypto Bot to configure it."
+    client = get_groq_client(api_key)
     try:
         response = await client.chat.completions.create(
             messages=[
@@ -136,4 +147,4 @@ async def process_imagine(description: str) -> str:
         return response.choices[0].message.content
     except Exception as e:
         logger.error(f"Imagine error: {e}")
-        return "📡 Image prompt engine offline. Please try again."
+        return "Image prompt engine offline. Please try again."

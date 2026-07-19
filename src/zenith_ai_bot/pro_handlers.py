@@ -73,6 +73,14 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg, kb = get_pro_feature_msg("Deep Research")
         return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
+    api_key = await SubscriptionRepo.get_groq_key(user_id)
+    if not api_key:
+        return await update.message.reply_text(
+            "To use AI features, set your Groq API key in the Crypto Bot:\n"
+            "/setkey gsk_xxxx in @YourCryptoBot",
+            parse_mode="HTML",
+        )
+
     topic = " ".join(context.args) if context.args else ""
     topic = sanitize_user_input(topic)
 
@@ -93,7 +101,7 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
             update, context, stages=stages, final_text="Research complete! Compiling report...", delay=0.8
         )
 
-        result = await process_research(topic)
+        result = await process_research(topic, api_key=api_key)
         clean = sanitize_telegram_html(result)
 
         if len(clean) > 4000:
@@ -121,6 +129,14 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_pro = await SubscriptionRepo.is_pro(user_id)
     msg_obj = update.message
 
+    api_key = await SubscriptionRepo.get_groq_key(user_id)
+    if not api_key:
+        return await msg_obj.reply_text(
+            "To use AI features, set your Groq API key in the Crypto Bot:\n"
+            "/setkey gsk_xxxx in @YourCryptoBot",
+            parse_mode="HTML",
+        )
+
     text = " ".join(context.args) if context.args else ""
     text = sanitize_user_input(text)
 
@@ -146,7 +162,7 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from zenith_ai_bot.utils import sanitize_telegram_html
 
-    result = await process_summarize(text)
+    result = await process_summarize(text, api_key=api_key)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -173,6 +189,14 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML",
         )
 
+    api_key = await SubscriptionRepo.get_groq_key(user_id)
+    if not api_key:
+        return await update.message.reply_text(
+            "To use AI features, set your Groq API key in the Crypto Bot:\n"
+            "/setkey gsk_xxxx in @YourCryptoBot",
+            parse_mode="HTML",
+        )
+
     description = " ".join(context.args) if context.args else ""
     description = sanitize_user_input(description)
 
@@ -183,7 +207,7 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from zenith_ai_bot.utils import sanitize_telegram_html
 
-    result = await process_code(description)
+    result = await process_code(description, api_key=api_key)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -219,6 +243,14 @@ async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg, kb = get_pro_feature_msg("Image Prompt Crafter")
         return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
+    api_key = await SubscriptionRepo.get_groq_key(user_id)
+    if not api_key:
+        return await update.message.reply_text(
+            "To use AI features, set your Groq API key in the Crypto Bot:\n"
+            "/setkey gsk_xxxx in @YourCryptoBot",
+            parse_mode="HTML",
+        )
+
     description = " ".join(context.args) if context.args else ""
     description = sanitize_user_input(description)
 
@@ -231,7 +263,7 @@ async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from zenith_ai_bot.utils import sanitize_telegram_html
 
-    result = await process_imagine(description)
+    result = await process_imagine(description, api_key=api_key)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"

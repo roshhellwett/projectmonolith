@@ -14,6 +14,7 @@ from core.config import CRYPTO_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
 from core.database import dispose_engine
 from core.logger import setup_logger
 from zenith_crypto_bot import ui as crypto_ui
+from zenith_crypto_bot.ai_handlers import cmd_ai, cmd_delkey, cmd_mykey, cmd_setkey, handle_ai_followup
 from zenith_crypto_bot.market_service import (
     close_market_client,
     get_prices,
@@ -510,6 +511,11 @@ async def start_service():
     bot_app.add_handler(CommandHandler("removetoken", cmd_removetoken))
     bot_app.add_handler(CommandHandler("market", cmd_market))
     bot_app.add_handler(CommandHandler("gas", cmd_gas))
+    bot_app.add_handler(CommandHandler("ai", cmd_ai))
+    bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
+    bot_app.add_handler(CommandHandler("mykey", cmd_mykey))
+    bot_app.add_handler(CommandHandler("delkey", cmd_delkey))
+    bot_app.add_handler(CallbackQueryHandler(handle_ai_followup, pattern="^ai_followup_"))
     bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
 
     await bot_app.initialize()

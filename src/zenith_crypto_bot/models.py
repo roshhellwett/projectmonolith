@@ -12,6 +12,7 @@ class CryptoUser(CryptoBase):
     user_id = Column(BigInteger, primary_key=True)
     alerts_enabled = Column(Boolean, default=False)
     joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    groq_api_key = Column(String(200), nullable=True)
 
 
 class Subscription(CryptoBase):

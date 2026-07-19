@@ -279,6 +279,13 @@ def get_worker_error_msg() -> str:
     return "Connection to AI lost. Please try again."
 
 
+def get_no_key_msg() -> str:
+    return (
+        "To use AI features, set your Groq API key in the Crypto Bot:\n"
+        "/setkey gsk_xxxx in @YourCryptoBot"
+    )
+
+
 def get_activate_help_msg() -> str:
     return "<b>Activate Pro</b>\n\n" "Usage: /activate [YOUR_KEY]\n\n" "Contact admin to purchase a Pro key."
 

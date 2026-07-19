@@ -49,7 +49,6 @@ ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY", "")
 # ==========================================
 # AI Services
 # ==========================================
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 AI_SEARCH_TRIGGERS = ["today", "current", "news", "price", "latest", "search"]
 
