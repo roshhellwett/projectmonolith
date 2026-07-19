@@ -1,32 +1,55 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import ADMIN_USER_ID
-from core.formatters import format_address, format_divider
+from core.formatters import (
+    format_address,
+    format_alert,
+    format_card,
+    format_divider,
+    format_header,
+    format_kv,
+    format_progress_bar,
+    format_status_pill,
+)
 from core.llm_fallback import AVAILABLE_MODELS
 
 
 def get_main_dashboard(is_pro: bool = False, alert_count: int = 0, alert_limit: int = 1, wallet_count: int = 0, wallet_limit: int = 0):
-    tier = "PRO" if is_pro else "STANDARD"
+    tier_badge = "💎 PRO ACTIVE" if is_pro else "⚪ FREE TIER"
     alert_info = f" ({alert_count}/{alert_limit})" if alert_limit > 0 else ""
     wallet_info = f" ({wallet_count}/{wallet_limit})" if wallet_limit > 0 else ""
 
     keyboard = [
-        [InlineKeyboardButton("Market Intelligence", callback_data="ui_market"),
-         InlineKeyboardButton("Gas Tracker", callback_data="ui_gas")],
-        [InlineKeyboardButton("Token Security Scan", callback_data="ui_audit"),
-         InlineKeyboardButton("Audit Vault", callback_data="ui_saved_audits")],
-        [InlineKeyboardButton("Portfolio & P/L", callback_data="ui_portfolio"),
-         InlineKeyboardButton(f"Price Alerts{alert_info}", callback_data="ui_price_alerts")],
-        [InlineKeyboardButton(f"Wallet Tracker{wallet_info}", callback_data="ui_wallet_tracker"),
-         InlineKeyboardButton("Smart Money Pulse", callback_data="ui_volume")],
-        [InlineKeyboardButton("New Pair Scanner", callback_data="ui_new_pairs"),
-         InlineKeyboardButton("Live Orderflow", callback_data="ui_whale_radar")],
-        [InlineKeyboardButton("AI Co-Pilot", callback_data="ui_ai_copilot"),
-         InlineKeyboardButton("Set Groq Key", callback_data="ai_show_key_setup")],
-        [InlineKeyboardButton(f"{tier} ACCESS", callback_data="ui_pro_info"),
-         InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
+        [InlineKeyboardButton(f"⚡ Status: {tier_badge}", callback_data="ui_pro_info")],
+        [
+            InlineKeyboardButton("📊 Market Intel", callback_data="ui_market"),
+            InlineKeyboardButton("⛽ Gas Tracker", callback_data="ui_gas"),
+        ],
+        [
+            InlineKeyboardButton("🛡️ Token Scanner", callback_data="ui_audit"),
+            InlineKeyboardButton("📂 Audit Vault", callback_data="ui_saved_audits"),
+        ],
+        [
+            InlineKeyboardButton("💼 Portfolio P/L", callback_data="ui_portfolio"),
+            InlineKeyboardButton(f"🔔 Alerts{alert_info}", callback_data="ui_price_alerts"),
+        ],
+        [
+            InlineKeyboardButton(f"🐋 Wallets{wallet_info}", callback_data="ui_wallet_tracker"),
+            InlineKeyboardButton("📡 Smart Money", callback_data="ui_volume"),
+        ],
+        [
+            InlineKeyboardButton("🔥 New Pairs", callback_data="ui_new_pairs"),
+            InlineKeyboardButton("🌊 Orderflow", callback_data="ui_whale_radar"),
+        ],
+        [
+            InlineKeyboardButton("🧠 AI Co-Pilot", callback_data="ui_ai_copilot"),
+            InlineKeyboardButton("🔑 Groq API Key", callback_data="ai_show_key_setup"),
+        ],
     ]
+    if not is_pro:
+        keyboard.append([InlineKeyboardButton("💎 Upgrade to Pro (Unlimited Intelligence)", url=f"tg://user?id={ADMIN_USER_ID}")])
     return InlineKeyboardMarkup(keyboard)
+
 
 
 def get_audits_keyboard(audits):
@@ -167,94 +190,73 @@ def get_pro_feature_msg(feature: str):
 
 
 def get_welcome_msg(name: str, is_pro: bool = False, days_left: int = 0):
-    title = "Zenith Crypto Terminal"
-    if is_pro:
-        detail = (
-            f"PRO Active \u2014 {days_left} days remaining\n"
-            "Full access: real-time alerts, wallet tracking, deep security scans."
-        )
-    else:
-        detail = (
-            "Standard Access (Free)\n"
-            "Limited to delayed data and surface-level scans.\n"
-            "Use /activate [KEY] to unlock Pro."
-        )
+    status_badge = f"PRO ACTIVE ({days_left}d)" if is_pro else "FREE TIER"
+    items = [
+        f"Operator: <b>{name}</b>",
+        f"System Tier: <b>{'💎 Pro Unlimited Suite' if is_pro else '⚪ Standard Public Tier'}</b>",
+        f"Data Feed: <b>{'Real-Time Unredacted Nodes' if is_pro else 'Delayed Surface Feed'}</b>",
+    ]
+    modules = [
+        "📊 <b>Market Intelligence</b> — Live macro indices, Fear & Greed, top movers",
+        "🛡️ <b>Token Scanner</b> — Deep bytecode safety verification & GoPlus audits",
+        "💼 <b>Portfolio P/L</b> — Live valuation, multi-token tracking & profit telemetry",
+        "🔔 <b>Price Alerts</b> — Instant cross-threshold notification engine",
+        "🐋 <b>Wallet Tracker</b> — Copy-trade & monitor institutional whale wallets",
+        "🔥 <b>New Pairs</b> — Real-time liquidity pool emergence radar",
+        "⛽ <b>Gas Optimizer</b> — Gwei timing forecasts & execution optimization",
+    ]
     return (
-        f"<b>{title}</b>\n"
-        f"{format_divider()}\n"
-        f"Welcome, <b>{name}</b>.\n\n"
-        f"{detail}\n\n"
-        f"{format_divider()}\n"
-        f"<b>Available Modules:</b>\n"
-        f"\u2022 Market Intel \u2014 Fear & Greed, Top Movers\n"
-        f"\u2022 Token Scanner \u2014 Smart contract security audits\n"
-        f"\u2022 Portfolio P/L \u2014 Track positions with live pricing\n"
-        f"\u2022 Price Alerts \u2014 Automated threshold notifications\n"
-        f"\u2022 Wallet Tracker \u2014 Copy-trade whale movements\n"
-        f"\u2022 New Pairs \u2014 Fresh liquidity pool detection\n"
-        f"\u2022 Gas Optimizer \u2014 Time your trades for lowest fees\n\n"
-        f"Select a module below to begin."
+        f"{format_header('Zenith Crypto Terminal', 'On-Chain Intelligence & Security Suite', status_badge)}\n"
+        f"{format_card('Session Telemetry', items, '⚡')}\n\n"
+        f"{format_card('Integrated Modules', modules, '🚀')}\n\n"
+        f"<i>💎 Tip: Upgrade to Pro for real-time orderflow, whale wallet trackers, and deep security breakdown.</i>"
     )
 
 
 def get_pro_info_msg(is_pro: bool, days_left: int, user_id: int) -> str:
-    status = f"Active \u2014 {days_left} days remaining" if is_pro else "Inactive \u2014 Standard Tier"
-    pro_features = (
-        "\nPro Features:\n"
-        "\u2022 25 Price Alerts (vs 1 free)\n"
-        "\u2022 5 Wallet Trackers\n"
-        "\u2022 20 Portfolio Positions (vs 3 free)\n"
-        "\u2022 Full Security Reports\n"
-        "\u2022 Top Gainers/Losers Data\n"
-        "\u2022 New Pair Pool Addresses\n"
-        "\u2022 Instant Notifications"
-    )
+    status_text = f"Active ({days_left} days remaining)" if is_pro else "Inactive (Standard Tier)"
+    features = [
+        "<b>25 Active Price Alerts</b> (vs 1 free)",
+        "<b>5 Tracked Whale Wallets</b> with live tx radar",
+        "<b>20 Portfolio Positions</b> with real-time P/L tracking",
+        "<b>Full GoPlus Security Reports</b> (tax rates, LP lock, honeypots)",
+        "<b>Real-Time Top Gainers/Losers</b> telemetry",
+        "<b>New Pair Pool Addresses</b> & instant contract scans",
+        "<b>Priority AI Co-Pilot</b> inference cluster access",
+    ]
     return (
-        f"<b>Zenith Pro</b>\n{format_divider()}\n\n"
-        f"Status: {status}\n{pro_features}\n"
-        f"Activation:\n/activate ZENITH-XXXX-XXXX\n\n"
-        f"Account ID: {user_id}"
+        f"{format_header('Subscription Status', 'Zenith Pro Crypto Suite', 'PRO ACTIVE' if is_pro else 'LOCKED')}\n"
+        f"{format_kv('Status', status_text, '⚡')}\n"
+        f"{format_kv('Account ID', f'<code>{user_id}</code>', '👤')}\n\n"
+        f"{format_card('Pro Suite Capabilities', features, '✨')}\n\n"
+        f"<b>License Activation:</b>\n<code>/activate ZENITH-XXXX-XXXX</code>"
     )
 
 
 def get_help_msg(is_pro: bool = False) -> str:
-    status_text = "💎 <b>Status: Zenith Pro Active</b>\n\n" if is_pro else "📊 <b>Status: Free Tier</b> (Limits apply)\n\n"
-    cta_text = "" if is_pro else (
-        "<b>Pro Features (from ₹149/month):</b>\n"
-        "• Unlimited price alerts\n"
-        "• Wallet tracking (5 wallets)\n"
-        "• Real-time whale transaction alerts\n"
-        "• Full security audit reports\n"
-        "• Gas optimizer & AI integration\n\n"
-        "Use <code>/activate [YOUR_KEY]</code> to upgrade.\n\n"
-    )
+    main_cmds = [
+        "<code>/price [symbol]</code> — Instant token valuation & 24h delta",
+        "<code>/market</code> — Macro overview, Fear & Greed index, top movers",
+        "<code>/gas</code> — Ethereum Gwei tracker & execution timing guide",
+        "<code>/alert [token] [above/below] [price]</code> — Set price triggers",
+        "<code>/alerts</code> — Manage active price notifications",
+        "<code>/addtoken [symbol] [price] [qty]</code> — Record portfolio entry",
+        "<code>/portfolio</code> — Inspect live portfolio & total P/L",
+        "<code>/audit [contract]</code> — Execute GoPlus security verification",
+    ]
+    pro_cmds = [
+        "<code>/track [address] [label]</code> — Monitor whale wallet activity",
+        "<code>/wallets</code> — Manage tracked institutional wallets",
+        "<code>/ai [query]</code> — Ask AI Co-Pilot for portfolio & market analysis",
+    ]
     return (
-        "<b>Zenith Crypto Bot — Full Guide</b>\n"
-        f"{format_divider()}\n\n"
-        f"{status_text}"
-        "<b>Price Commands:</b>\n"
-        "• /price [symbol] — Get token price (e.g., /price BTC)\n"
-        "• /market — Market overview + Fear & Greed\n"
-        "• /gas — Ethereum gas prices\n\n"
-        "<b>Alerts & Tracking:</b>\n"
-        "• /alert [token] [above/below] [price] — Set price alert\n"
-        "• /alerts — View your price alerts\n"
-        "• /track [address] [label] — Track wallet (Pro)\n"
-        "• /wallets — View tracked wallets (Pro)\n\n"
-        "<b>Portfolio:</b>\n"
-        "• /addtoken [symbol] [entry_price] [qty] — Add position\n"
-        "• /portfolio — View your portfolio\n"
-        "• /removetoken [symbol] — Remove position\n\n"
-        "<b>Security:</b>\n"
-        "• /audit [contract] — Scan token for risks\n\n"
-        f"{cta_text}"
-        "<b>Group Usage:</b>\n"
-        "Add bot to groups and use:\n"
-        "\u2022 /price [symbol] \u2014 Get prices in group\n"
-        "\u2022 /market \u2014 Market overview\n\n"
-        "<b>Upgrade to Pro:</b>\n"
-        "Contact @admin to get your activation key!"
+        f"{format_header('Terminal Documentation', 'Zenith Crypto Codex Guide', 'PRO' if is_pro else 'FREE')}\n"
+        f"{format_card('Core Market & Portfolio Commands', main_cmds, '⚡')}\n\n"
+        f"{format_card('Pro & AI Co-Pilot Commands', pro_cmds, '💎')}\n\n"
+        f"<b>🤖 Group Intelligence:</b> Add Zenith to any Telegram group and use <code>/price [symbol]</code> or <code>/market</code> for instant group telemetry.\n\n"
+        f"<i>Contact @roshhellwett to upgrade your membership.</i>"
     )
+
 
 
 def get_audit_help() -> str:

@@ -3,7 +3,14 @@ from html import escape
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.config import ADMIN_USER_ID
-from core.formatters import format_divider
+from core.formatters import (
+    format_alert,
+    format_card,
+    format_divider,
+    format_header,
+    format_kv,
+    format_status_pill,
+)
 
 # ============================================================
 # KEYBOARD BUILDERS
@@ -14,29 +21,30 @@ def get_admin_dashboard(is_pro: bool, groups: list, usage: dict = None) -> Inlin
     group_limit = 5 if is_pro else 1
     group_count = len(groups)
 
-    tier_label = "PRO ACTIVE" if is_pro else "FREE TIER"
+    tier_label = "💎 PRO SHIELD ACTIVE" if is_pro else "⚪ STANDARD FREE TIER"
     rows = [
         [InlineKeyboardButton(tier_label, callback_data="grp_status")],
-        [InlineKeyboardButton(f"Groups ({group_count}/{group_limit})", callback_data="grp_list")],
+        [InlineKeyboardButton(f"🛡️ Protected Groups ({group_count}/{group_limit})", callback_data="grp_list")],
     ]
 
     if is_pro:
         rows.extend(
             [
                 [
-                    InlineKeyboardButton("Analytics", callback_data="grp_analytics_pick"),
-                    InlineKeyboardButton("Audit Log", callback_data="grp_audit_pick"),
+                    InlineKeyboardButton("📊 Analytics Dashboard", callback_data="grp_analytics_pick"),
+                    InlineKeyboardButton("📜 Security Audit Log", callback_data="grp_audit_pick"),
                 ],
                 [
-                    InlineKeyboardButton("Custom Words", callback_data="grp_words_help"),
-                    InlineKeyboardButton("Schedules", callback_data="grp_schedule_help"),
+                    InlineKeyboardButton("🚫 Custom Word Filters", callback_data="grp_words_help"),
+                    InlineKeyboardButton("⏰ Automated Schedules", callback_data="grp_schedule_help"),
                 ],
-                [InlineKeyboardButton("Welcome", callback_data="grp_welcome_help")],
+                [InlineKeyboardButton("👋 Custom Welcome Protocol", callback_data="grp_welcome_help")],
             ]
         )
     else:
-        rows.append([InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
+        rows.append([InlineKeyboardButton("💎 Upgrade to Pro Shield (Unlimited Protection)", url=f"tg://user?id={ADMIN_USER_ID}")])
     return InlineKeyboardMarkup(rows)
+
 
 
 def get_group_picker(groups: list, action_prefix: str, is_pro: bool = False) -> InlineKeyboardMarkup:
@@ -183,73 +191,83 @@ def get_start_group_msg() -> str:
 def get_dashboard_main_msg(is_pro: bool, groups: list, days_left: int = 0) -> str:
     max_groups = 5 if is_pro else 1
     active = sum(1 for g in groups if g.is_active)
+    status_badge = f"PRO ACTIVE ({days_left}d)" if is_pro else "FREE TIER"
 
-    if is_pro:
-        status = f"PRO Active \u2014 {days_left} day{'s' if days_left != 1 else ''} remaining"
-    else:
-        status = "FREE Tier \u2014 1 group, basic protection"
-
-    lines = [
-        "Zenith Group Moderator",
-        format_divider(),
-        "",
-        status,
-        f"Groups: {active}/{max_groups} active",
-        "",
-        "Commands:",
-        "\u2022 /setup \u2014 Configure a group (in-group)",
-        "\u2022 /activate [KEY] \u2014 Activate Pro",
+    items = [
+        f"Protected Communities: <code>{active} / {max_groups}</code>",
+        f"Security Shield: <b>{'🛡️ Enterprise Pro Lockdown' if is_pro else '⚪ Basic Public Shield'}</b>",
+        f"Automated Filters: <b>{'Anti-Raid + Custom Regex + AI Scans' if is_pro else 'Default Spam Filter'}</b>",
+    ]
+    cmds = [
+        "<code>/setup</code> — Run interactive group protection wizard (in-group)",
+        "<code>/activate [KEY]</code> — Activate Pro Shield bundle license",
+    ]
+    pro_cmds = [
+        "<code>/addword</code> / <code>/delword</code> — Configure custom auto-delete filters",
+        "<code>/antiraid on/off</code> — Instant emergency lockdown shield",
+        "<code>/analytics</code> — Inspect real-time moderation telemetry",
+        "<code>/schedule HH:MM [msg]</code> — Program recurring daily broadcasts",
+        "<code>/welcome [msg]</code> — Set customized member onboarding protocols",
+        "<code>/auditlog [count]</code> — View forensic moderation action logs",
     ]
 
+    text = (
+        f"{format_header('Zenith Group Shield', 'Autonomous Community Protection Matrix', status_badge)}\n"
+        f"{format_card('System Telemetry', items, '⚡')}\n\n"
+        f"{format_card('Core Management Commands', cmds, '🛠️')}"
+    )
     if is_pro:
-        lines += [
-            "",
-            "Pro Commands (use in group):",
-            "\u2022 /addword / /delword \u2014 Custom filters",
-            "\u2022 /antiraid \u2014 Anti-raid shield",
-            "\u2022 /analytics \u2014 Moderation stats",
-            "\u2022 /schedule \u2014 Scheduled messages",
-            "\u2022 /welcome \u2014 Welcome messages",
-            "\u2022 /auditlog \u2014 Action history",
-        ]
-
-    return "\n".join(f"<b>{line}</b>" if i == 0 else line for i, line in enumerate(lines))
+        text += f"\n\n{format_card('Pro Shield Capabilities (In-Group)', pro_cmds, '💎')}"
+    else:
+        text += f"\n\n<i>💎 Tip: Upgrade to Pro Shield for custom word filters, anti-raid lockdown, and up to 5 protected communities.</i>"
+    return text
 
 
 def get_status_msg(is_pro: bool, days: int = 0) -> str:
     if is_pro:
+        items = [
+            "Protection across up to 5 Telegram communities",
+            "Custom word & regex auto-delete filters (200/group)",
+            "Instant Anti-Raid emergency lockdown shield",
+            "Comprehensive moderation analytics & top violators",
+            "Automated recurring scheduled announcements",
+            "Personalized welcome protocols for new members",
+            "Complete forensic audit log of all admin actions",
+        ]
         return (
-            f"<b>Pro Subscription</b>\n{format_divider()}\n\n"
-            f"Status: Active\n"
-            f"Remaining: {days} days\n\n"
-            f"<b>Pro Benefits:</b>\n"
-            f"\u2022 Up to 5 protected groups\n"
-            f"\u2022 Custom word filters (200/group)\n"
-            f"\u2022 Anti-raid lockdown shield\n"
-            f"\u2022 Moderation analytics dashboard\n"
-            f"\u2022 Scheduled announcements\n"
-            f"\u2022 Custom welcome messages\n"
-            f"\u2022 Full audit log"
+            f"{format_header('Subscription Status', 'Zenith Pro Shield Suite', 'ACTIVE')}\n"
+            f"{format_kv('Days Remaining', f'{days} days', '🗓️')}\n"
+            f"{format_kv('System Tier', 'Enterprise Group Shield', '💎')}\n\n"
+            f"{format_card('Unlocked Shield Capabilities', items, '✨')}"
         )
+    items = [
+        "1 group protection limit",
+        "Standard word filter list only",
+        "Basic spam and flood protection",
+    ]
     return (
-        f"<b>Free Tier</b>\n{format_divider()}\n\n"
-        f"<b>Limits:</b>\n"
-        f"\u2022 1 group only\n"
-        f"\u2022 Default word list\n"
-        f"\u2022 Basic moderation\n\n"
-        f"/activate [KEY] to upgrade"
+        f"{format_header('Subscription Status', 'Standard Tier Access', 'FREE')}\n"
+        f"{format_card('Current Tier Limitations', items, '🔒')}\n\n"
+        f"⚡ <i>Unlock full community security and automation with Pro Shield. Contact @roshhellwett or use <code>/activate YOUR-KEY</code>.</i>"
     )
 
 
 def get_group_list_msg(groups: list) -> str:
     if not groups:
-        return "<b>My Groups</b>\n\nNo groups configured. Use /setup in your group."
+        return (
+            f"{format_header('Protected Communities', 'Active Group Registry', '0 GROUPS')}\n"
+            f"📭 No communities currently linked.\nAdd Zenith to your group as an admin and run <code>/setup</code> inside the group chat!"
+        )
 
-    lines = ["<b>My Groups</b>", format_divider(), ""]
+    lines = [
+        format_header("Protected Communities", "Active Group Registry", f"{len(groups)} GROUPS"),
+        "<b>Linked Communities:</b>"
+    ]
     for g in groups:
-        status = "Active" if g.is_active else "Inactive"
+        status = "🟢 Active Shield" if g.is_active else "🔴 Inactive"
         name = g.group_name or f"Group {g.chat_id}"
-        lines.append(f"\u2022 <b>{escape(name)}</b> \u2014 {status}")
+        lines.append(f"  ▫️ <b>{escape(name)}</b> — {status}")
+    lines.append(f"\n<i>Select a group below to manage anti-spam, custom filters, and security settings.</i>")
     return "\n".join(lines)
 
 

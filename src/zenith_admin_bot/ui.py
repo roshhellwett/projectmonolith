@@ -2,27 +2,47 @@ from datetime import datetime
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from core.formatters import format_divider
+from core.formatters import (
+    format_alert,
+    format_card,
+    format_divider,
+    format_header,
+    format_kv,
+    format_status_pill,
+)
 
 # ── Keyboards ──────────────────────────────────────────────
 
 def get_admin_main_menu() -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton("System Overview", callback_data="admin_overview")],
-        [InlineKeyboardButton("Ticket Management", callback_data="admin_tickets")],
-        [InlineKeyboardButton("Key Management", callback_data="admin_keys")],
-        [InlineKeyboardButton("Bulk KeyGen", callback_data="admin_bulk_keys")],
-        [InlineKeyboardButton("User Management", callback_data="admin_users")],
-        [InlineKeyboardButton("Group Management", callback_data="admin_groups")],
-        [InlineKeyboardButton("Broadcast", callback_data="admin_broadcast")],
-        [InlineKeyboardButton("Bot Health", callback_data="admin_health")],
-        [InlineKeyboardButton("Revenue Analytics", callback_data="admin_revenue")],
-        [InlineKeyboardButton("System Stats", callback_data="admin_db_stats")],
-        [InlineKeyboardButton("Audit Log", callback_data="admin_audit")],
-        [InlineKeyboardButton("Security Panel", callback_data="admin_security")],
-        [InlineKeyboardButton("Back", callback_data="admin_back")],
+        [
+            InlineKeyboardButton("📊 Overview", callback_data="admin_overview"),
+            InlineKeyboardButton("🎫 Support Tickets", callback_data="admin_tickets"),
+        ],
+        [
+            InlineKeyboardButton("🔑 License Keys", callback_data="admin_keys"),
+            InlineKeyboardButton("⚡ Bulk KeyGen", callback_data="admin_bulk_keys"),
+        ],
+        [
+            InlineKeyboardButton("👥 User Registry", callback_data="admin_users"),
+            InlineKeyboardButton("🛡️ Group Shield", callback_data="admin_groups"),
+        ],
+        [
+            InlineKeyboardButton("📡 Broadcast", callback_data="admin_broadcast"),
+            InlineKeyboardButton("🟢 Bot Health", callback_data="admin_health"),
+        ],
+        [
+            InlineKeyboardButton("💰 Revenue & MRR", callback_data="admin_revenue"),
+            InlineKeyboardButton("💾 Database Stats", callback_data="admin_db_stats"),
+        ],
+        [
+            InlineKeyboardButton("📜 Audit Log", callback_data="admin_audit"),
+            InlineKeyboardButton("🔒 Security Matrix", callback_data="admin_security"),
+        ],
+        [InlineKeyboardButton("◀️ Exit to Main Menu", callback_data="admin_back")],
     ]
     return InlineKeyboardMarkup(keyboard)
+
 
 
 def get_back_button() -> InlineKeyboardMarkup:
@@ -76,55 +96,73 @@ def get_faq_keyboard() -> InlineKeyboardMarkup:
 # ── Messages / Formatting ──────────────────────────────────
 
 def get_admin_dashboard() -> str:
+    items = [
+        "System Architecture: <b>Zenith Enterprise Multi-Bot Cluster</b>",
+        "Security Authorization: <b>Verified Master Administrator</b>",
+        "Telemetry Status: <b>Live Real-Time Event Sync</b>",
+    ]
     return (
-        "<b>Zenith Admin Panel</b>\n"
-        f"{format_divider()}\n\n"
-        "Welcome to the central admin dashboard.\n"
-        "Select an option below to manage your bots."
+        f"{format_header('Zenith Master Command', 'Global Infrastructure & Bot Orchestration', 'OWNER VIP')}\n"
+        f"{format_card('Cluster Status & Security Matrix', items, '⚡')}\n\n"
+        f"<i>Select a control module below to inspect system health, manage tickets, or generate keys.</i>"
     )
 
 
 def format_system_overview(stats: dict, ticket_stats: dict) -> str:
+    user_items = [
+        f"Total Registered Users: <code>{stats.get('total_users', 0):,}</code>",
+        f"Pro VIP Subscribers: <code>{stats.get('pro_users', 0):,}</code>",
+        f"Free Tier Accounts: <code>{stats.get('free_users', 0):,}</code>",
+        f"Active Subscriptions: <code>{stats.get('active_subscriptions', 0):,}</code>",
+        f"Expiring within 7 Days: <code>{stats.get('expiring_within_7_days', 0):,}</code>",
+    ]
+    ticket_items = [
+        f"Total Inquiries: <code>{ticket_stats.get('total', 0)}</code>",
+        f"Open Queue: <code>{ticket_stats.get('open', 0)}</code>",
+        f"In Progress Triage: <code>{ticket_stats.get('in_progress', 0)}</code>",
+        f"Resolved & Closed: <code>{ticket_stats.get('resolved', 0)}</code>",
+    ]
     return (
-        f"<b>System Overview</b>\n{format_divider()}\n\n"
-        f"Total Users: {stats.get('total_users', 0):,}\n"
-        f"Pro Users: {stats.get('pro_users', 0):,}\n"
-        f"Free Users: {stats.get('free_users', 0):,}\n\n"
-        f"Active Subscriptions: {stats.get('active_subscriptions', 0):,}\n"
-        f"Expiring (7 days): {stats.get('expiring_within_7_days', 0):,}\n\n"
-        f"<b>Support Tickets</b>\n"
-        f"Total: {ticket_stats.get('total', 0)}\n"
-        f"Open: {ticket_stats.get('open', 0)}\n"
-        f"In Progress: {ticket_stats.get('in_progress', 0)}\n"
-        f"Resolved: {ticket_stats.get('resolved', 0)}"
+        f"{format_header('Global Overview', 'System Demographics & Ticket Telemetry', 'LIVE')}\n"
+        f"{format_card('User Registry Telemetry', user_items, '👥')}\n\n"
+        f"{format_card('Support Ticket Queue Matrix', ticket_items, '🎫')}"
     )
 
 
 def format_key_management(keys: list) -> str:
     if not keys:
-        return f"<b>Key Management</b>\n{format_divider()}\n\nNo unused activation keys found."
-    lines = [f"<b>Unused Activation Keys</b>\n{format_divider()}"]
+        return (
+            f"{format_header('License Key Registry', 'Active & Unused Activation Token Matrix', '0 KEYS')}\n"
+            f"📭 No unused activation tokens available in the vault.\nUse <b>Bulk KeyGen</b> or create new keys via menu options."
+        )
+    lines = [
+        format_header("License Key Registry", "Active & Unused Activation Token Matrix", f"{len(keys)} KEYS"),
+        "<b>Available Activation Tokens:</b>"
+    ]
     for key in keys:
         days = key.duration_days
         created = key.created_at.strftime("%d %b %Y") if key.created_at else "N/A"
-        lines.append(f"\u2022 <code>{key.key_string}</code> ({days}d) \u2014 {created}")
+        lines.append(f"  ▫️ <code>{key.key_string}</code> — <b>{days}d</b> (Created {created})")
+    lines.append(f"\n<i>Share tokens with users to grant instant Pro suite authorization.</i>")
     return "\n".join(lines)
 
 
 def format_user_management(user_id: int, sub_details: dict) -> str:
     if not sub_details.get("has_subscription", False):
         return (
-            f"<b>User: {user_id}</b>\n{format_divider()}\n\n"
-            f"Subscription: None\n"
-            f"Status: Free tier"
+            f"{format_header('User Dossier', f'Account Telemetry — ID: {user_id}', 'FREE TIER')}\n"
+            f"{format_kv('Account Status', 'Standard Free Access', '👤')}\n"
+            f"{format_kv('Subscription', 'None Active', '🚫')}\n\n"
+            f"<i>Use /extend {user_id} [DAYS] to manually assign Pro VIP authorization.</i>"
         )
     expires = sub_details.get("expires_at")
     expires_str = expires.strftime("%d %b %Y") if expires else "N/A"
     return (
-        f"<b>User: {user_id}</b>\n{format_divider()}\n\n"
-        f"Subscription: Active\n"
-        f"Days Remaining: {sub_details.get('days_left', 0)}\n"
-        f"Expires: {expires_str}"
+        f"{format_header('User Dossier', f'Account Telemetry — ID: {user_id}', 'PRO ACTIVE')}\n"
+        f"{format_kv('Account Status', 'Enterprise Pro VIP Member', '💎')}\n"
+        f"{format_kv('Days Remaining', f'{sub_details.get('days_left', 0)} days', '🗓️')}\n"
+        f"{format_kv('Expiration Date', expires_str, '⚡')}\n\n"
+        f"<i>Use /extend or /revoke to manage this license.</i>"
     )
 
 
@@ -132,32 +170,31 @@ def format_bot_health(bots: list) -> str:
     from core.circuit_breaker import get_all_breaker_statuses
     from core.db_health import is_db_healthy
 
-    db_icon = "🟢 Healthy" if is_db_healthy() else "🔴 Unhealthy"
+    db_icon = "🟢 Healthy & Synced" if is_db_healthy() else "🔴 Unhealthy Connection"
     lines = [
-        f"<b>System & Bot Health</b>\n{format_divider()}\n\n"
-        f"<b>Database:</b> {db_icon}\n"
+        format_header("Cluster Diagnostics", "Real-Time Health & Circuit Breaker Telemetry", "HEALTHY" if is_db_healthy() else "ALERT"),
+        f"<b>Database Engine:</b> {db_icon}\n"
     ]
 
     breakers = get_all_breaker_statuses()
     if breakers:
-        lines.append("<b>Circuit Breakers:</b>")
+        lines.append("<b>Circuit Breaker Matrix:</b>")
         for b in breakers:
             state_icon = "🟢" if b["state"] == "closed" else ("🔴" if b["state"] == "open" else "🟡")
-            lines.append(f"   • {b['name']}: {state_icon} {b['state'].upper()} (Fails: {b['recent_failures']})")
+            lines.append(f"  ▫️ <b>{b['name']}</b>: {state_icon} {b['state'].upper()} (Recent Fails: <code>{b['recent_failures']}</code>)")
         lines.append("")
 
     if not bots:
-        lines.append("No bots registered.")
+        lines.append("📭 No bot instances currently registered in monitoring table.")
     else:
-        lines.append("<b>Monitored Bots:</b>")
+        lines.append("<b>Monitored Cluster Nodes:</b>")
         for bot in bots:
             status_icon = "🟢 Active" if bot.status == "active" else ("🔴 Error" if bot.status == "error" else "⚪ Inactive")
             health = bot.health_status or "unknown"
             last_check = bot.last_health_check.strftime("%d %b %H:%M") if bot.last_health_check else "Never"
-            lines.append(
-                f"• <b>{bot.bot_name}</b>: {status_icon} | Health: {health} ({last_check})"
-            )
+            lines.append(f"  ▫️ <b>{bot.bot_name}</b>: {status_icon} | Health: {health.upper()} (Checked {last_check})")
     return "\n".join(lines)
+
 
 
 def format_platform_metrics() -> str:
@@ -167,44 +204,49 @@ def format_platform_metrics() -> str:
     mins = int(uptime // 60)
     secs = int(uptime % 60)
 
-    lines = [
-        f"<b>Platform Telemetry & Metrics</b>\n{format_divider()}\n\n"
-        f"<b>Uptime:</b> {mins}m {secs}s\n"
+    items = [
+        f"Continuous Uptime: <code>{mins}m {secs}s</code>",
     ]
-
     reqs = summary.get("requests", {})
     if reqs:
-        lines.append("<b>Request Volumes:</b>")
+        items.append("<b>Request Volumes:</b>")
         for k, v in reqs.items():
-            lines.append(f"   • {k}: {v:,}")
-        lines.append("")
+            items.append(f"  ▫️ {k}: <code>{v:,}</code>")
 
     errs = summary.get("errors", {})
     if errs:
-        lines.append("<b>Recorded Errors:</b>")
+        items.append("<b>Recorded Errors:</b>")
         for k, v in errs.items():
-            lines.append(f"   • {k}: {v:,}")
-        lines.append("")
+            items.append(f"  ▫️ {k}: <code>{v:,}</code>")
 
     lats = summary.get("latencies", {})
     if lats:
-        lines.append("<b>Latency Summaries (ms):</b>")
+        items.append("<b>Latency Summaries (ms):</b>")
         for k, stats in lats.items():
             if stats["count"] > 0:
-                lines.append(f"   • {k}: p50={stats['p50_ms']}ms | p95={stats['p95_ms']}ms (n={stats['count']})")
+                items.append(f"  ▫️ {k}: p50=<code>{stats['p50_ms']}ms</code> | p95=<code>{stats['p95_ms']}ms</code> (n={stats['count']})")
 
-    return "\n".join(lines)
+    return (
+        f"{format_header('Platform Telemetry', 'High-Frequency Cluster Execution Metrics', 'LIVE')}\n"
+        f"{format_card('Execution Telemetry Table', items, '⚡')}"
+    )
 
 
 def format_audit_log(logs: list) -> str:
     if not logs:
-        return f"<b>Audit Log</b>\n{format_divider()}\n\nNo recent admin actions."
-    lines = [f"<b>Recent Admin Actions</b>\n{format_divider()}"]
+        return (
+            f"{format_header('Forensic Audit Log', 'Administrator Action & Mutation History', '0 LOGS')}\n"
+            f"📭 No recent administrative mutations recorded."
+        )
+    lines = [
+        format_header("Forensic Audit Log", "Administrator Action & Mutation History", f"{len(logs)} LOGS"),
+        "<b>Recent Admin Mutations:</b>"
+    ]
     for log in logs[:15]:
         time_str = log.created_at.strftime("%d %b %H:%M") if log.created_at else "N/A"
-        target = f"User: {log.target_user_id}" if log.target_user_id else ""
-        details = f" \u2014 {log.details}" if log.details else ""
-        lines.append(f"<b>{log.action.value.upper()}</b> {time_str}\n   {target}{details}")
+        target = f"User: <code>{log.target_user_id}</code>" if log.target_user_id else ""
+        details = f" — {log.details}" if log.details else ""
+        lines.append(f"  ▫️ <b>{log.action.value.upper()}</b> ({time_str})\n     {target}{details}")
     return "\n".join(lines)
 
 
@@ -213,15 +255,21 @@ def format_revenue_analytics(stats: dict) -> str:
     active_subs = stats.get("active_subscriptions", 0)
     avg_value_per_user = 149
     estimated_mrr = active_subs * avg_value_per_user
+    estimated_annual = estimated_mrr * 12
+
+    items = [
+        f"Active Pro Subscribers: <code>{pro_users:,}</code>",
+        f"Total Active Subscriptions: <code>{active_subs:,}</code>",
+        f"Expiring / At-Risk (7d): <code>{stats.get('expiring_within_7_days', 0):,}</code>",
+        f"Monthly Recurring Revenue (MRR): <b>₹{estimated_mrr:,.2f}</b>",
+        f"Annualized Run-Rate (ARR): <b>₹{estimated_annual:,.2f}</b>",
+    ]
     return (
-        f"<b>Revenue Analytics</b>\n{format_divider()}\n\n"
-        f"Pro Users: {pro_users:,}\n"
-        f"Active Subs: {active_subs:,}\n"
-        f"At Risk (7d): {stats.get('expiring_within_7_days', 0):,}\n\n"
-        f"<b>Estimated MRR</b>\n"
-        f"Active Subs x \u20b9149: \u20b9{estimated_mrr:,.2f}\n\n"
-        "Note: Based on \u20b9149/month base plan (India)"
+        f"{format_header('Revenue & MRR Telemetry', 'Monetization Metrics & Subscription Flow', 'ACTIVE')}\n"
+        f"{format_card('Monetization Dashboard', items, '💰')}\n\n"
+        f"<i>💡 Note: Calculation based on ₹149/month standard tier billing.</i>"
     )
+
 
 
 def format_subscription_list(subscriptions: list) -> str:

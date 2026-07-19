@@ -1,6 +1,14 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from core.formatters import format_divider, format_progress_bar
+from core.formatters import (
+    format_alert,
+    format_card,
+    format_divider,
+    format_header,
+    format_kv,
+    format_progress_bar,
+    format_status_pill,
+)
 
 # ── Keyboards ──────────────────────────────────────────────
 
@@ -10,21 +18,30 @@ def get_back_button(label: str = "Back") -> InlineKeyboardMarkup:
 
 def get_support_dashboard(is_pro: bool, open_tickets: int = 0, is_owner: bool = False) -> InlineKeyboardMarkup:
     ticket_limit = 999 if is_owner else 15 if is_pro else 3
+    tier_label = "👑 OWNER ACCESS" if is_owner else "💎 PRO VIP SUPPORT" if is_pro else "⚪ STANDARD FREE TIER"
+    
     keyboard = [
-        [InlineKeyboardButton("My Tickets", callback_data="sup_my_tickets")],
-        [InlineKeyboardButton("FAQ", callback_data="sup_faq")],
+        [InlineKeyboardButton(tier_label, callback_data="sup_status")],
+        [
+            InlineKeyboardButton("📂 My Tickets", callback_data="sup_my_tickets"),
+            InlineKeyboardButton("❓ Knowledge Base", callback_data="sup_faq"),
+        ],
     ]
     if is_owner or is_pro:
-        keyboard.append([InlineKeyboardButton("New Ticket", callback_data="sup_new_ticket")])
-        keyboard.append([InlineKeyboardButton("Analytics", callback_data="sup_stats")])
-        keyboard.append([InlineKeyboardButton("Canned Responses", callback_data="sup_canned")])
+        keyboard.append([InlineKeyboardButton("➕ Open New Ticket", callback_data="sup_new_ticket")])
+        keyboard.append([
+            InlineKeyboardButton("📊 Support Telemetry", callback_data="sup_stats"),
+            InlineKeyboardButton("📋 Canned Templates", callback_data="sup_canned"),
+        ])
     else:
-        keyboard.append([InlineKeyboardButton(f"New Ticket ({open_tickets}/{ticket_limit})", callback_data="sup_new_ticket")])
+        keyboard.append([InlineKeyboardButton(f"➕ Open New Ticket ({open_tickets}/{ticket_limit})", callback_data="sup_new_ticket")])
     if is_owner:
-        keyboard.append([InlineKeyboardButton("All Tickets (Admin)", callback_data="sup_all_tickets")])
-        keyboard.append([InlineKeyboardButton("Add FAQ (Admin)", callback_data="sup_add_faq_admin")])
-    keyboard.append([InlineKeyboardButton("Pro Status", callback_data="sup_status")])
+        keyboard.append([
+            InlineKeyboardButton("👑 Admin: All Tickets", callback_data="sup_all_tickets"),
+            InlineKeyboardButton("👑 Admin: Add FAQ", callback_data="sup_add_faq_admin"),
+        ])
     return InlineKeyboardMarkup(keyboard)
+
 
 
 def get_ticket_keyboard(tickets: list) -> InlineKeyboardMarkup:
@@ -112,66 +129,93 @@ def get_confirm_close_ticket_msg(ticket_id: int) -> str:
 
 def get_welcome_msg(first_name: str, is_pro: bool, days_left: int = 0, ticket_count: int = 0, is_owner: bool = False) -> str:
     if is_owner:
-        tier_info = "Owner (Full Access)"
+        tier_info = "👑 Owner (Full System Access)"
         ticket_limit = 999
+        badge = "OWNER VIP"
     elif is_pro:
-        tier_info = f"Pro ({days_left} days left)"
+        tier_info = f"💎 Pro Support Suite ({days_left}d remaining)"
         ticket_limit = 15
+        badge = "PRO VIP"
     else:
-        tier_info = "Free Tier"
+        tier_info = "⚪ Standard Tier"
         ticket_limit = 3
-    if is_owner:
-        ticket_limit = 999
+        badge = "FREE TIER"
 
-    return (
-        f"<b>Zenith Support</b>\n"
-        f"{format_divider()}\n\n"
-        f"Welcome, <b>{first_name}</b>.\n"
-        f"Tier: {tier_info}\n\n"
-        f"Tickets: {format_progress_bar(ticket_count, ticket_limit)} ({ticket_count}/{ticket_limit})\n\n"
-        f"Use /ticket [subject] | [description] to create a ticket."
+    stats = [
+        f"Client Account: <b>{first_name}</b>",
+        f"Service Level: <b>{tier_info}</b>",
+        f"Open Tickets: {format_progress_bar(ticket_count, ticket_limit)} <code>({ticket_count}/{ticket_limit})</code>",
+    ]
+    commands = [
+        "<code>/ticket [subject] | [description]</code> — Submit a new support request",
+        "<code>/my_tickets</code> — Review your active & resolved inquiries",
+        "<code>/faq</code> — Consult our instant knowledge base answers",
+    ]
+    text = (
+        f"{format_header('Zenith VIP Support', 'Automated Concierge & Ticketing Portal', badge)}\n"
+        f"{format_card('Account Summary', stats, '👤')}\n\n"
+        f"{format_card('Quick Actions', commands, '🛠️')}"
     )
+    if not (is_pro or is_owner):
+        text += f"\n\n<i>⚡ Tip: Upgrade to Pro for 15 concurrent tickets, instant AI troubleshooting, and priority routing.</i>"
+    return text
 
 
 def get_pro_status_msg(is_pro: bool, days_left: int, is_owner: bool) -> str:
     if is_owner:
-        status = "Owner \u2014 Full Access"
-        features = (
-            "\nOwner Features:\n"
-            "\u2022 Unlimited tickets\n"
-            "\u2022 All Pro features\n"
-            "\u2022 View all tickets\n"
-            "\u2022 Manage FAQs\n"
-            "\u2022 Resolve tickets"
+        features = [
+            "<b>Unlimited Support Tickets</b> & instantaneous triage routing",
+            "<b>Full Administrative Portal</b> access across all client cases",
+            "<b>Canned Response Management</b> & dynamic template creation",
+            "<b>Global Support Analytics</b> & agent performance telemetry",
+        ]
+        return (
+            f"{format_header('Subscription Status', 'Zenith Owner VIP Portal', 'OWNER')}\n"
+            f"{format_kv('System Role', 'System Administrator & Owner', '👑')}\n\n"
+            f"{format_card('Owner Privileges', features, '✨')}"
         )
     elif is_pro:
-        status = f"Active \u2014 {days_left} days remaining"
-        features = (
-            "\nPro Features:\n"
-            "\u2022 15 open tickets (vs 3 free)\n"
-            "\u2022 AI auto-response\n"
-            "\u2022 Priority support\n"
-            "\u2022 Custom FAQ builder\n"
-            "\u2022 Canned responses\n"
-            "\u2022 Analytics"
+        features = [
+            "<b>15 Concurrent Open Tickets</b> (vs 3 standard tier)",
+            "<b>Instant AI Troubleshooting Concierge</b> auto-responses",
+            "<b>Priority Agent Escalation</b> & expedited queue placement",
+            "<b>Full Access to Canned Responses</b> & custom FAQ builder",
+            "<b>Personalized Ticket Telemetry</b> & resolution statistics",
+        ]
+        return (
+            f"{format_header('Subscription Status', 'Zenith Pro Support Suite', 'PRO ACTIVE')}\n"
+            f"{format_kv('Days Remaining', f'{days_left} days', '🗓️')}\n"
+            f"{format_kv('Service Level', 'Priority VIP SLA', '⚡')}\n\n"
+            f"{format_card('Pro Suite Benefits', features, '✨')}\n\n"
+            f"<b>License Management:</b>\n<code>/activate ZENITH-XXXX-XXXX</code>"
         )
     else:
-        status = "Inactive \u2014 Standard Tier"
-        features = ""
-    return f"<b>Zenith Pro</b>\n{format_divider()}\n\nStatus: {status}{features}\n\nActivation:\n/activate ZENITH-XXXX-XXXX"
+        features = [
+            "3 maximum open tickets limit",
+            "Standard queue placement & response time",
+            "Basic knowledge base access",
+        ]
+        return (
+            f"{format_header('Subscription Status', 'Standard Free Support Tier', 'FREE')}\n"
+            f"{format_card('Current Tier Limitations', features, '🔒')}\n\n"
+            f"⚡ <i>Upgrade to Pro VIP Support for instant AI resolution and priority triage. Use <code>/activate YOUR-KEY</code> to unlock.</i>"
+        )
 
 
 def get_ticket_created_msg(ticket_id: int, ai_response: str = None) -> str:
+    items = [
+        f"Ticket Reference: <code>#{ticket_id}</code>",
+        f"Queue Placement: <b>Dispatched to Triage Agents</b>",
+        f"Tracking Command: <code>/status {ticket_id}</code>",
+    ]
     msg = (
-        f"<b>Ticket Created</b>\n"
-        f"{format_divider()}\n\n"
-        f"Ticket ID: <code>{ticket_id}</code>\n\n"
-        f"Your ticket has been submitted."
+        f"{format_header('Ticket Dispatched', 'Your Support Inquiry Has Been Registered', 'OPEN')}\n"
+        f"{format_card('Inquiry Summary', items, '📋')}"
     )
     if ai_response:
-        msg += f"\n\nAI Suggestion:\n{ai_response[:500]}..."
-    msg += "\n\nUse /status [ID] to check progress."
+        msg += f"\n\n{format_alert(ai_response[:500], '🤖 AI Instant Troubleshooting Suggestion', 'INFO')}"
     return msg
+
 
 
 def get_ticket_status_msg(ticket, is_pro: bool = False, is_owner: bool = False) -> str:
