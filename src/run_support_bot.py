@@ -7,10 +7,10 @@ from telegram import Update
 from telegram.error import BadRequest, RetryAfter
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
-from core.config import SUPPORT_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL, is_owner
+from core.config import SUPPORT_BOT_TOKEN, WEBHOOK_SECRET, is_owner
 from core.database import dispose_engine
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway
+from core.gateway import attach_gateway, setup_bot_webhook
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 from zenith_crypto_bot.repository import SubscriptionRepo
@@ -526,15 +526,7 @@ async def start_service():
     await bot_app.initialize()
     await bot_app.start()
 
-    webhook_base = (WEBHOOK_URL or "").strip().rstrip("/")
-    if webhook_base and not webhook_base.startswith("http"):
-        webhook_base = f"https://{webhook_base}"
-    if webhook_base:
-        try:
-            path = f"{webhook_base}/webhook/support/{WEBHOOK_SECRET}"
-            await bot_app.bot.set_webhook(url=path, secret_token=WEBHOOK_SECRET, allowed_updates=Update.ALL_TYPES)
-        except Exception as e:
-            logger.warning(f"Failed to set webhook: {e}")
+    await setup_bot_webhook(bot_app, "support")
 
     track_task(asyncio.create_task(safe_loop("auto_close", auto_close_stale_tickets)))
     await start_ticket_scheduler()

@@ -45,13 +45,14 @@ def get_pool_stats(engine: AsyncEngine) -> dict:
     """Get connection pool statistics."""
     try:
         pool = engine.pool
-        return {
-            "pool_size": pool.size(),
-            "checked_in": pool.checkedin(),
-            "checked_out": pool.checkedout(),
-            "overflow": pool.overflow(),
-            "invalid": pool.status(),
-        }
+        if hasattr(pool, "size"):
+            return {
+                "total": pool.size(),
+                "checked_in": pool.checkedin(),
+                "checked_out": pool.checkedout(),
+                "overflow": pool.overflow(),
+            }
+        return {"total": getattr(pool, "_pool_size", 0), "overflow": getattr(pool, "_max_overflow", 0)}
     except Exception as e:
         logger.warning(f"Could not get pool stats: {e}")
         return {"error": str(e)}
@@ -82,7 +83,7 @@ async def health_monitor_loop(engine: AsyncEngine, interval: int = 300):
 
             # Warn if pool is nearly exhausted
             checked_out = stats.get("checked_out", 0)
-            pool_size = stats.get("pool_size", 1)
+            pool_size = stats.get("total", stats.get("pool_size", 1))
             if isinstance(checked_out, int) and isinstance(pool_size, int) and pool_size > 0:
                 utilization = checked_out / pool_size
                 if utilization > 0.8:

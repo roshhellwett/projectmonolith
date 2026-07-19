@@ -63,6 +63,7 @@ class CircuitBreaker:
         self.failure_times: deque[float] = deque()
         self.success_count = 0
         self.half_open_in_flight = 0
+        self.half_open_in_flight_time: float = 0.0
         self.last_failure_time: float = 0
         self.last_state_change: float = time.monotonic()
 
@@ -78,13 +79,22 @@ class CircuitBreaker:
             if now - self.last_state_change >= self.config.recovery_timeout:
                 self._transition(CircuitState.HALF_OPEN)
                 self.half_open_in_flight += 1
+                self.half_open_in_flight_time = now
                 return True
             return False
 
         # HALF_OPEN — allow limited requests through to test recovery
+        # Auto-reset stuck in-flight requests after 2x the recovery timeout
+        if self.half_open_in_flight > 0 and now - self.half_open_in_flight_time > self.config.recovery_timeout * 2:
+            self.half_open_in_flight = 0
+            self.success_count = 0
+            self._transition(CircuitState.OPEN)
+            return False
+
         if self.half_open_in_flight >= self.config.success_threshold:
             return False
         self.half_open_in_flight += 1
+        self.half_open_in_flight_time = now
         return True
 
     def record_success(self) -> None:

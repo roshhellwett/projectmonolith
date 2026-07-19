@@ -12,9 +12,10 @@ from telegram.ext import (
     filters,
 )
 
-from core.config import GROUP_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
+from core.config import GROUP_BOT_TOKEN, WEBHOOK_SECRET
 from core.database import dispose_engine
-from core.gateway import attach_gateway
+from core.error_handler import handle_bot_error
+from core.gateway import attach_gateway, setup_bot_webhook
 from core.logger import setup_logger
 from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_group_bot.group_app import (
@@ -199,23 +200,12 @@ async def start_service():
     bot_app.add_handler(MessageHandler(filters.ChatType.GROUPS & ~filters.COMMAND, handle_message))
     bot_app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_member))
 
+    bot_app.add_error_handler(handle_bot_error)
+
     await bot_app.initialize()
     await bot_app.start()
 
-    webhook_base = (WEBHOOK_URL or "").strip().rstrip("/")
-    if webhook_base and not webhook_base.startswith("http"):
-        webhook_base = f"https://{webhook_base}"
-
-    if webhook_base:
-        try:
-            await bot_app.bot.set_webhook(
-                url=f"{webhook_base}/webhook/group/{WEBHOOK_SECRET}",
-                secret_token=WEBHOOK_SECRET,
-                allowed_updates=Update.ALL_TYPES,
-            )
-            logger.info("✅ Group Bot Online & Webhook Registered.")
-        except Exception as e:
-            logger.error(f"❌ Group Bot Webhook Failed: {e}")
+    await setup_bot_webhook(bot_app, "group")
 
     bg_tasks.append(asyncio.create_task(scheduled_message_loop()))
     logger.info("⏰ Scheduled Message Loop: Online")

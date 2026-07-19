@@ -12,10 +12,10 @@ from telegram.ext import (
     InlineQueryHandler,
 )
 
-from core.config import ADMIN_USER_ID, AI_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
+from core.config import ADMIN_USER_ID, AI_BOT_TOKEN, WEBHOOK_SECRET
 from core.database import dispose_engine, init_db
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway
+from core.gateway import attach_gateway, setup_bot_webhook
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 from zenith_ai_bot.llm_engine import process_ai_query
@@ -504,20 +504,7 @@ async def start_service():
     await bot_app.initialize()
     await bot_app.start()
 
-    webhook_base = (WEBHOOK_URL or "").strip().rstrip("/")
-    if webhook_base and not webhook_base.startswith("http"):
-        webhook_base = f"https://{webhook_base}"
-
-    if webhook_base:
-        try:
-            await bot_app.bot.set_webhook(
-                url=f"{webhook_base}/webhook/ai/{WEBHOOK_SECRET}",
-                secret_token=WEBHOOK_SECRET,
-                allowed_updates=Update.ALL_TYPES,
-            )
-            logger.info("AI Bot Online & Webhook Registered.")
-        except Exception as e:
-            logger.error(f"AI Bot Webhook Failed: {e}")
+    await setup_bot_webhook(bot_app, "ai")
 
     worker_tasks = [asyncio.create_task(ai_worker()) for _ in range(5)]
     logger.info("AI Worker Pool: Online (5 workers)")

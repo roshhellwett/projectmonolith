@@ -2,9 +2,9 @@ from fastapi import APIRouter, Request, Response
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler
 
-from core.config import ADMIN_BOT_TOKEN, WEBHOOK_SECRET, WEBHOOK_URL
+from core.config import ADMIN_BOT_TOKEN, WEBHOOK_SECRET
 from core.database import dispose_engine
-from core.gateway import attach_gateway
+from core.gateway import attach_gateway, setup_bot_webhook
 from core.logger import setup_logger
 from zenith_admin_bot.commands import (
     cmd_audit,
@@ -89,20 +89,7 @@ async def start_service():
     await bot_app.initialize()
     await bot_app.start()
 
-    webhook_base = (WEBHOOK_URL or "").strip().rstrip("/")
-    if webhook_base and not webhook_base.startswith("http"):
-        webhook_base = f"https://{webhook_base}"
-
-    if webhook_base:
-        try:
-            await bot_app.bot.set_webhook(
-                url=f"{webhook_base}/webhook/admin/{WEBHOOK_SECRET}",
-                secret_token=WEBHOOK_SECRET,
-                allowed_updates=Update.ALL_TYPES,
-            )
-            logger.info("Admin Bot Online & Webhook Registered.")
-        except Exception as e:
-            logger.error(f"Admin Bot Webhook Failed: {e}")
+    await setup_bot_webhook(bot_app, "admin")
 
     try:
         await start_monitoring(bot_app)

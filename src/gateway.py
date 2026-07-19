@@ -22,6 +22,8 @@ logger = setup_logger("GATEWAY")
 
 webhook_rate = TTLCache(maxsize=500000, ttl=5)
 
+REQUEST_TIMEOUT_SECONDS = 25
+
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
@@ -38,7 +40,7 @@ SERVICE_REGISTRY = {}
 
 
 async def rate_limit(request: Request):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = "unknown" if not request.client else request.client.host or "unknown"
 
     webhook_rate[client_ip] = webhook_rate.get(client_ip, 0) + 1
     if "/webhook/" in request.url.path:
@@ -48,7 +50,12 @@ async def rate_limit(request: Request):
 
 async def check_request_size(request: Request):
     content_length = request.headers.get("content-length")
-    return not (content_length and int(content_length) > MAX_REQUEST_SIZE)
+    if not content_length:
+        return True
+    try:
+        return int(content_length) <= MAX_REQUEST_SIZE
+    except (ValueError, TypeError):
+        return True
 
 
 def _validate_environment():
@@ -157,7 +164,11 @@ async def global_protection(request: Request, call_next):
     if not await rate_limit(request):
         return JSONResponse({"error": "Rate Limit Exceeded."}, status_code=429)
 
-    response = await call_next(request)
+    try:
+        response = await asyncio.wait_for(call_next(request), timeout=REQUEST_TIMEOUT_SECONDS)
+    except TimeoutError:
+        logger.warning(f"Request timeout on {request.url.path}")
+        return JSONResponse({"error": "Request timed out"}, status_code=504)
 
     for header, value in SECURITY_HEADERS.items():
         response.headers[header] = value

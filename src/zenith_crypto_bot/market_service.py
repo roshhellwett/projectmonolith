@@ -205,6 +205,9 @@ async def get_token_security(contract: str, chain_id: str = "1") -> dict | None:
 async def get_wallet_recent_txns(wallet_address: str, last_known_hash: str = None) -> list[dict]:
     if not ETHERSCAN_API_KEY:
         return []
+    breaker = get_breaker("etherscan")
+    if not breaker.can_execute():
+        return []
     client = get_http_client()
     try:
         resp = await client.get(
@@ -226,6 +229,7 @@ async def get_wallet_recent_txns(wallet_address: str, last_known_hash: str = Non
         if data.get("status") != "1":
             return []
         txns = data.get("result", [])
+        breaker.record_success()
         if last_known_hash:
             new_txns = []
             for tx in txns:
@@ -235,12 +239,16 @@ async def get_wallet_recent_txns(wallet_address: str, last_known_hash: str = Non
             return new_txns
         return txns[:5]
     except Exception as e:
+        breaker.record_failure()
         logger.error(f"Etherscan wallet fetch failed: {e}")
         return []
 
 
 async def get_wallet_token_txns(wallet_address: str) -> list[dict]:
     if not ETHERSCAN_API_KEY:
+        return []
+    breaker = get_breaker("etherscan")
+    if not breaker.can_execute():
         return []
     client = get_http_client()
     try:
@@ -260,8 +268,10 @@ async def get_wallet_token_txns(wallet_address: str) -> list[dict]:
         data = resp.json()
         if data.get("status") != "1":
             return []
+        breaker.record_success()
         return data.get("result", [])[:5]
     except Exception as e:
+        breaker.record_failure()
         logger.error(f"Etherscan token tx fetch failed: {e}")
         return []
 

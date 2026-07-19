@@ -138,6 +138,39 @@ def get_gateway() -> GatewayController:
     return _gateway
 
 
+def resolve_webhook_url(bot_name: str) -> str:
+    """Build the full webhook URL for a bot service."""
+    from core.config import WEBHOOK_SECRET, WEBHOOK_URL
+
+    base = (WEBHOOK_URL or "").strip().rstrip("/")
+    if not base:
+        return ""
+    if not base.startswith("http"):
+        base = f"https://{base}"
+    return f"{base}/webhook/{bot_name.lower()}/{WEBHOOK_SECRET}"
+
+
+async def setup_bot_webhook(bot_app, bot_name: str) -> None:
+    """Register webhook for a bot with shared error handling."""
+    from core.config import WEBHOOK_SECRET
+    from core.logger import setup_logger as _setup_logger
+
+    _log = _setup_logger("WEBHOOK")
+    url = resolve_webhook_url(bot_name)
+    if not url:
+        _log.warning(f"Webhook URL not configured — {bot_name} running in polling mode")
+        return
+    try:
+        await bot_app.bot.set_webhook(
+            url=url,
+            secret_token=WEBHOOK_SECRET,
+            allowed_updates=Update.ALL_TYPES,
+        )
+        _log.info(f"✅ {bot_name} webhook registered at {url}")
+    except Exception as e:
+        _log.error(f"❌ {bot_name} webhook setup failed: {e}")
+
+
 def attach_gateway(bot_app, bot_name: str):
     """
     Attaches the central gateway middleware and registers the bot with monitoring.
