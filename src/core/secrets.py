@@ -53,7 +53,7 @@ SECRET_DEFINITIONS: list[SecretDefinition] = [
     # Core — system won't start without these
     SecretDefinition("DATABASE_URL", SecretLevel.CRITICAL, "PostgreSQL connection string"),
     SecretDefinition("WEBHOOK_SECRET", SecretLevel.CRITICAL, "Webhook authentication secret"),
-    SecretDefinition("WEBHOOK_URL", SecretLevel.CRITICAL, "Public webhook base URL"),
+    SecretDefinition("WEBHOOK_URL", SecretLevel.REQUIRED, "Public webhook base URL (falls back to polling)"),
     SecretDefinition("ADMIN_USER_ID", SecretLevel.CRITICAL, "Telegram user ID of the admin"),
     # Bot tokens — each bot degrades independently
     SecretDefinition("CRYPTO_BOT_TOKEN", SecretLevel.REQUIRED, "Crypto bot token", "crypto"),

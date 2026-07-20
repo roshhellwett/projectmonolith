@@ -12,6 +12,7 @@ import contextlib
 import gc
 from collections.abc import Callable
 
+from cachetools import TTLCache
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -19,6 +20,15 @@ from core.logger import setup_logger
 from core.rate_limiter import SlidingWindowLimiter
 
 logger = setup_logger("GATEWAY")
+
+_seen_update_ids: TTLCache | None = None
+
+
+def get_update_id_dedup_cache() -> TTLCache:
+    global _seen_update_ids
+    if _seen_update_ids is None:
+        _seen_update_ids = TTLCache(maxsize=100000, ttl=300)
+    return _seen_update_ids
 
 
 class TelegramRequestValidator:

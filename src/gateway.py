@@ -12,6 +12,7 @@ import run_ai_bot
 import run_crypto_bot
 import run_group_bot
 import run_support_bot
+from core.circuit_breaker import get_all_breaker_statuses
 from core.config import DATABASE_URL, PORT, WEBHOOK_SECRET
 from core.database import dispose_engine, get_engine, init_db
 from core.db_health import is_db_healthy, start_health_monitor, stop_health_monitor
@@ -21,6 +22,8 @@ from core.secrets import enforce_startup_secrets
 logger = setup_logger("GATEWAY")
 
 webhook_rate = TTLCache(maxsize=500000, ttl=5)
+api_rate = TTLCache(maxsize=500000, ttl=5)
+seen_update_ids = TTLCache(maxsize=100000, ttl=300)
 
 REQUEST_TIMEOUT_SECONDS = 25
 
@@ -42,10 +45,12 @@ SERVICE_REGISTRY = {}
 async def rate_limit(request: Request):
     client_ip = "unknown" if not request.client else request.client.host or "unknown"
 
-    webhook_rate[client_ip] = webhook_rate.get(client_ip, 0) + 1
     if "/webhook/" in request.url.path:
+        webhook_rate[client_ip] = webhook_rate.get(client_ip, 0) + 1
         return webhook_rate[client_ip] <= 200
-    return webhook_rate[client_ip] <= 50
+    else:
+        api_rate[client_ip] = api_rate.get(client_ip, 0) + 1
+        return api_rate[client_ip] <= 50
 
 
 async def check_request_size(request: Request):
@@ -105,9 +110,12 @@ async def lifespan(app: FastAPI):
 
     async def safe_start(name, func):
         try:
-            await func()
+            await asyncio.wait_for(func(), timeout=30.0)
             SERVICE_REGISTRY[name] = "online"
             logger.info(f"✅ {name} started")
+        except TimeoutError:
+            SERVICE_REGISTRY[name] = "failed: startup timeout"
+            logger.error(f"❌ {name} startup timed out after 30s")
         except Exception as e:
             SERVICE_REGISTRY[name] = f"failed: {e}"
             logger.error(f"❌ {name} failed to start: {e}")
@@ -194,11 +202,14 @@ app.include_router(run_admin_bot.router)
 @app.get("/health")
 async def health():
     db_ok = is_db_healthy()
-    status_code = 200 if db_ok else 503
+    breakers = get_all_breaker_statuses()
+    all_breakers_closed = all(b.get("state") == "closed" for b in breakers)
+    status_code = 200 if db_ok and all_breakers_closed else 503
     return JSONResponse(
         {
-            "status": "ok" if db_ok else "degraded",
+            "status": "ok" if status_code == 200 else "degraded",
             "db_healthy": db_ok,
+            "circuit_breakers": breakers,
             "system": "Project Monolith",
             "services": SERVICE_REGISTRY,
         },

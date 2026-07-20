@@ -31,16 +31,19 @@ class SlidingWindowLimiter:
     and a restart effectively gives users a fresh start.
     """
 
-    def __init__(self, max_users: int = 50000):
-        # user_id -> deque of timestamps for each action
+    def __init__(self, max_users: int = 50000, max_windows: int = 100):
         self._windows: dict[str, TTLCache] = {}
         self._max_users = max_users
+        self._max_windows = max_windows
         self._lock = threading.Lock()
 
     def _get_window(self, action: str, ttl: float) -> TTLCache:
         """Get or create a TTLCache for an action type."""
         key = f"{action}_{int(ttl)}"
         if key not in self._windows:
+            if len(self._windows) >= self._max_windows:
+                oldest = next(iter(self._windows))
+                del self._windows[oldest]
             self._windows[key] = TTLCache(maxsize=self._max_users, ttl=ttl)
         return self._windows[key]
 

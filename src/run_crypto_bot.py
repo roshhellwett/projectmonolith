@@ -13,7 +13,7 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandle
 from core.config import CRYPTO_BOT_TOKEN, WEBHOOK_SECRET
 from core.database import dispose_engine
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway, setup_bot_webhook
+from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 from zenith_ai_bot.repository import UsageRepo
@@ -690,6 +690,12 @@ async def crypto_webhook(secret: str, request: Request):
         return Response(status_code=503)
     try:
         data = await request.json()
+        dedup = get_update_id_dedup_cache()
+        update_id = data.get("update_id", 0)
+        if update_id and update_id in dedup:
+            return Response(status_code=200)
+        if update_id:
+            dedup[update_id] = True
         await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
         return Response(status_code=200)
     except Exception as e:

@@ -15,7 +15,7 @@ from telegram.ext import (
 from core.config import ADMIN_USER_ID, AI_BOT_TOKEN, WEBHOOK_SECRET
 from core.database import dispose_engine, init_db
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway, setup_bot_webhook
+from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 from zenith_ai_bot.llm_engine import process_ai_query
@@ -64,8 +64,10 @@ worker_tasks = []
 
 async def ai_worker():
     while True:
+        task_item = None
         try:
-            update, context, placeholder_msg, text, history_text, is_pro, persona, history = await task_queue.get()
+            task_item = await task_queue.get()
+            update, context, placeholder_msg, text, history_text, is_pro, persona, history = task_item
             try:
                 user_id = update.effective_user.id
                 api_key = await SubscriptionRepo.get_groq_key(user_id)
@@ -131,7 +133,8 @@ async def ai_worker():
                             text=get_worker_error_msg(),
                         )
             finally:
-                task_queue.task_done()
+                if task_item is not None:
+                    task_queue.task_done()
         except asyncio.CancelledError:
             break
 
@@ -183,7 +186,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_zenith(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message or update.edited_message
+    msg = update.message
     if not msg:
         return
 
@@ -206,8 +209,6 @@ async def cmd_zenith(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = f"Please analyze this: {history_text}"
         history_text = None
 
-    await UsageRepo.increment_queries(user_id)
-
     persona = await UsageRepo.get_persona(user_id) if is_pro else "default"
     conversation_history = await ConversationRepo.get_history(user_id, limit=10) if is_pro else None
 
@@ -215,6 +216,7 @@ async def cmd_zenith(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         placeholder = await msg.reply_text(f"{p['icon']} Thinking...", parse_mode="HTML")
         task_queue.put_nowait((update, context, placeholder, text, history_text, is_pro, persona, conversation_history))
+        await UsageRepo.increment_queries(user_id)
     except asyncio.QueueFull:
         await msg.reply_text(get_queue_full_msg())
 
@@ -525,9 +527,6 @@ async def start_service():
 
 
 async def stop_service(dispose_db: bool = False):
-    for task in worker_tasks:
-        task.cancel()
-
     while not task_queue.empty():
         try:
             _, context, placeholder_msg, *_ = task_queue.get_nowait()
@@ -540,6 +539,11 @@ async def stop_service(dispose_db: bool = False):
             task_queue.task_done()
         except Exception as e:
             logger.warning(f"Error in worker: {e}")
+
+    for task in worker_tasks:
+        task.cancel()
+
+    await asyncio.gather(*worker_tasks, return_exceptions=True)
 
     if bot_app:
         await bot_app.stop()
@@ -558,6 +562,12 @@ async def ai_webhook(secret: str, request: Request):
 
     try:
         data = await request.json()
+        dedup = get_update_id_dedup_cache()
+        update_id = data.get("update_id", 0)
+        if update_id and update_id in dedup:
+            return Response(status_code=200)
+        if update_id:
+            dedup[update_id] = True
         await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
         return Response(status_code=200)
     except Exception as e:

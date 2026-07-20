@@ -333,37 +333,6 @@ def validate_priority(priority: str) -> ValidationResult:
     return ValidationResult(is_valid=True, sanitized_value=priority)
 
 
-def check_rate_limit(
-    user_id: int, action: str, limit: int, window_seconds: int, redis_client=None
-) -> tuple[bool, int | None]:
-    """
-    Check if user has exceeded rate limit.
-
-    Returns (is_allowed, seconds_until_reset)
-    """
-    import time
-
-    key = f"rate_limit:{user_id}:{action}"
-    time.time()
-
-    if redis_client:
-        try:
-            current = redis_client.get(key)
-            if current and int(current) >= limit:
-                ttl = redis_client.ttl(key)
-                return False, ttl if ttl > 0 else window_seconds
-
-            pipe = redis_client.pipeline()
-            pipe.incr(key)
-            pipe.expire(key, window_seconds)
-            pipe.execute()
-            return True, 0
-        except Exception:
-            pass
-
-    return True, 0
-
-
 class ValidationError(Exception):
     """Custom exception for validation errors."""
 
