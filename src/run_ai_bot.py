@@ -221,6 +221,13 @@ async def cmd_zenith(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
+        user_id = update.effective_user.id
+        is_pro = await SubscriptionRepo.is_pro(user_id)
+        if is_pro:
+            return await update.message.reply_text(
+                "💎 <b>Active Pro Membership</b>\n\nYou already have an active Pro membership! No activation needed right now.",
+                parse_mode="HTML",
+            )
         return await update.message.reply_text(get_activate_help(), parse_mode="HTML")
     key = context.args[0].strip()
     success, msg = await SubscriptionRepo.redeem_key(update.effective_user.id, key)
@@ -333,10 +340,14 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
         elif query.data == "ai_activate_help":
-            from zenith_ai_bot.ui import get_activate_help_keyboard
+            if is_pro:
+                text = "💎 <b>Active Pro Membership</b>\n\nYou already have an active Pro membership! No activation needed right now."
+                await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
+            else:
+                from zenith_ai_bot.ui import get_activate_help_keyboard
 
-            text = get_activate_help()
-            await query.edit_message_text(text, reply_markup=get_activate_help_keyboard(), parse_mode="HTML")
+                text = get_activate_help()
+                await query.edit_message_text(text, reply_markup=get_activate_help_keyboard(), parse_mode="HTML")
 
         elif query.data in ("ai_research_help", "ai_summarize_help", "ai_code_help", "ai_imagine_help"):
             feature_map = {

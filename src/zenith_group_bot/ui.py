@@ -204,8 +204,9 @@ def get_dashboard_main_msg(is_pro: bool, groups: list, days_left: int = 0) -> st
     ]
     cmds = [
         "<code>/setup</code> — Run interactive group protection wizard (in-group)",
-        "<code>/activate [KEY]</code> — Activate Pro Shield bundle license",
     ]
+    if not is_pro:
+        cmds.append("<code>/activate [KEY]</code> — Activate Pro Shield bundle license")
     pro_cmds = [
         "<code>/addword</code> / <code>/delword</code> — Configure custom auto-delete filters",
         "<code>/antiraid on/off</code> — Instant emergency lockdown shield",
@@ -667,7 +668,9 @@ def get_ai_error() -> str:
     return "AI service temporarily unavailable. Please try again in a few moments."
 
 
-def get_ai_truncation_notice() -> str:
+def get_ai_truncation_notice(is_pro: bool = False) -> str:
+    if is_pro:
+        return ""
     return "\n\nUpgrade to Pro for longer responses."
 
 

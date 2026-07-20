@@ -96,7 +96,7 @@ async def cmd_group_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
         clean = sanitize_telegram_html(response)
 
         if len(clean) > FREE_MAX_RESPONSE_LENGTH and not is_pro:
-            clean = clean[:FREE_MAX_RESPONSE_LENGTH] + get_ai_truncation_notice()
+            clean = clean[:FREE_MAX_RESPONSE_LENGTH] + get_ai_truncation_notice(is_pro=is_pro)
 
         try:
             if loading:

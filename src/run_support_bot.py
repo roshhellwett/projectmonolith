@@ -224,6 +224,13 @@ async def cmd_close(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
+        user_id = update.effective_user.id
+        days_left = await SubscriptionRepo.get_days_left(user_id)
+        if days_left > 0:
+            return await update.message.reply_text(
+                f"💎 <b>Active Subscription</b>\n\nYou are already an active Enterprise Pro VIP member with <b>{days_left} days</b> remaining! No activation needed right now.",
+                parse_mode="HTML",
+            )
         return await update.message.reply_text(support_ui.get_activate_help(), parse_mode="HTML")
     key_string = context.args[0].strip()
     success, msg = await SubscriptionRepo.redeem_key(update.effective_user.id, key_string)
@@ -548,8 +555,12 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(text, reply_markup=support_ui.get_back_button(), parse_mode="HTML")
 
         elif query.data == "sup_activate_help":
+            if is_pro or is_owner_user:
+                text = f"💎 <b>Active Subscription</b>\n\nYou are already an active Enterprise Pro VIP member with <b>{days_left} days</b> remaining! No activation needed right now."
+            else:
+                text = support_ui.get_activate_help()
             await query.edit_message_text(
-                support_ui.get_activate_help(),
+                text,
                 reply_markup=support_ui.get_back_button(),
                 parse_mode="HTML",
             )

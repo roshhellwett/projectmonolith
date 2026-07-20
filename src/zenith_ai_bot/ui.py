@@ -182,12 +182,14 @@ def get_welcome_msg(is_pro: bool, days_left: int, usage: dict, persona: str) -> 
         "<code>/history</code> — Inspect or clear context memory",
         "<code>/setkey [key]</code> — Connect private Groq API key",
     ]
-    return (
+    text = (
         f"{format_header('Zenith AI Terminal', 'Autonomous Neural Intelligence Engine', status_badge)}\n"
         f"{format_card('System Status', items, '⚡')}\n\n"
-        f"{format_card('Quick Command Registry', commands, '🚀')}\n\n"
-        f"<i>💎 Tip: Upgrade to Pro for deep research, full code architecture, and unlimited queries.</i>"
+        f"{format_card('Quick Command Registry', commands, '🚀')}"
     )
+    if not is_pro:
+        text += f"\n\n<i>💎 Tip: Upgrade to Pro for deep research, full code architecture, and unlimited queries.</i>"
+    return text
 
 
 def get_status_msg(is_pro: bool, days: int) -> str:
@@ -305,13 +307,15 @@ def get_help_msg(is_pro: bool) -> str:
         "<code>/imagine [desc]</code> — Visual prompt crafter for AI image models",
         "<code>/history</code> — Inspect or wipe active memory buffer",
     ]
-    return (
+    text = (
         f"{format_header('Terminal Documentation', 'Zenith AI Codex Guide', 'PRO' if is_pro else 'FREE')}\n"
         f"{format_card('Core Commands', main_cmds, '⚡')}\n\n"
         f"{format_card('Pro Features & Tools', pro_cmds, '💎')}\n\n"
-        f"<b>🤖 Group Intelligence:</b> Add Zenith to any group and use <code>/ask [question]</code> for instant collaborative AI answers.\n\n"
-        f"<i>Need assistance? Contact @roshhellwett for license activation.</i>"
+        f"<b>🤖 Group Intelligence:</b> Add Zenith to any group and use <code>/ask [question]</code> for instant collaborative AI answers."
     )
+    if not is_pro:
+        text += f"\n\n<i>Need assistance? Contact @roshhellwett for license activation.</i>"
+    return text
 
 
 def get_activate_help() -> str:

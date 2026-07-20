@@ -204,8 +204,7 @@ def get_pro_status_msg(is_pro: bool, days_left: int, is_owner: bool) -> str:
             f"{format_header('Subscription Status', 'Zenith Pro Support Suite', 'PRO ACTIVE')}\n"
             f"{format_kv('Days Remaining', f'{days_left} days', '🗓️')}\n"
             f"{format_kv('Service Level', 'Priority VIP SLA', '⚡')}\n\n"
-            f"{format_card('Pro Suite Benefits', features, '✨')}\n\n"
-            f"<b>License Management:</b>\n<code>/activate ZENITH-XXXX-XXXX</code>"
+            f"{format_card('Pro Suite Benefits', features, '✨')}"
         )
     else:
         features = [
@@ -257,7 +256,9 @@ def get_ticket_status_msg(ticket, is_pro: bool = False, is_owner: bool = False) 
     return msg
 
 
-def get_limit_reached_msg(feature: str, current: int, limit: int) -> str:
+def get_limit_reached_msg(feature: str, current: int, limit: int, is_pro: bool = False) -> str:
+    if is_pro:
+        return f"Limit Reached: {feature}\n\nYou've used {current}/{limit}.\n\nPlease close or resolve existing tickets to open a new one."
     return (
         f"Limit Reached: {feature}\n\nYou've used {current}/{limit}.\n\nClose some tickets or upgrade to PRO for more."
     )

@@ -95,6 +95,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
+        user_id = update.effective_user.id
+        is_pro = await SubscriptionRepo.is_pro(user_id)
+        if is_pro:
+            return await update.message.reply_text(
+                "💎 <b>Active Pro Shield</b>\n\nYou are already an active Enterprise Pro Shield member! No activation is needed right now.",
+                parse_mode="HTML",
+            )
         return await update.message.reply_text(get_activate_help(), parse_mode="HTML")
     key = context.args[0].strip()
     success, msg = await SubscriptionRepo.redeem_key(update.effective_user.id, key)

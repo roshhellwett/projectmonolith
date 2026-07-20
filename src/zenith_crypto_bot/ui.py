@@ -153,6 +153,7 @@ def get_back_button():
 def get_limit_reached_card(feature: str, current: int, limit: int, is_pro: bool = False):
     if is_pro:
         msg = f"Limit Reached: {feature}\n\nYou've reached your maximum of {limit}. Remove some to add more."
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="ui_main_menu")]])
     else:
         msg = (
             f"Limit Reached: {feature}\n\n"
@@ -163,12 +164,12 @@ def get_limit_reached_card(feature: str, current: int, limit: int, is_pro: bool 
             f"\u2022 5 tracked wallets (vs 0)\n"
             f"\u2022 Full security scans"
         )
-    kb = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
-            [InlineKeyboardButton("Back", callback_data="ui_main_menu")],
-        ]
-    )
+        kb = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")],
+                [InlineKeyboardButton("Back", callback_data="ui_main_menu")],
+            ]
+        )
     return msg, kb
 
 
@@ -225,12 +226,14 @@ def get_welcome_msg(name: str, is_pro: bool = False, days_left: int = 0):
         "🔥 <b>New Pairs</b> — Real-time liquidity pool emergence radar",
         "⛽ <b>Gas Optimizer</b> — Gwei timing forecasts & execution optimization",
     ]
-    return (
+    text = (
         f"{format_header('Zenith Crypto Terminal', 'On-Chain Intelligence & Security Suite', status_badge)}\n"
         f"{format_card('Session Telemetry', items, '⚡')}\n\n"
-        f"{format_card('Integrated Modules', modules, '🚀')}\n\n"
-        f"<i>💎 Tip: Upgrade to Pro for real-time orderflow, whale wallet trackers, and deep security breakdown.</i>"
+        f"{format_card('Integrated Modules', modules, '🚀')}"
     )
+    if not is_pro:
+        text += f"\n\n<i>💎 Tip: Upgrade to Pro for real-time orderflow, whale wallet trackers, and deep security breakdown.</i>"
+    return text
 
 
 def get_pro_info_msg(is_pro: bool, days_left: int, user_id: int) -> str:
@@ -244,13 +247,15 @@ def get_pro_info_msg(is_pro: bool, days_left: int, user_id: int) -> str:
         "<b>New Pair Pool Addresses</b> & instant contract scans",
         "<b>Priority AI Co-Pilot</b> inference cluster access",
     ]
-    return (
+    text = (
         f"{format_header('Subscription Status', 'Zenith Pro Crypto Suite', 'PRO ACTIVE' if is_pro else 'LOCKED')}\n"
         f"{format_kv('Status', status_text, '⚡')}\n"
         f"{format_kv('Account ID', f'<code>{user_id}</code>', '👤')}\n\n"
-        f"{format_card('Pro Suite Capabilities', features, '✨')}\n\n"
-        f"<b>License Activation:</b>\n<code>/activate ZENITH-XXXX-XXXX</code>"
+        f"{format_card('Pro Suite Capabilities', features, '✨')}"
     )
+    if not is_pro:
+        text += f"\n\n<b>License Activation:</b>\n<code>/activate ZENITH-XXXX-XXXX</code>"
+    return text
 
 
 def get_help_msg(is_pro: bool = False) -> str:
@@ -269,13 +274,15 @@ def get_help_msg(is_pro: bool = False) -> str:
         "<code>/wallets</code> — Manage tracked institutional wallets",
         "<code>/ai [query]</code> — Ask AI Co-Pilot for portfolio & market analysis",
     ]
-    return (
+    text = (
         f"{format_header('Terminal Documentation', 'Zenith Crypto Codex Guide', 'PRO' if is_pro else 'FREE')}\n"
         f"{format_card('Core Market & Portfolio Commands', main_cmds, '⚡')}\n\n"
         f"{format_card('Pro & AI Co-Pilot Commands', pro_cmds, '💎')}\n\n"
-        f"<b>🤖 Group Intelligence:</b> Add Zenith to any Telegram group and use <code>/price [symbol]</code> or <code>/market</code> for instant group telemetry.\n\n"
-        f"<i>Contact @roshhellwett to upgrade your membership.</i>"
+        f"<b>🤖 Group Intelligence:</b> Add Zenith to any Telegram group and use <code>/price [symbol]</code> or <code>/market</code> for instant group telemetry."
     )
+    if not is_pro:
+        text += f"\n\n<i>Contact @roshhellwett to upgrade your membership.</i>"
+    return text
 
 
 def get_audit_help() -> str:
