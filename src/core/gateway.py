@@ -203,10 +203,10 @@ def attach_gateway(bot_app, bot_name: str):
         try:
             if isinstance(update, Update):
 
-                async def next_call(u, c):
+                async def next_call(u, c=None):
                     return await original_process_update(u)
 
-                await gateway_middleware(update, bot_app.create_context(update), next_call)
+                await gateway_middleware(update, None, next_call)
             else:
                 await original_process_update(update)
         except Exception as e:
