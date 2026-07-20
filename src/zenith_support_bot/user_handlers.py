@@ -1,3 +1,5 @@
+import contextlib
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -7,8 +9,6 @@ from zenith_support_bot.repository import TicketRepo
 
 logger = setup_logger("SUPPORT_USER")
 
-
-import contextlib
 
 async def handle_ticket_reply_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

@@ -5,7 +5,6 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from core.config import ADMIN_USER_ID
 from core.formatters import (
     format_card,
-    format_divider,
     format_header,
     format_kv,
 )
@@ -394,7 +393,7 @@ def get_schedules_list(items: list) -> str:
     if not items:
         return "<b>Scheduled Messages</b>\n\nNo active schedules.\n/schedule 09:00 Good morning!"
 
-    lines = ["<b>Scheduled Messages</b>", format_divider(), ""]
+    lines = ["<b>Scheduled Messages</b>", ""]
     for s in items:
         preview = s.message_text[:60] + "..." if len(s.message_text) > 60 else s.message_text
         lines.append(f"<b>#{s.id}</b> \u2014 {s.hour:02d}:{s.minute:02d} UTC")
@@ -445,7 +444,6 @@ def get_analytics_msg(day_stats: dict, week_stats: dict, total: int, top_violato
 
     lines = [
         "<b>Moderation Analytics</b>",
-        format_divider(),
         "",
         "<b>Last 24 Hours:</b>",
         f"  Messages Deleted: {deleted_24h}",
@@ -477,7 +475,7 @@ def get_audit_log_msg(entries: list) -> str:
     if not entries:
         return "<b>Audit Log</b>\n\nNo moderation actions recorded yet."
 
-    lines = ["<b>Moderation Audit Log</b>", format_divider(), ""]
+    lines = ["<b>Moderation Audit Log</b>", ""]
     action_icons = {"DELETED": "Deleted", "WARNED": "Warned", "BANNED": "Banned", "QUARANTINE": "Restricted"}
 
     for log in entries:
@@ -604,17 +602,13 @@ def get_setup_expired() -> str:
 
 
 def get_setup_start_msg(group_name: str, step: int = 1, total_steps: int = 2) -> str:
-    return (
-        f"<b>Setup: {escape(group_name)}</b>\n"
-        f"{format_divider()}\n\n"
-        f"<b>Step {step}/{total_steps}:</b> Select protection features:"
-    )
+    return f"<b>Setup: {escape(group_name)}</b>\n" "" f"<b>Step {step}/{total_steps}:</b> Select protection features:"
 
 
 def get_setup_step2_msg(group_name: str, feature: str) -> str:
     return (
         f"<b>Setup: {escape(group_name)}</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Features: <b>{feature.capitalize()}</b>\n\n"
         f"<b>Step 2/2:</b> Select enforcement strength:"
     )
@@ -623,7 +617,6 @@ def get_setup_step2_msg(group_name: str, feature: str) -> str:
 def get_setup_complete_msg(group_name: str, feature: str, strength: str, is_pro: bool) -> str:
     lines = [
         "<b>Setup Complete</b>",
-        format_divider(),
         "",
         f"Group: {escape(group_name)}",
         f"Features: {feature.capitalize()}",
@@ -677,7 +670,6 @@ def get_ai_truncation_notice(is_pro: bool = False) -> str:
 def get_ai_help_msg(is_pro: bool) -> str:
     lines = [
         "<b>Group Bot Help</b>",
-        format_divider(),
         "",
         "<b>AI Commands:</b>",
         "\u2022 /ask [question] \u2014 Ask AI anything",
@@ -729,7 +721,6 @@ def get_price_card(name: str, symbol: str, price: float, change: float, is_pro: 
     direction = "Up" if change >= 0 else "Down"
     lines = [
         f"<b>{escape(name)} ({symbol})</b>",
-        format_divider(),
         "",
         f"Price: ${price:,.2f}",
         f"24h: {direction} ({change:+.2f}%)",
@@ -767,7 +758,6 @@ def get_alert_redirect() -> str:
 def get_market_overview(btc_data: dict, eth_data: dict, fng: dict = None, is_pro: bool = False) -> str:
     lines = [
         "<b>Market Overview</b>",
-        format_divider(),
         "",
         f"BTC: ${btc_data.get('usd', 0):,.0f} ({btc_data.get('usd_24h_change', 0):+.1f}%)",
         f"ETH: ${eth_data.get('usd', 0):,.0f} ({eth_data.get('usd_24h_change', 0):+.1f}%)",
@@ -793,7 +783,7 @@ def get_gas_redirect() -> str:
 def get_violation_notification(group_name: str, user_name: str, user_id: int, reason: str) -> str:
     return (
         f"<b>Violation Detected</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Group: <code>{escape(group_name)}</code>\n"
         f"User: {escape(user_name)} (<code>{user_id}</code>)\n"
         f"Reason: {escape(reason)}"

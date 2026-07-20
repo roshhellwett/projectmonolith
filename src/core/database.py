@@ -114,7 +114,9 @@ async def init_db():
                                 "ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT FALSE"
                             )
                     if "raid_expires_at" not in cols:
-                        connection.exec_driver_sql("ALTER TABLE zenith_group_settings ADD COLUMN raid_expires_at TIMESTAMP")
+                        connection.exec_driver_sql(
+                            "ALTER TABLE zenith_group_settings ADD COLUMN raid_expires_at TIMESTAMP"
+                        )
 
             await conn.run_sync(_ensure_columns)
         logger.info("All database tables and columns checked/created")

@@ -462,7 +462,11 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="HTML",
                 )
 
-        elif query.data.startswith("ui_wallet_") and not query.data.startswith("ui_untrack_") and not query.data == "ui_wallet_tracker":
+        elif (
+            query.data.startswith("ui_wallet_")
+            and not query.data.startswith("ui_untrack_")
+            and query.data != "ui_wallet_tracker"
+        ):
             wid = int(query.data.split("_")[-1])
             wallets = await WalletTrackerRepo.get_user_wallets(user_id)
             wallet = next((w for w in wallets if w.id == wid), None)

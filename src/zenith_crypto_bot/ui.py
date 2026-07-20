@@ -173,7 +173,7 @@ def get_limit_reached_card(feature: str, current: int, limit: int, is_pro: bool 
     return msg, kb
 
 
-def get_already_tracked_msg(wallet_label: str = None):
+def get_already_tracked_msg(wallet_label: str | None = None):
     if wallet_label:
         return (
             f"Already Tracked\n\n"
@@ -232,7 +232,7 @@ def get_welcome_msg(name: str, is_pro: bool = False, days_left: int = 0):
         f"{format_card('Integrated Modules', modules, '🚀')}"
     )
     if not is_pro:
-        text += f"\n\n<i>💎 Tip: Upgrade to Pro for real-time orderflow, whale wallet trackers, and deep security breakdown.</i>"
+        text += "\n\n<i>💎 Tip: Upgrade to Pro for real-time orderflow, whale wallet trackers, and deep security breakdown.</i>"
     return text
 
 
@@ -254,7 +254,7 @@ def get_pro_info_msg(is_pro: bool, days_left: int, user_id: int) -> str:
         f"{format_card('Pro Suite Capabilities', features, '✨')}"
     )
     if not is_pro:
-        text += f"\n\n<b>License Activation:</b>\n<code>/activate ZENITH-XXXX-XXXX</code>"
+        text += "\n\n<b>License Activation:</b>\n<code>/activate ZENITH-XXXX-XXXX</code>"
     return text
 
 
@@ -281,7 +281,7 @@ def get_help_msg(is_pro: bool = False) -> str:
         f"<b>🤖 Group Intelligence:</b> Add Zenith to any Telegram group and use <code>/price [symbol]</code> or <code>/market</code> for instant group telemetry."
     )
     if not is_pro:
-        text += f"\n\n<i>Contact @roshhellwett to upgrade your membership.</i>"
+        text += "\n\n<i>Contact @roshhellwett to upgrade your membership.</i>"
     return text
 
 
@@ -363,16 +363,6 @@ def get_delalert_result(deleted: bool) -> str:
 
 def get_delalert_invalid() -> str:
     return "Invalid alert ID."
-
-
-def get_track_help() -> str:
-    return (
-        "<b>Wallet Tracker</b>\n\n"
-        "Format: /track [ADDRESS] [LABEL]\n\n"
-        "Example:\n"
-        "/track 0x28C6c06298d514Db089934071355E5743bf21d60 Binance14\n\n"
-        "Tip: Label helps you identify the wallet (e.g., Whale, Exchange, DeFi)"
-    )
 
 
 def get_track_address_error(msg: str) -> str:
@@ -466,7 +456,7 @@ def get_portfolio_loading() -> str:
 
 
 def get_portfolio_card(tokens: list, prices: dict) -> str:
-    lines = ["<b>Portfolio Overview</b>", format_divider(), ""]
+    lines = ["<b>Portfolio Overview</b>", ""]
     total_invested = 0
     total_current = 0
     for t in tokens:
@@ -484,7 +474,6 @@ def get_portfolio_card(tokens: list, prices: dict) -> str:
 
     tp = total_current - total_invested
     tpct = ((total_current - total_invested) / total_invested * 100) if total_invested > 0 else 0
-    lines.append(f"{format_divider()}")
     lines.append(f"<b>Total P/L: ${tp:+,.2f} ({tpct:+.1f}%)</b>")
     lines.append(f"Invested: ${total_invested:,.2f} \u2192 Value: ${total_current:,.2f}")
     return "\n".join(lines)
@@ -516,7 +505,6 @@ def get_market_card(
 ) -> str:
     lines = [
         "<b>Market Intelligence</b>",
-        format_divider(),
         "",
         f"Fear & Greed: {fng_val}/100 \u2014 {fng_class}",
         gauge_bar,
@@ -561,7 +549,7 @@ def get_gas_card(gas: dict) -> str:
 
     return (
         f"<b>Ethereum Gas Tracker</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Current Gas: {gwei:.1f} Gwei \u2014 {level}\n"
         f"Base Fee: {gas['base_fee_gwei']:.1f} Gwei\n\n"
         f"Priority Tiers:\n"
@@ -617,7 +605,7 @@ def get_new_pairs_empty() -> str:
 
 
 def get_new_pairs_card(pairs: list, is_pro: bool) -> str:
-    lines = ["<b>Newly Created Pairs</b>", format_divider(), ""]
+    lines = ["<b>Newly Created Pairs</b>", ""]
     for p in pairs:
         t0 = f"{p['token0'][:6]}...{p['token0'][-4:]}"
         t1 = f"{p['token1'][:6]}...{p['token1'][-4:]}"
@@ -652,7 +640,7 @@ def get_audit_scanning_stages(contract: str) -> list:
 def get_audit_no_data(contract: str) -> str:
     return (
         "<b>Token Security Scanner</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Contract: <code>{contract}</code>\n\n"
         "No on-chain data found. The contract may be too new, on a different chain, or invalid.\n\n"
         "Tip: Ensure this is an Ethereum (ERC-20) contract address."
@@ -685,7 +673,7 @@ def get_audit_pro_report(
     detail_lines = [f"  {r}" for r in risks] if risks else ["  No significant risks detected."]
     return (
         f"<b>Zenith Security Report \u2014 PRO</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Token: {token_name} ({token_symbol})\n"
         f"Contract: <code>{contract}</code>\n"
         f"Risk Level: {safety} ({risk_score}/100)\n\n"
@@ -704,7 +692,7 @@ def get_audit_pro_report(
 def get_audit_free_report(token_name: str, token_symbol: str, contract: str, safety: str, is_honeypot: bool) -> str:
     return (
         f"<b>Zenith Surface Scan</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Token: {token_name} ({token_symbol})\n"
         f"Contract: <code>{contract[:6]}...{contract[-4:]}</code>\n"
         f"Risk Level: {safety}\n\n"
@@ -784,8 +772,7 @@ def get_pro_features_section() -> str:
 
 def get_institutional_transfer(asset: str, amount: int, dest: str, insight: str, utc: str) -> str:
     return (
-        f"<b>Institutional Transfer</b>\n"
-        f"{format_divider()}\n\n"
+        f"<b>Institutional Transfer</b>\n\n"
         f"Asset: {amount:,} {asset}\n"
         f"Destination: {dest}\n"
         f"Insight: {insight}\n"
@@ -795,8 +782,7 @@ def get_institutional_transfer(asset: str, amount: int, dest: str, insight: str,
 
 def get_onchain_transfer(asset: str, amount: int, dest: str, utc: str) -> str:
     return (
-        f"<b>On-Chain Transfer</b>\n"
-        f"{format_divider()}\n\n"
+        f"<b>On-Chain Transfer</b>\n\n"
         f"Asset: {amount:,} {asset}\n"
         f"Destination: {dest}\n"
         f"Insight: [Pro Required]\n"
@@ -807,7 +793,7 @@ def get_onchain_transfer(asset: str, amount: int, dest: str, utc: str) -> str:
 def get_subscription_expiring(user_id: int, days_left: int) -> str:
     return (
         f"<b>Subscription Expiring Soon</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Your Zenith Pro expires in {days_left} day{'s' if days_left != 1 else ''}.\n\n"
         f"To renew, contact the admin and provide your ID:\n"
         f"<code>{user_id}</code>\n\n"
@@ -818,7 +804,7 @@ def get_subscription_expiring(user_id: int, days_left: int) -> str:
 def get_subscription_expired(user_id: int) -> str:
     return (
         f"<b>Pro Subscription Ended</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Your Zenith Pro access has expired.\n"
         f"Pro features (wallet tracker, full security scans, extended alerts) are now locked.\n\n"
         f"To renew: Contact the admin with your ID:\n"
@@ -834,7 +820,7 @@ def get_ai_copilot_menu_msg(current_model: str = "llama-3.3-70b-versatile", is_p
     model_info = AVAILABLE_MODELS.get(current_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
     return (
         "<b>Zenith Crypto AI Co-Pilot Terminal</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"<b>Active Neural Engine:</b> {model_info['icon']} <b>{model_info['name']}</b>\n"
         f"<i>{model_info['description']}</i>\n\n"
         "<b>Instant Deep Analysis & Strategy Commands:</b>\n"
@@ -893,7 +879,6 @@ def get_crypto_model_selector_msg(current_model: str = "llama-3.3-70b-versatile"
     model_info = AVAILABLE_MODELS.get(current_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
     lines = [
         "<b>Crypto AI Neural Engine Selection</b>",
-        format_divider(),
         "",
         f"<b>Current Active Engine:</b> {model_info['icon']} <b>{model_info['name']}</b>",
         f"<i>{model_info['description']}</i>",
@@ -922,7 +907,7 @@ def get_crypto_model_selector_keyboard(current_model: str = "llama-3.3-70b-versa
 def get_ai_no_key_msg():
     text = (
         "<b>Crypto AI Co-Pilot</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         "You need a Groq API key to use the AI assistant.\n\n"
         "1. Go to <b>console.groq.com</b> \u2192 API Keys\n"
         "2. Create a free key (free credits included)\n"
@@ -942,7 +927,7 @@ def get_ai_no_key_msg():
 def get_ai_key_set_success_msg():
     text = (
         "<b>Crypto AI Co-Pilot</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         "Your Groq key is connected. You're live! \U0001f680\n\n"
         "Try asking:\n"
         "\u2022 <code>/ai what's in my portfolio?</code>\n"
@@ -1079,7 +1064,7 @@ def get_ai_response_msg(response: str, query: str) -> tuple:
 def get_ai_rate_limited_msg():
     text = (
         "<b>Crypto AI</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         "Your Groq key reached its rate limit.\n\n"
         "Wait a bit or replace your key:\n"
         "<code>/setkey gsk_new_key</code>"
@@ -1095,7 +1080,7 @@ def get_ai_rate_limited_msg():
 def get_ai_invalid_key_msg():
     text = (
         "<b>Crypto AI</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         "Your Groq key doesn't seem to work anymore.\n\n"
         "Check it at console.groq.com and update:\n"
         "<code>/setkey gsk_new_key</code>"
@@ -1109,12 +1094,7 @@ def get_ai_invalid_key_msg():
 
 
 def get_ai_server_error_msg():
-    text = (
-        "<b>Crypto AI</b>\n"
-        f"{format_divider()}\n\n"
-        "Couldn't reach the AI right now.\n\n"
-        "Try again in a moment with /ai"
-    )
+    text = "<b>Crypto AI</b>\n" "" "Couldn't reach the AI right now.\n\n" "Try again in a moment with /ai"
     return text, InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Try Again", callback_data="ai_followup_what is in my portfolio?")],
@@ -1126,7 +1106,7 @@ def get_ai_server_error_msg():
 def get_price_alert_triggered(token_symbol: str, direction: str, target_price: float, current_price: float) -> str:
     return (
         f"<b>Price Alert Triggered</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"{token_symbol} hit your {direction} target!\n\n"
         f"Target: ${target_price:,.2f}\n"
         f"Current: ${current_price:,.2f}\n\n"
@@ -1137,7 +1117,7 @@ def get_price_alert_triggered(token_symbol: str, direction: str, target_price: f
 def get_wallet_activity(wallet_label: str, direction: str, amount: float, tx_hash: str) -> str:
     return (
         f"<b>Wallet Activity</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Wallet: {wallet_label}\n"
         f"Action: {direction}\n"
         f"Amount: {amount:.4f} ETH\n"

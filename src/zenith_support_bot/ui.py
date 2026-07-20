@@ -240,7 +240,7 @@ def get_ticket_status_msg(ticket, is_pro: bool = False, is_owner: bool = False) 
 
     msg = (
         f"<b>Ticket #{ticket.id}</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Subject: {ticket.subject}\n"
         f"Status: {status_text}\n"
         f"Priority: {priority_text}\n\n"
@@ -501,7 +501,7 @@ def get_stats_pro_feature_msg() -> str:
 def get_stats_msg(stats: dict) -> str:
     return (
         f"<b>Support Analytics</b>\n"
-        f"{format_divider()}\n\n"
+        ""
         f"Total Tickets: {stats['total']}\n"
         f"Open: {stats['open']}\n"
         f"In Progress: {stats['in_progress']}\n"

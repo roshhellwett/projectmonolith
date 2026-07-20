@@ -6,7 +6,6 @@ from core.config import ADMIN_USER_ID
 from core.formatters import (
     format_alert,
     format_card,
-    format_divider,
     format_header,
     format_kv,
     format_progress_bar,
@@ -188,7 +187,7 @@ def get_welcome_msg(is_pro: bool, days_left: int, usage: dict, persona: str) -> 
         f"{format_card('Quick Command Registry', commands, '🚀')}"
     )
     if not is_pro:
-        text += f"\n\n<i>💎 Tip: Upgrade to Pro for deep research, full code architecture, and unlimited queries.</i>"
+        text += "\n\n<i>💎 Tip: Upgrade to Pro for deep research, full code architecture, and unlimited queries.</i>"
     return text
 
 
@@ -280,7 +279,7 @@ def get_history_list_msg(history: list) -> str:
         preview = escape(msg.content[:85] + ("..." if len(msg.content) > 85 else ""))
         lines.append(f"  {role_icon} <i>{preview}</i>")
 
-    lines.append(f"\n{format_divider('─', 24)}")
+    lines.append("")
     lines.append(f"▫️ <code>{len(history)}</code> total turns recorded in buffer.")
     return "\n".join(lines)
 
@@ -314,7 +313,7 @@ def get_help_msg(is_pro: bool) -> str:
         f"<b>🤖 Group Intelligence:</b> Add Zenith to any group and use <code>/ask [question]</code> for instant collaborative AI answers."
     )
     if not is_pro:
-        text += f"\n\n<i>Need assistance? Contact @roshhellwett for license activation.</i>"
+        text += "\n\n<i>Need assistance? Contact @roshhellwett for license activation.</i>"
     return text
 
 

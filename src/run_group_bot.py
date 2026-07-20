@@ -57,7 +57,6 @@ from zenith_group_bot.ui import (
     get_analytics_msg,
     get_audit_log_msg,
     get_back_button,
-    get_confirm_reset,
     get_dashboard_help_msg,
     get_dashboard_main_msg,
     get_forgive_result,
@@ -175,7 +174,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
 
-        elif data.startswith("grp_analytics_") and not data == "grp_analytics_pick":
+        elif data.startswith("grp_analytics_") and data != "grp_analytics_pick":
             chat_id = int(data.rsplit("_", 1)[-1])
             day_stats = await AuditLogRepo.count_actions(chat_id, hours=24)
             week_stats = await AuditLogRepo.count_actions(chat_id, hours=168)
@@ -184,7 +183,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = get_analytics_msg(day_stats, week_stats, total, top_violators)
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
-        elif data.startswith("grp_audit_") and not data == "grp_audit_pick":
+        elif data.startswith("grp_audit_") and data != "grp_audit_pick":
             chat_id = int(data.rsplit("_", 1)[-1])
             entries = await AuditLogRepo.get_recent(chat_id, limit=20)
             text = get_audit_log_msg(entries)
@@ -208,7 +207,11 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
 
-        elif data.startswith("grp_toggle_spam_") or data.startswith("grp_toggle_abuse_") or data.startswith("grp_toggle_flood_"):
+        elif (
+            data.startswith("grp_toggle_spam_")
+            or data.startswith("grp_toggle_abuse_")
+            or data.startswith("grp_toggle_flood_")
+        ):
             parts = data.rsplit("_", 1)
             chat_id = int(parts[-1])
             toggle_type = data.split("_")[2]
@@ -242,8 +245,12 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             settings = await SettingsRepo.get_settings(chat_id)
             settings_dict = {
-                "anti_spam": "spam" in (settings.features or "both") or settings.features == "both" if settings else True,
-                "anti_abuse": "abuse" in (settings.features or "both") or settings.features == "both" if settings else True,
+                "anti_spam": "spam" in (settings.features or "both") or settings.features == "both"
+                if settings
+                else True,
+                "anti_abuse": "abuse" in (settings.features or "both") or settings.features == "both"
+                if settings
+                else True,
                 "flood_control": (settings.strength != "low") if settings else True,
             }
             name = settings.group_name if settings else f"Group {chat_id}"
@@ -261,7 +268,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for g in groups:
                 if await GroupRepo.forgive_user(target_id, g.chat_id):
                     success = True
-            await query.edit_message_text(get_forgive_result(success), reply_markup=get_back_button(), parse_mode="HTML")
+            await query.edit_message_text(
+                get_forgive_result(success), reply_markup=get_back_button(), parse_mode="HTML"
+            )
 
         elif data.startswith("grp_reset_confirm"):
             if "_" in data:
