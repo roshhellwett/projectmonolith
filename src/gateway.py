@@ -166,6 +166,9 @@ app = FastAPI(
 
 @app.middleware("http")
 async def global_protection(request: Request, call_next):
+    if "/webhook/" in request.url.path:
+        logger.info(f"🌐 Webhook HTTP request arriving: {request.method} {request.url.path} from {request.client.host if request.client else 'unknown'}")
+
     if not await check_request_size(request):
         return JSONResponse({"error": "Payload too large. Max 1MB."}, status_code=413)
 
@@ -201,6 +204,8 @@ app.include_router(run_admin_bot.router)
 
 @app.get("/health")
 async def health():
+    from core.config import WEBHOOK_URL
+
     db_ok = is_db_healthy()
     breakers = get_all_breaker_statuses()
     all_breakers_closed = all(b.get("state") == "closed" for b in breakers)
@@ -211,6 +216,7 @@ async def health():
             "db_healthy": db_ok,
             "circuit_breakers": breakers,
             "system": "Project Monolith",
+            "webhook_base_url": WEBHOOK_URL,
             "services": SERVICE_REGISTRY,
         },
         status_code=status_code,
@@ -234,6 +240,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=PORT,
         log_level="info",
-        access_log=False,
+        access_log=True,
         server_header=False,
     )

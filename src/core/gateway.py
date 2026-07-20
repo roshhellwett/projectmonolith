@@ -196,6 +196,13 @@ async def setup_bot_webhook(bot_app, bot_name: str) -> None:
             allowed_updates=Update.ALL_TYPES,
         )
         _log.info(f"✅ {bot_name} webhook registered at {url}")
+        try:
+            info = await bot_app.bot.get_webhook_info()
+            _log.info(f"📋 {bot_name} status -> pending_updates: {info.pending_update_count}, last_error: {info.last_error_message or 'None'}")
+            if info.last_error_message:
+                _log.error(f"⚠️ Telegram server reported error delivering webhook for {bot_name}: {info.last_error_message}")
+        except Exception as ex:
+            _log.warning(f"Could not fetch get_webhook_info for {bot_name}: {ex}")
     except Exception as e:
         _log.error(f"❌ {bot_name} webhook setup failed: {e}")
 
@@ -204,9 +211,38 @@ def attach_gateway(bot_app, bot_name: str):
     """
     Attaches the central gateway middleware and registers the bot with monitoring.
     """
+    from telegram.ext import ApplicationHandlerStop, TypeHandler
     from zenith_admin_bot.monitoring import register_bot_app
 
     register_bot_app(bot_name, bot_app)
+
+    async def gateway_type_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            logger.info(f"⚡ [{bot_name}] Processing Update {update.update_id} from user {update.effective_user.id if update.effective_user else 'unknown'}")
+            is_valid, reason = TelegramRequestValidator.validate_update(update)
+            if not is_valid:
+                logger.warning(f"Gateway rejected invalid update for {bot_name}: {reason}")
+                raise ApplicationHandlerStop
+
+            acquired = await _gateway.acquire()
+            if not acquired:
+                if update.effective_message:
+                    with contextlib.suppress(Exception):
+                        await update.effective_message.reply_text(
+                            "⚠️ Server under high load. Please try again in a few seconds."
+                        )
+                raise ApplicationHandlerStop
+
+            _gateway.check_memory_and_prune()
+            _gateway.release()
+        except ApplicationHandlerStop:
+            raise
+        except Exception as e:
+            logger.error(f"Error in gateway_type_handler ({bot_name}): {e}", exc_info=True)
+
+    with contextlib.suppress(Exception):
+        bot_app.add_handler(TypeHandler(Update, gateway_type_handler), group=-999)
+
     original_process_update = bot_app.process_update
 
     async def wrapped_process_update(update: object):
@@ -228,4 +264,5 @@ def attach_gateway(bot_app, bot_name: str):
                 exc_info=True,
             )
 
-    bot_app.process_update = wrapped_process_update
+    with contextlib.suppress(AttributeError):
+        bot_app.process_update = wrapped_process_update

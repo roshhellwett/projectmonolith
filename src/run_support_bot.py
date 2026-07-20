@@ -663,6 +663,7 @@ async def stop_service(dispose_db: bool = False):
 @router.post("/webhook/support/{secret}")
 async def support_webhook(secret: str, request: Request):
     if secret != WEBHOOK_SECRET:
+        logger.warning(f"❌ [Support] Webhook secret mismatch! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}")
         return Response(status_code=403)
     if not bot_app:
         return Response(status_code=503)
@@ -674,8 +675,9 @@ async def support_webhook(secret: str, request: Request):
             return Response(status_code=200)
         if update_id:
             dedup[update_id] = True
+        logger.info(f"📥 [Support] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})")
         await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
         return Response(status_code=200)
     except Exception as e:
-        logger.error(f"Webhook payload error: {e}")
+        logger.error(f"Webhook payload error: {e}", exc_info=True)
         return Response(status_code=200)

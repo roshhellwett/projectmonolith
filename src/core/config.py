@@ -14,23 +14,23 @@ ENABLE_NEW_PAIRS = os.getenv("ENABLE_NEW_PAIRS", "true").lower() == "true"
 # ==========================================
 # Bot Tokens
 # ==========================================
-GROUP_BOT_TOKEN = os.getenv("GROUP_BOT_TOKEN", "")
-AI_BOT_TOKEN = os.getenv("AI_BOT_TOKEN", "")
-CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN", "")
-SUPPORT_BOT_TOKEN = os.getenv("SUPPORT_BOT_TOKEN", "")
-ADMIN_BOT_TOKEN = os.getenv("ADMIN_BOT_TOKEN", "")
+GROUP_BOT_TOKEN = os.getenv("GROUP_BOT_TOKEN", "").strip()
+AI_BOT_TOKEN = os.getenv("AI_BOT_TOKEN", "").strip()
+CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN", "").strip()
+SUPPORT_BOT_TOKEN = os.getenv("SUPPORT_BOT_TOKEN", "").strip()
+ADMIN_BOT_TOKEN = os.getenv("ADMIN_BOT_TOKEN", "").strip()
 
 # ==========================================
 # Admin
 # ==========================================
-ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", 0))
+ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", "0").strip())
 
 # ==========================================
 # Webhook & Server
 # ==========================================
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
-PORT = int(os.getenv("PORT", 8080))
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip().rstrip("/")
+PORT = int(os.getenv("PORT", "8080").strip())
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip()
 
 # ==========================================
 # Database
