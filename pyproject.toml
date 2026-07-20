@@ -110,3 +110,8 @@ filterwarnings = [
 [tool.coverage.run]
 source = ["src"]
 omit = ["*/tests/*", "*/__init__.py", "*/alembic/*", "*/scripts/*"]
+
+[tool.pyright]
+include = ["src", "tests"]
+extraPaths = ["src"]
+pythonVersion = "3.11"
