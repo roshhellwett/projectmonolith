@@ -165,13 +165,17 @@ async def handle_bot_error(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     category = categorize_error(error)
 
     if category == ErrorCategory.INTERNAL_ERROR:
-        # Log full traceback for unexpected errors
+        # Log full traceback for unexpected errors with exact sector breakdown
         logger.error(
-            f"Unhandled error [{category.value}]: {error}\n"
+            f"\n┌── 🚨 SECTOR ERROR DIAGNOSTIC ──┐\n"
+            f"│ Sector:   {logger.name}\n"
+            f"│ Category: {category.value}\n"
+            f"│ Error:    {error}\n"
+            f"└────────────────────────────────┘\n"
             f"{''.join(traceback.format_exception(type(error), error, error.__traceback__))}"
         )
     else:
-        logger.warning(f"Handled error [{category.value}]: {error}")
+        logger.warning(f"Handled sector error [{category.value}] in {logger.name}: {error}")
 
     # Send user-friendly message
     if update:
@@ -197,15 +201,15 @@ async def _alert_admin(
 
     user_info = ""
     if update and update.effective_user:
-        user_info = f"\n<b>User:</b> {update.effective_user.id}"
+        user_info = f"\n<b>User:</b> <code>{update.effective_user.id}</code>"
 
     command_info = ""
     if update and update.message and update.message.text:
         command_info = f"\n<b>Command:</b> <code>{update.message.text[:100]}</code>"
 
     alert_text = (
-        f"🚨 <b>CRITICAL ERROR</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🚨 <b>CRITICAL SECTOR ERROR</b>\n\n"
+        f"<b>Sector:</b> <code>{logger.name}</code>\n"
         f"<b>Category:</b> {category.value}\n"
         f"<b>Error:</b> <code>{str(error)[:200]}</code>"
         f"{user_info}"

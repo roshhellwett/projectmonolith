@@ -123,7 +123,12 @@ def enforce_startup_secrets() -> SecretValidationResult:
     )
 
     if not result.can_start:
-        logger.critical(f"🛑 CANNOT START: Missing critical secrets: {', '.join(result.missing_critical)}")
+        logger.critical(
+            f"\n┌── 🚨 SECTOR ERROR DIAGNOSTIC ──┐\n"
+            f"│ Sector:   SECRETS (enforce_startup_secrets)\n"
+            f"│ Error:    Missing critical secrets: {', '.join(result.missing_critical)}\n"
+            f"└────────────────────────────────┘"
+        )
         # In production, we still start but log critical errors.
         # This allows the /health endpoint to report the issue.
         # Uncomment the line below to hard-fail:

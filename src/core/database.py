@@ -168,6 +168,12 @@ def db_retry(func):
                     )
                 )
                 if not retryable or attempt == 2:
+                    logger.error(
+                        f"\n┌── 🚨 SECTOR ERROR DIAGNOSTIC ──┐\n"
+                        f"│ Sector:   DATABASE ({func.__name__})\n"
+                        f"│ Error:    {error_name}: {e}\n"
+                        f"└────────────────────────────────┘"
+                    )
                     raise
                 last_error = e
                 logger.warning(f"DB retry {attempt + 1}/3 in {func.__name__}: {error_name}: {e}")

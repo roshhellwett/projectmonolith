@@ -210,6 +210,12 @@ def attach_gateway(bot_app, bot_name: str):
             else:
                 await original_process_update(update)
         except Exception as e:
-            logger.error(f"❌ Unhandled exception in {bot_name} update loop: {e}", exc_info=True)
+            logger.error(
+                f"\n┌── 🚨 SECTOR ERROR DIAGNOSTIC ──┐\n"
+                f"│ Sector:   GATEWAY ({bot_name})\n"
+                f"│ Error:    {e}\n"
+                f"└────────────────────────────────┘",
+                exc_info=True,
+            )
 
     bot_app.process_update = wrapped_process_update
