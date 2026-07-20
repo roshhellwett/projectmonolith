@@ -120,7 +120,8 @@ def require_pro(locked_feature_name: str = "This feature"):
 
                 text = get_upgrade_text(locked_feature_name)
                 if update.callback_query:
-                    await update.callback_query.answer()
+                    with contextlib.suppress(Exception):
+                        await update.callback_query.answer()
                     with contextlib.suppress(Exception):
                         await update.callback_query.edit_message_text(text, parse_mode="HTML")
                 elif update.message:
@@ -155,7 +156,8 @@ def require_owner(func):
         if not tier.is_owner:
             text = "🔒 This command is restricted to the bot owner."
             if update.callback_query:
-                await update.callback_query.answer(text, show_alert=True)
+                with contextlib.suppress(Exception):
+                    await update.callback_query.answer(text, show_alert=True)
             elif update.message:
                 await update.message.reply_text(text)
             return

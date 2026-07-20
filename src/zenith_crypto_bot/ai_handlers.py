@@ -120,7 +120,10 @@ async def cmd_delkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_ai_followup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
     data = query.data
     if not data.startswith("ai_followup_"):
         return

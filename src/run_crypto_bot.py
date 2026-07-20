@@ -110,7 +110,10 @@ async def cmd_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
 
     user_id = update.effective_user.id
     first_name = html.escape(update.effective_user.first_name or "Trader")
@@ -400,6 +403,71 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         parse_mode="HTML",
                     )
 
+        elif query.data == "ui_add_alert_help":
+            await query.edit_message_text(
+                crypto_ui.get_add_alert_help(),
+                reply_markup=crypto_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "ui_track_help":
+            await query.edit_message_text(
+                crypto_ui.get_track_help(),
+                reply_markup=crypto_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "ui_activate_help":
+            await query.edit_message_text(
+                crypto_ui.get_activate_help_msg(),
+                reply_markup=crypto_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "ui_add_token_help":
+            await query.edit_message_text(
+                crypto_ui.get_add_token_help(),
+                reply_markup=crypto_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
+        elif query.data.startswith("ui_alert_") and not query.data.startswith("ui_del_alert_"):
+            aid = int(query.data.split("_")[-1])
+            alerts = await PriceAlertRepo.get_user_alerts(user_id)
+            alert = next((a for a in alerts if a.id == aid), None)
+            if alert:
+                dir_str = "Above" if alert.direction == "above" else "Below"
+                status_str = "Triggered" if alert.is_triggered else "Active Monitoring"
+                text = (
+                    f"<b>Alert Details</b>\n"
+                    f"Token: <code>{alert.token_symbol}</code>\n"
+                    f"Condition: {dir_str} ${alert.target_price:,.2f}\n"
+                    f"Status: <b>{status_str}</b>\n\n"
+                    f"Would you like to delete this alert?"
+                )
+                await query.edit_message_text(
+                    text,
+                    reply_markup=crypto_ui.get_confirm_delete_alert(alert),
+                    parse_mode="HTML",
+                )
+
+        elif query.data.startswith("ui_wallet_") and not query.data.startswith("ui_untrack_") and not query.data == "ui_wallet_tracker":
+            wid = int(query.data.split("_")[-1])
+            wallets = await WalletTrackerRepo.get_user_wallets(user_id)
+            wallet = next((w for w in wallets if w.id == wid), None)
+            if wallet:
+                text = (
+                    f"<b>Tracked Wallet Details</b>\n"
+                    f"Label: <b>{wallet.label}</b>\n"
+                    f"Address: <code>{wallet.wallet_address}</code>\n\n"
+                    f"Would you like to untrack this wallet?"
+                )
+                await query.edit_message_text(
+                    text,
+                    reply_markup=crypto_ui.get_confirm_untrack_wallet(wallet),
+                    parse_mode="HTML",
+                )
+
         elif query.data.startswith("ui_noop"):
             pass
 
@@ -408,6 +476,8 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except BadRequest as e:
         if "not modified" not in str(e).lower():
             logger.error(f"UI Error: {e}")
+    except Exception as e:
+        logger.error(f"❌ Unhandled exception in crypto handle_dashboard: {e}", exc_info=True)
 
 
 async def alert_dispatcher():

@@ -723,6 +723,50 @@ def get_activate_help() -> str:
     return "Invalid Format. Use: /activate [YOUR_KEY]"
 
 
+def get_add_alert_help() -> str:
+    return (
+        f"{format_header('Add Price Alert', 'Instant Cross-Threshold Notifications', 'ALERTS')}\n"
+        f"To create a new price alert, use the command:\n"
+        f"<code>/alert [SYMBOL] [above/below] [PRICE]</code>\n\n"
+        f"<b>Examples:</b>\n"
+        f"  ▫️ <code>/alert BTC above 100000</code>\n"
+        f"  ▫️ <code>/alert ETH below 2500</code>\n\n"
+        f"⚡ <i>Alerts are checked every minute and dispatched instantly.</i>"
+    )
+
+
+def get_track_help() -> str:
+    return (
+        f"{format_header('Track Whale Wallet', 'Real-Time On-Chain Radar', 'WALLETS')}\n"
+        f"To track an institutional or whale wallet address, use:\n"
+        f"<code>/track [ADDRESS] [LABEL]</code>\n\n"
+        f"<b>Example:</b>\n"
+        f"  ▫️ <code>/track 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 Vitalik</code>\n\n"
+        f"⚡ <i>You will receive immediate alerts whenever significant transactions occur.</i>"
+    )
+
+
+def get_add_token_help() -> str:
+    return (
+        f"{format_header('Add Portfolio Position', 'Live P/L & Valuation Tracking', 'PORTFOLIO')}\n"
+        f"To add a token position to your portfolio tracker, use:\n"
+        f"<code>/add [TOKEN_ID] [AMOUNT] [BUY_PRICE_USD]</code>\n\n"
+        f"<b>Examples:</b>\n"
+        f"  ▫️ <code>/add bitcoin 0.5 60000</code>\n"
+        f"  ▫️ <code>/add ethereum 5 2500</code>\n\n"
+        f"⚡ <i>Use <code>/portfolio</code> to inspect real-time profit and loss.</i>"
+    )
+
+
+def get_activate_help_msg() -> str:
+    return (
+        f"{format_header('Activate License Key', 'Unlock Pro Intelligence Bundle', 'LICENSE')}\n"
+        f"To activate your Pro Crypto & AI subscription key, use:\n"
+        f"<code>/activate ZENITH-XXXX-XXXX</code>\n\n"
+        f"Contact @roshhellwett to acquire your Pro key or inquire about enterprise access."
+    )
+
+
 def get_token_not_found_msg(symbol: str) -> str:
     return f"Token Not Found\n\n" f"Token {symbol} was not found.\n\n" "Try a different symbol or check for typos."
 

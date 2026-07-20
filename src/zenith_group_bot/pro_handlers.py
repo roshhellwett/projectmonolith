@@ -107,7 +107,10 @@ async def cmd_addword(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_addword_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
 
@@ -148,7 +151,10 @@ async def cmd_delword(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_delword_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
 
@@ -217,7 +223,10 @@ async def cmd_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_schedule_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
 
     pending = context.user_data.get("pending_schedule")
     if not pending or query.from_user.id != pending.get("user_id"):

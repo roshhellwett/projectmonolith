@@ -8,9 +8,14 @@ from zenith_support_bot.repository import TicketRepo
 logger = setup_logger("SUPPORT_USER")
 
 
+import contextlib
+
 async def handle_ticket_reply_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
 
     ticket_id = int(query.data.split("_")[-1])
     ticket = await TicketRepo.get_ticket(ticket_id)
@@ -26,7 +31,10 @@ async def handle_ticket_reply_callback(update: Update, context: ContextTypes.DEF
 
 async def handle_ticket_cancel_reply_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer("Reply cancelled.")
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer("Reply cancelled.")
     context.user_data.pop("pending_ticket_reply", None)
 
     ticket_id = int(query.data.split("_")[-1])
@@ -51,7 +59,10 @@ async def handle_ticket_cancel_reply_callback(update: Update, context: ContextTy
 
 async def handle_ticket_close_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
 
     ticket_id = int(query.data.split("_")[-1])
     ticket = await TicketRepo.get_ticket(ticket_id)

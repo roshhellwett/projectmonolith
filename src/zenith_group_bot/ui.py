@@ -121,8 +121,9 @@ def get_confirm_forgive(user_id: int, user_name: str = None, strikes: int = 0) -
     return msg, kb
 
 
-def get_confirm_reset(group_name: str = None) -> tuple:
+def get_confirm_reset(group_name: str = None, chat_id: int = None) -> tuple:
     name = group_name or "this group"
+    cb_data = f"grp_reset_confirm_{chat_id}" if chat_id else "grp_reset_confirm"
     msg = (
         f"<b>Reset {escape(name.upper())}?</b>\n\n"
         f"<b>This will:</b>\n"
@@ -134,7 +135,7 @@ def get_confirm_reset(group_name: str = None) -> tuple:
     )
     kb = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Yes, Reset Everything", callback_data="grp_reset_confirm")],
+            [InlineKeyboardButton("Yes, Reset Everything", callback_data=cb_data)],
             [InlineKeyboardButton("Cancel", callback_data="grp_list")],
         ]
     )

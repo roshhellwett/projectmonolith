@@ -77,36 +77,47 @@ def get_session() -> sessionmaker:
     return _sessionmaker_instance
 
 
+_init_lock: asyncio.Lock | None = None
+
+
+def _get_init_lock() -> asyncio.Lock:
+    global _init_lock
+    if _init_lock is None:
+        _init_lock = asyncio.Lock()
+    return _init_lock
+
+
 async def init_db():
     from sqlalchemy import inspect
 
-    engine = get_engine()
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async with _get_init_lock():
+        engine = get_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
-        def _ensure_columns(connection):
-            insp = inspect(connection)
-            tables = insp.get_table_names()
-            if "crypto_users" in tables:
-                cols = [c["name"] for c in insp.get_columns("crypto_users")]
-                if "groq_api_key" not in cols:
-                    connection.exec_driver_sql("ALTER TABLE crypto_users ADD COLUMN groq_api_key VARCHAR(200)")
-            if "zenith_group_settings" in tables:
-                cols = [c["name"] for c in insp.get_columns("zenith_group_settings")]
-                if "raid_mode" not in cols:
-                    if engine.dialect.name == "sqlite":
-                        connection.exec_driver_sql(
-                            "ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT 0"
-                        )
-                    else:
-                        connection.exec_driver_sql(
-                            "ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT FALSE"
-                        )
-                if "raid_expires_at" not in cols:
-                    connection.exec_driver_sql("ALTER TABLE zenith_group_settings ADD COLUMN raid_expires_at TIMESTAMP")
+            def _ensure_columns(connection):
+                insp = inspect(connection)
+                tables = insp.get_table_names()
+                if "crypto_users" in tables:
+                    cols = [c["name"] for c in insp.get_columns("crypto_users")]
+                    if "groq_api_key" not in cols:
+                        connection.exec_driver_sql("ALTER TABLE crypto_users ADD COLUMN groq_api_key VARCHAR(200)")
+                if "zenith_group_settings" in tables:
+                    cols = [c["name"] for c in insp.get_columns("zenith_group_settings")]
+                    if "raid_mode" not in cols:
+                        if engine.dialect.name == "sqlite":
+                            connection.exec_driver_sql(
+                                "ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT 0"
+                            )
+                        else:
+                            connection.exec_driver_sql(
+                                "ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT FALSE"
+                            )
+                    if "raid_expires_at" not in cols:
+                        connection.exec_driver_sql("ALTER TABLE zenith_group_settings ADD COLUMN raid_expires_at TIMESTAMP")
 
-        await conn.run_sync(_ensure_columns)
-    logger.info("All database tables and columns checked/created")
+            await conn.run_sync(_ensure_columns)
+        logger.info("All database tables and columns checked/created")
 
 
 _dispose_lock: asyncio.Lock | None = None

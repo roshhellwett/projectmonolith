@@ -1,3 +1,5 @@
+import contextlib
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -5,15 +7,20 @@ from core.config import ADMIN_USER_ID
 from zenith_admin_bot import ui as admin_ui
 from zenith_admin_bot.common import logger
 from zenith_admin_bot.repository import AdminRepo, BotRegistryRepo, MonitoringRepo
+from zenith_support_bot.repository import CannedRepo, FAQRepo
 
 
 async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
 
     user_id = query.from_user.id
     if user_id != ADMIN_USER_ID:
-        await query.answer("Unauthorized.", show_alert=True)
+        with contextlib.suppress(Exception):
+            await query.answer("Unauthorized.", show_alert=True)
         return
 
     try:
@@ -148,7 +155,51 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             canned_count = await MonitoringRepo.get_canned_count()
             await query.edit_message_text(
                 admin_ui.get_faq_menu_msg(faq_count, canned_count),
-                reply_markup=admin_ui.get_system_keyboard(),
+                reply_markup=admin_ui.get_faq_keyboard(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "admin_faq_list":
+            faqs = await FAQRepo.get_all_faqs(limit=30)
+            await query.edit_message_text(
+                admin_ui.format_faq_list(faqs),
+                reply_markup=admin_ui.get_faq_keyboard(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "admin_canned_list":
+            canned = await CannedRepo.get_all_canned()
+            await query.edit_message_text(
+                admin_ui.format_canned_list(canned),
+                reply_markup=admin_ui.get_faq_keyboard(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "admin_faq_add":
+            await query.edit_message_text(
+                "<b>Add FAQ</b>\n\nUse command:\n<code>/addfaq [category] | [question] | [answer]</code>\n\nExample:\n<code>/addfaq general | How to activate? | Use /activate [KEY]</code>",
+                reply_markup=admin_ui.get_faq_keyboard(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "admin_faq_delete":
+            await query.edit_message_text(
+                "<b>Delete FAQ</b>\n\nUse command:\n<code>/delfaq [faq_id]</code>",
+                reply_markup=admin_ui.get_faq_keyboard(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "admin_broadcast":
+            await query.edit_message_text(
+                "<b>Broadcast Matrix</b>\n\nTo broadcast messages across the cluster, use:\n<code>/broadcast [message]</code> — All users & groups\n<code>/broadcast -pro [message]</code> — Pro users only",
+                reply_markup=admin_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "admin_security":
+            await query.edit_message_text(
+                admin_ui.format_platform_metrics(),
+                reply_markup=admin_ui.get_back_button(),
                 parse_mode="HTML",
             )
 

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import html
 
 from fastapi import APIRouter, Request
@@ -28,7 +29,7 @@ from zenith_support_bot.pro_handlers import (
     cmd_savereply,
     cmd_stats,
 )
-from zenith_support_bot.repository import FAQRepo, TicketRepo, seed_default_faq
+from zenith_support_bot.repository import CannedRepo, FAQRepo, TicketRepo, seed_default_faq
 from zenith_support_bot.scheduler import start_ticket_scheduler, stop_ticket_scheduler
 from zenith_support_bot.user_handlers import (
     handle_ticket_cancel_reply_callback,
@@ -231,7 +232,10 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
 
     user_id = update.effective_user.id
     first_name = html.escape(update.effective_user.first_name or "User")
@@ -450,6 +454,106 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
 
+        elif query.data == "support_new_ticket" or query.data == "sup_new_ticket":
+            await query.edit_message_text(
+                support_ui.get_new_ticket_guide(),
+                reply_markup=support_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "support_my_tickets" or query.data == "sup_my_tickets":
+            tickets = await TicketRepo.get_user_tickets(user_id, open_only=False)
+            if not tickets:
+                await query.edit_message_text(
+                    support_ui.get_my_tickets_empty(),
+                    reply_markup=support_ui.get_back_button(),
+                    parse_mode="HTML",
+                )
+            else:
+                await query.edit_message_text(
+                    "<b>Your Tickets</b>",
+                    reply_markup=support_ui.get_ticket_keyboard(tickets),
+                    parse_mode="HTML",
+                )
+
+        elif query.data.startswith("ticket_view_"):
+            ticket_id = int(query.data.split("_")[-1])
+            ticket = await TicketRepo.get_ticket(ticket_id)
+            if not ticket:
+                await query.edit_message_text(
+                    support_ui.get_ticket_not_found_msg(), reply_markup=support_ui.get_back_button()
+                )
+                return
+            is_ticket_owner = ticket.user_id == user_id
+            await query.edit_message_text(
+                support_ui.get_ticket_status_msg(ticket, is_pro, is_owner_user),
+                reply_markup=support_ui.get_ticket_detail_keyboard(
+                    ticket.id, is_owner_user, is_pro, is_owner_user, is_ticket_owner
+                ),
+                parse_mode="HTML",
+            )
+
+        elif query.data.startswith("ticket_resolve_"):
+            ticket_id = int(query.data.split("_")[-1])
+            if is_owner_user:
+                success = await TicketRepo.admin_close_ticket(ticket_id)
+            else:
+                success = await TicketRepo.close_ticket(ticket_id, user_id)
+            if success:
+                await query.edit_message_text(
+                    support_ui.get_close_success(ticket_id),
+                    reply_markup=support_ui.get_back_button(),
+                    parse_mode="HTML",
+                )
+            else:
+                await query.edit_message_text(
+                    support_ui.get_close_failure(),
+                    reply_markup=support_ui.get_back_button(),
+                    parse_mode="HTML",
+                )
+
+        elif query.data.startswith("ticket_inprogress_"):
+            ticket_id = int(query.data.split("_")[-1])
+            if is_owner_user:
+                await TicketRepo.set_in_progress(ticket_id)
+            ticket = await TicketRepo.get_ticket(ticket_id)
+            if ticket:
+                await query.edit_message_text(
+                    support_ui.get_ticket_status_msg(ticket, is_pro, is_owner_user),
+                    reply_markup=support_ui.get_ticket_detail_keyboard(
+                        ticket.id, is_owner_user, is_pro, is_owner_user, ticket.user_id == user_id
+                    ),
+                    parse_mode="HTML",
+                )
+
+        elif query.data.startswith("sup_rate_"):
+            parts = query.data.split("_")
+            if len(parts) >= 4:
+                ticket_id = int(parts[2])
+                rating = int(parts[3])
+                await TicketRepo.set_rating(ticket_id, rating)
+                await query.edit_message_text(
+                    f"⭐ <b>Thank you!</b>\nYou rated ticket #{ticket_id} as <b>{rating}/5</b>.",
+                    reply_markup=support_ui.get_back_button(),
+                    parse_mode="HTML",
+                )
+
+        elif query.data.startswith("sup_canned_"):
+            tag = query.data.split("_", 2)[-1]
+            canned = await CannedRepo.get_canned(tag)
+            if canned:
+                text = f"<b>Template: {html.escape(canned.tag)}</b>\n\n{html.escape(canned.content)}"
+            else:
+                text = "Template not found."
+            await query.edit_message_text(text, reply_markup=support_ui.get_back_button(), parse_mode="HTML")
+
+        elif query.data == "sup_activate_help":
+            await query.edit_message_text(
+                support_ui.get_activate_help(),
+                reply_markup=support_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
         elif query.data.startswith("sup_noop"):
             pass
 
@@ -458,6 +562,8 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except BadRequest as e:
         if "not modified" not in str(e).lower():
             logger.error(f"UI Error: {e}")
+    except Exception as e:
+        logger.error(f"❌ Unhandled exception in support handle_dashboard: {e}", exc_info=True)
 
 
 async def auto_close_stale_tickets():

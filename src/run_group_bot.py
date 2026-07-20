@@ -1,5 +1,7 @@
 import asyncio
+import contextlib
 from datetime import UTC, datetime
+from html import escape
 
 from fastapi import APIRouter, Request, Response
 from telegram import Update
@@ -43,6 +45,8 @@ from zenith_group_bot.pro_handlers import (
     cmd_wordlist,
 )
 from zenith_group_bot.repository import (
+    AuditLogRepo,
+    GroupRepo,
     ScheduleRepo,
     SettingsRepo,
 )
@@ -50,10 +54,17 @@ from zenith_group_bot.setup_flow import cmd_setup, setup_callback
 from zenith_group_bot.ui import (
     get_activate_help,
     get_admin_dashboard,
+    get_analytics_msg,
+    get_audit_log_msg,
     get_back_button,
+    get_confirm_reset,
     get_dashboard_help_msg,
     get_dashboard_main_msg,
+    get_forgive_result,
     get_group_list_msg,
+    get_group_picker,
+    get_group_settings_keyboard,
+    get_reset_result,
     get_start_group_msg,
     get_status_msg,
 )
@@ -94,7 +105,8 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if not query:
         return
-    await query.answer()
+    with contextlib.suppress(Exception):
+        await query.answer()
     user_id = query.from_user.id
     data = query.data
 
@@ -122,11 +134,13 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data == "grp_list":
             groups = await SettingsRepo.get_owned_groups(user_id)
             text = get_group_list_msg(groups)
-            await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
+            await query.edit_message_text(
+                text,
+                reply_markup=get_group_picker(groups, "grp_config", is_pro),
+                parse_mode="HTML",
+            )
 
         elif data in (
-            "grp_analytics_pick",
-            "grp_audit_pick",
             "grp_words_help",
             "grp_schedule_help",
             "grp_welcome_help",
@@ -138,9 +152,125 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
 
+        elif data == "grp_analytics_pick":
+            groups = await SettingsRepo.get_owned_groups(user_id)
+            await query.edit_message_text(
+                get_dashboard_help_msg(data),
+                reply_markup=get_group_picker(groups, "grp_analytics", is_pro),
+                parse_mode="HTML",
+            )
+
+        elif data == "grp_audit_pick":
+            groups = await SettingsRepo.get_owned_groups(user_id)
+            await query.edit_message_text(
+                get_dashboard_help_msg(data),
+                reply_markup=get_group_picker(groups, "grp_audit", is_pro),
+                parse_mode="HTML",
+            )
+
+        elif data.startswith("grp_analytics_") and not data == "grp_analytics_pick":
+            chat_id = int(data.rsplit("_", 1)[-1])
+            day_stats = await AuditLogRepo.count_actions(chat_id, hours=24)
+            week_stats = await AuditLogRepo.count_actions(chat_id, hours=168)
+            total = await AuditLogRepo.total_actions(chat_id)
+            top_violators = await AuditLogRepo.get_top_violators(chat_id, hours=168, limit=5)
+            text = get_analytics_msg(day_stats, week_stats, total, top_violators)
+            await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
+
+        elif data.startswith("grp_audit_") and not data == "grp_audit_pick":
+            chat_id = int(data.rsplit("_", 1)[-1])
+            entries = await AuditLogRepo.get_recent(chat_id, limit=20)
+            text = get_audit_log_msg(entries)
+            await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
+
+        elif data.startswith("grp_config_") or data.startswith("grp_settings_"):
+            chat_id = int(data.rsplit("_", 1)[-1])
+            settings = await SettingsRepo.get_settings(chat_id)
+            settings_dict = {}
+            if settings:
+                settings_dict = {
+                    "anti_spam": "spam" in (settings.features or "both") or settings.features == "both",
+                    "anti_abuse": "abuse" in (settings.features or "both") or settings.features == "both",
+                    "flood_control": settings.strength != "low",
+                }
+            name = settings.group_name if settings else f"Group {chat_id}"
+            text = f"<b>Group Configuration</b>\n\nCommunity: <b>{escape(name or str(chat_id))}</b>\nSelect settings below to toggle:"
+            await query.edit_message_text(
+                text,
+                reply_markup=get_group_settings_keyboard(chat_id, settings_dict),
+                parse_mode="HTML",
+            )
+
+        elif data.startswith("grp_toggle_spam_") or data.startswith("grp_toggle_abuse_") or data.startswith("grp_toggle_flood_"):
+            parts = data.rsplit("_", 1)
+            chat_id = int(parts[-1])
+            toggle_type = data.split("_")[2]
+            settings = await SettingsRepo.get_settings(chat_id)
+            if settings:
+                current_features = settings.features or "both"
+                current_strength = settings.strength or "medium"
+                if toggle_type == "spam":
+                    if current_features == "both":
+                        new_features = "abuse"
+                    elif current_features == "spam":
+                        new_features = "none"
+                    elif current_features == "abuse":
+                        new_features = "both"
+                    else:
+                        new_features = "spam"
+                    await SettingsRepo.upsert_settings(chat_id, user_id, settings.group_name, features=new_features)
+                elif toggle_type == "abuse":
+                    if current_features == "both":
+                        new_features = "spam"
+                    elif current_features == "abuse":
+                        new_features = "none"
+                    elif current_features == "spam":
+                        new_features = "both"
+                    else:
+                        new_features = "abuse"
+                    await SettingsRepo.upsert_settings(chat_id, user_id, settings.group_name, features=new_features)
+                elif toggle_type == "flood":
+                    new_strength = "low" if current_strength != "low" else "medium"
+                    await SettingsRepo.upsert_settings(chat_id, user_id, settings.group_name, strength=new_strength)
+
+            settings = await SettingsRepo.get_settings(chat_id)
+            settings_dict = {
+                "anti_spam": "spam" in (settings.features or "both") or settings.features == "both" if settings else True,
+                "anti_abuse": "abuse" in (settings.features or "both") or settings.features == "both" if settings else True,
+                "flood_control": (settings.strength != "low") if settings else True,
+            }
+            name = settings.group_name if settings else f"Group {chat_id}"
+            text = f"<b>Group Configuration</b>\n\nCommunity: <b>{escape(name or str(chat_id))}</b>\nSelect settings below to toggle:"
+            await query.edit_message_text(
+                text,
+                reply_markup=get_group_settings_keyboard(chat_id, settings_dict),
+                parse_mode="HTML",
+            )
+
+        elif data.startswith("grp_forgive_confirm_"):
+            target_id = int(data.rsplit("_", 1)[-1])
+            groups = await SettingsRepo.get_owned_groups(user_id)
+            success = False
+            for g in groups:
+                if await GroupRepo.forgive_user(target_id, g.chat_id):
+                    success = True
+            await query.edit_message_text(get_forgive_result(success), reply_markup=get_back_button(), parse_mode="HTML")
+
+        elif data.startswith("grp_reset_confirm"):
+            if "_" in data:
+                chat_id = int(data.rsplit("_", 1)[-1])
+                success = await SettingsRepo.wipe_group_container(chat_id, user_id)
+            else:
+                groups = await SettingsRepo.get_owned_groups(user_id)
+                success = False
+                for g in groups:
+                    if await SettingsRepo.wipe_group_container(g.chat_id, user_id):
+                        success = True
+            await query.edit_message_text(get_reset_result(success), reply_markup=get_back_button(), parse_mode="HTML")
+
     except Exception as e:
         if "not modified" not in str(e).lower():
-            logger.error(f"Dashboard error: {e}")
+            logger.error(f"Group Dashboard error: {e}", exc_info=True)
 
 
 async def scheduled_message_loop():

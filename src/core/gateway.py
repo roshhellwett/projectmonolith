@@ -40,9 +40,21 @@ class TelegramRequestValidator:
         if not user or user.id <= 0:
             return False, "Invalid or missing user ID"
 
-        chat = update.effective_chat
-        if not chat or chat.id == 0:
-            return False, "Invalid or missing chat ID"
+        # Check chat validity only when message/channel_post is directly present
+        # CallbackQuery, InlineQuery, and other queries/membership updates may not have a valid effective_chat or may have Chat(id=0)
+        is_query_or_member_update = bool(
+            update.callback_query
+            or update.inline_query
+            or update.chosen_inline_result
+            or update.pre_checkout_query
+            or update.shipping_query
+            or update.my_chat_member
+            or update.chat_member
+        )
+        if not is_query_or_member_update:
+            chat = update.effective_chat
+            if not chat or chat.id == 0:
+                return False, "Invalid or missing chat ID"
 
         msg = update.effective_message
         if msg:
@@ -151,7 +163,7 @@ def resolve_webhook_url(bot_name: str) -> str:
 
 
 async def setup_bot_webhook(bot_app, bot_name: str) -> None:
-    """Register webhook for a bot with shared error handling."""
+    """Register webhook for a bot with shared error handling. Starts polling if WEBHOOK_URL is unconfigured."""
     from core.config import WEBHOOK_SECRET
     from core.logger import setup_logger as _setup_logger
 
@@ -159,6 +171,13 @@ async def setup_bot_webhook(bot_app, bot_name: str) -> None:
     url = resolve_webhook_url(bot_name)
     if not url:
         _log.warning(f"Webhook URL not configured — {bot_name} running in polling mode")
+        try:
+            await bot_app.bot.delete_webhook(drop_pending_updates=True)
+            if bot_app.updater and not bot_app.updater.running:
+                await bot_app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+                _log.info(f"✅ {bot_name} started in polling mode")
+        except Exception as e:
+            _log.error(f"❌ {bot_name} polling setup failed: {e}")
         return
     try:
         await bot_app.bot.set_webhook(
@@ -181,13 +200,16 @@ def attach_gateway(bot_app, bot_name: str):
     original_process_update = bot_app.process_update
 
     async def wrapped_process_update(update: object):
-        if isinstance(update, Update):
+        try:
+            if isinstance(update, Update):
 
-            async def next_call(u, c):
-                return await original_process_update(u)
+                async def next_call(u, c):
+                    return await original_process_update(u)
 
-            await gateway_middleware(update, bot_app.create_context(update), next_call)
-        else:
-            await original_process_update(update)
+                await gateway_middleware(update, bot_app.create_context(update), next_call)
+            else:
+                await original_process_update(update)
+        except Exception as e:
+            logger.error(f"❌ Unhandled exception in {bot_name} update loop: {e}", exc_info=True)
 
     bot_app.process_update = wrapped_process_update

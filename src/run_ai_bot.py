@@ -257,7 +257,10 @@ async def cmd_delkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
     user_id = query.from_user.id
     is_pro = await SubscriptionRepo.is_pro(user_id)
 

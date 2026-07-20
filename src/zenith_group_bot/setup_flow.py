@@ -1,3 +1,4 @@
+import contextlib
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
@@ -88,7 +89,10 @@ async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def setup_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if not query:
+        return
+    with contextlib.suppress(Exception):
+        await query.answer()
     user_id = query.from_user.id
 
     if user_id not in setup_state:
