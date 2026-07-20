@@ -91,14 +91,17 @@ async def start_service():
     await bot_app.initialize()
     await bot_app.start()
 
-    await setup_bot_webhook(bot_app, "admin")
-
     try:
         await start_monitoring(bot_app)
     except Exception as e:
         logger.warning(f"Monitoring startup skipped (DB unavailable): {e}")
 
     logger.info("Admin Bot: Online")
+
+
+async def register_webhook():
+    if bot_app:
+        await setup_bot_webhook(bot_app, "admin")
 
 
 async def stop_service(dispose_db: bool = False):

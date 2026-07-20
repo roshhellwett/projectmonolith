@@ -662,13 +662,16 @@ async def start_service():
     await bot_app.initialize()
     await bot_app.start()
 
-    await setup_bot_webhook(bot_app, "crypto")
-
     track_task(asyncio.create_task(safe_loop("dispatcher", alert_dispatcher)))
     track_task(asyncio.create_task(safe_loop("watcher", active_blockchain_watcher)))
     track_task(asyncio.create_task(safe_loop("price_alerts", price_alert_checker)))
     track_task(asyncio.create_task(safe_loop("wallet_watcher", wallet_watcher)))
     track_task(asyncio.create_task(safe_loop("sub_monitor", subscription_monitor)))
+
+
+async def register_webhook():
+    if bot_app:
+        await setup_bot_webhook(bot_app, "crypto")
 
 
 async def stop_service(dispose_db: bool = False):

@@ -643,10 +643,13 @@ async def start_service():
     await bot_app.initialize()
     await bot_app.start()
 
-    await setup_bot_webhook(bot_app, "support")
-
     track_task(asyncio.create_task(safe_loop("auto_close", auto_close_stale_tickets)))
     await start_ticket_scheduler()
+
+
+async def register_webhook():
+    if bot_app:
+        await setup_bot_webhook(bot_app, "support")
 
 
 async def stop_service(dispose_db: bool = False):

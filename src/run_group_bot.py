@@ -363,10 +363,13 @@ async def start_service():
     await bot_app.initialize()
     await bot_app.start()
 
-    await setup_bot_webhook(bot_app, "group")
-
     track_task(asyncio.create_task(safe_loop("scheduled_messages", scheduled_message_loop)))
     logger.info("⏰ Scheduled Message Loop: Online")
+
+
+async def register_webhook():
+    if bot_app:
+        await setup_bot_webhook(bot_app, "group")
 
 
 async def stop_service(dispose_db: bool = False):

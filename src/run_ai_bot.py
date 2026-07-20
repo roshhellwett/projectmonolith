@@ -520,10 +520,13 @@ async def start_service():
     await bot_app.initialize()
     await bot_app.start()
 
-    await setup_bot_webhook(bot_app, "ai")
-
     worker_tasks = [asyncio.create_task(ai_worker()) for _ in range(5)]
     logger.info("AI Worker Pool: Online (5 workers)")
+
+
+async def register_webhook():
+    if bot_app:
+        await setup_bot_webhook(bot_app, "ai")
 
 
 async def stop_service(dispose_db: bool = False):

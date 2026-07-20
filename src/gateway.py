@@ -139,6 +139,24 @@ async def lifespan(app: FastAPI):
     total = len(SERVICE_REGISTRY)
     logger.info(f"📊 MONOLITH READY: {online}/{total} services online")
 
+    async def _register_webhooks():
+        await asyncio.sleep(3)
+        for label, reg in [
+            ("GROUP", run_group_bot.register_webhook),
+            ("AI", run_ai_bot.register_webhook),
+            ("CRYPTO", run_crypto_bot.register_webhook),
+            ("SUPPORT", run_support_bot.register_webhook),
+            ("ADMIN", run_admin_bot.register_webhook),
+        ]:
+            try:
+                await asyncio.wait_for(reg(), timeout=30.0)
+                logger.info(f"✅ {label} webhook registered")
+            except Exception as e:
+                logger.error(f"❌ {label} webhook registration failed: {e}")
+            await asyncio.sleep(1)
+
+    asyncio.create_task(_register_webhooks())
+
     yield
 
     logger.info("🛑 MONOLITH SHUTDOWN")
