@@ -191,7 +191,7 @@ async def setup_bot_webhook(bot_app, bot_name: str) -> None:
         return
     try:
         with contextlib.suppress(Exception):
-            await bot_app.bot.delete_webhook(drop_pending_updates=False)
+            await bot_app.bot.delete_webhook(drop_pending_updates=True)
         await bot_app.bot.set_webhook(
             url=url,
             secret_token=WEBHOOK_SECRET,

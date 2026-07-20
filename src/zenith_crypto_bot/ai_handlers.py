@@ -3,6 +3,7 @@ import contextlib
 import re
 
 from telegram import Update
+from telegram.error import RetryAfter
 from telegram.ext import ContextTypes
 
 from core.animation import send_typing_action
@@ -85,6 +86,10 @@ async def cmd_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
+    except RetryAfter as e:
+        await asyncio.sleep(e.retry_after)
+        text, kb = crypto_ui.get_ai_server_error_msg()
+        await _edit_with_final(msg, text, kb)
     except Exception as e:
         logger.error(f"AI handler error: {e}")
         text, kb = crypto_ui.get_ai_server_error_msg()
@@ -178,6 +183,10 @@ async def handle_ai_followup(update: Update, context: ContextTypes.DEFAULT_TYPE)
             except Exception:
                 pass
 
+    except RetryAfter as e:
+        await asyncio.sleep(e.retry_after)
+        text, kb = crypto_ui.get_ai_server_error_msg()
+        await _edit_with_final(msg, text, kb)
     except Exception as e:
         logger.error(f"AI followup error: {e}")
         text, kb = crypto_ui.get_ai_server_error_msg()

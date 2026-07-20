@@ -43,14 +43,15 @@ SERVICE_REGISTRY = {}
 
 
 async def rate_limit(request: Request):
-    if "/webhook/" in request.url.path:
-        return True
-
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         client_ip = forwarded.split(",")[0].strip()
     else:
         client_ip = "unknown" if not request.client else request.client.host or "unknown"
+
+    if "/webhook/" in request.url.path:
+        webhook_rate[client_ip] = webhook_rate.get(client_ip, 0) + 1
+        return webhook_rate[client_ip] <= 100
 
     api_rate[client_ip] = api_rate.get(client_ip, 0) + 1
     return api_rate[client_ip] <= 50
@@ -123,13 +124,16 @@ async def lifespan(app: FastAPI):
             SERVICE_REGISTRY[name] = f"failed: {e}"
             logger.error(f"❌ {name} failed to start: {e}")
 
-    await asyncio.gather(
-        safe_start("GROUP", run_group_bot.start_service),
-        safe_start("AI", run_ai_bot.start_service),
-        safe_start("CRYPTO", run_crypto_bot.start_service),
-        safe_start("SUPPORT", run_support_bot.start_service),
-        safe_start("ADMIN", run_admin_bot.start_service),
-    )
+    services = [
+        ("GROUP", run_group_bot.start_service),
+        ("AI", run_ai_bot.start_service),
+        ("CRYPTO", run_crypto_bot.start_service),
+        ("SUPPORT", run_support_bot.start_service),
+        ("ADMIN", run_admin_bot.start_service),
+    ]
+    for name, func in services:
+        await safe_start(name, func)
+        await asyncio.sleep(1)
 
     online = sum(1 for v in SERVICE_REGISTRY.values() if v == "online")
     total = len(SERVICE_REGISTRY)
