@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, func, select
 
@@ -51,7 +51,7 @@ class UsageRepo:
     @staticmethod
     @db_retry
     async def _get_or_create(session, user_id: int) -> AIUsageLog:
-        today = date.today()
+        today = datetime.now(UTC).date()
         stmt = select(AIUsageLog).where(AIUsageLog.user_id == user_id, AIUsageLog.usage_date == today)
         row = (await session.execute(stmt)).scalar_one_or_none()
         if not row:

@@ -109,7 +109,7 @@ async def check_single_bot(bot):
             f"🚨 <b>BOT DOWN ALERT</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"<b>Bot:</b> {bot.bot_name}\n"
             f"<b>Status:</b> Error - not responding\n"
-            f"<b>Time:</b> {datetime.now().strftime('%d %b %Y %H:%M UTC')}"
+            f"<b>Time:</b> {now.strftime('%d %b %Y %H:%M UTC')}"
         )
         last_alert_time[alert_key] = now
 
@@ -123,7 +123,7 @@ async def check_single_bot(bot):
             f"✅ <b>BOT RECOVERED</b>\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"<b>Bot:</b> {bot.bot_name}\n"
             f"<b>Status:</b> Back online\n"
-            f"<b>Time:</b> {datetime.now().strftime('%d %b %Y %H:%M UTC')}"
+            f"<b>Time:</b> {now.strftime('%d %b %Y %H:%M UTC')}"
         )
         last_alert_time[alert_key] = now
 

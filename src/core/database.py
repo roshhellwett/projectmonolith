@@ -77,6 +77,49 @@ def get_session() -> sessionmaker:
     return _sessionmaker_instance
 
 
+def db_retry(func):
+    """Retry decorator for database operations. Only retries on connection/operational errors."""
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        last_error = None
+        for attempt in range(3):
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                error_name = type(e).__name__
+                retryable = isinstance(e, ConnectionError | OSError | TimeoutError | asyncio.TimeoutError) or (
+                    error_name
+                    in (
+                        "OperationalError",
+                        "InterfaceError",
+                        "DisconnectionError",
+                        "ConnectionRefusedError",
+                        "ConnectionDoesNotExistError",
+                        "ConnectionError",
+                        "InternalError",
+                        "InvalidCachedStatementError",
+                        "PoolError",
+                    )
+                )
+                if not retryable or attempt == 2:
+                    logger.error(
+                        f"\n┌── 🚨 SECTOR ERROR DIAGNOSTIC ──┐\n"
+                        f"│ Sector:   DATABASE ({func.__name__})\n"
+                        f"│ Error:    {error_name}: {e}\n"
+                        f"└────────────────────────────────┘"
+                    )
+                    raise
+                last_error = e
+                logger.warning(f"DB retry {attempt + 1}/3 in {func.__name__}: {error_name}: {e}")
+                await asyncio.sleep(0.5 * (2**attempt))
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"Database operation {func.__name__} failed after retries")
+
+    return wrapper
+
+
 _init_lock: asyncio.Lock | None = None
 
 
@@ -87,6 +130,7 @@ def _get_init_lock() -> asyncio.Lock:
     return _init_lock
 
 
+@db_retry
 async def init_db():
     from sqlalchemy import inspect
 
@@ -140,46 +184,3 @@ async def dispose_engine():
             _engine = None
             _sessionmaker_instance = None
             logger.info("Database engine disposed")
-
-
-def db_retry(func):
-    """Retry decorator for database operations. Only retries on connection/operational errors."""
-
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        last_error = None
-        for attempt in range(3):
-            try:
-                return await func(*args, **kwargs)
-            except Exception as e:
-                error_name = type(e).__name__
-                retryable = isinstance(e, ConnectionError | OSError | TimeoutError | asyncio.TimeoutError) or (
-                    error_name
-                    in (
-                        "OperationalError",
-                        "InterfaceError",
-                        "DisconnectionError",
-                        "ConnectionRefusedError",
-                        "ConnectionDoesNotExistError",
-                        "ConnectionError",
-                        "InternalError",
-                        "InvalidCachedStatementError",
-                        "PoolError",
-                    )
-                )
-                if not retryable or attempt == 2:
-                    logger.error(
-                        f"\n┌── 🚨 SECTOR ERROR DIAGNOSTIC ──┐\n"
-                        f"│ Sector:   DATABASE ({func.__name__})\n"
-                        f"│ Error:    {error_name}: {e}\n"
-                        f"└────────────────────────────────┘"
-                    )
-                    raise
-                last_error = e
-                logger.warning(f"DB retry {attempt + 1}/3 in {func.__name__}: {error_name}: {e}")
-                await asyncio.sleep(0.5 * (2**attempt))
-        if last_error is not None:
-            raise last_error
-        raise RuntimeError(f"Database operation {func.__name__} failed after retries")
-
-    return wrapper

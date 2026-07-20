@@ -1,8 +1,7 @@
-from datetime import UTC, datetime
-
 from sqlalchemy import BigInteger, Column, Date, DateTime, Integer, String, Text
 
 from core.database import Base
+from utils.time_util import utc_now
 
 AIBase = Base
 
@@ -13,7 +12,7 @@ class AIConversation(AIBase):
     user_id = Column(BigInteger, index=True, nullable=False)
     role = Column(String(10), nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=utc_now)
 
 
 class AIUsageLog(AIBase):

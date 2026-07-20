@@ -72,7 +72,23 @@ logger = setup_logger("SVC_GROUP")
 router = APIRouter()
 
 bot_app = None
-bg_tasks = []
+background_tasks = set()
+
+
+def track_task(task):
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.discard)
+
+
+async def safe_loop(name, coro):
+    while True:
+        try:
+            await coro()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Loop '{name}' crashed: {e}")
+            await asyncio.sleep(5)
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -290,27 +306,23 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def scheduled_message_loop():
-    while True:
+    now = datetime.now(UTC)
+    due = await ScheduleRepo.get_due_messages(now.hour, now.minute)
+    for msg in due:
         try:
-            now = datetime.now(UTC)
-            due = await ScheduleRepo.get_due_messages(now.hour, now.minute)
-            for msg in due:
-                try:
-                    await bot_app.bot.send_message(
-                        chat_id=msg.chat_id,
-                        text=msg.message_text,
-                        parse_mode="HTML",
-                    )
-                    await ScheduleRepo.mark_sent(msg.id)
-                except Exception as e:
-                    logger.warning(f"Scheduled msg send failed (chat {msg.chat_id}): {e}")
+            await bot_app.bot.send_message(
+                chat_id=msg.chat_id,
+                text=msg.message_text,
+                parse_mode="HTML",
+            )
+            await ScheduleRepo.mark_sent(msg.id)
         except Exception as e:
-            logger.error(f"Scheduled loop error: {e}")
-        await asyncio.sleep(60)
+            logger.warning(f"Scheduled msg send failed (chat {msg.chat_id}): {e}")
+    await asyncio.sleep(60)
 
 
 async def start_service():
-    global bot_app, bg_tasks
+    global bot_app
     if not GROUP_BOT_TOKEN:
         logger.warning("GROUP_BOT_TOKEN missing! Group Service disabled.")
         return
@@ -353,12 +365,12 @@ async def start_service():
 
     await setup_bot_webhook(bot_app, "group")
 
-    bg_tasks.append(asyncio.create_task(scheduled_message_loop()))
+    track_task(asyncio.create_task(safe_loop("scheduled_messages", scheduled_message_loop)))
     logger.info("⏰ Scheduled Message Loop: Online")
 
 
 async def stop_service(dispose_db: bool = False):
-    for task in bg_tasks:
+    for task in list(background_tasks):
         task.cancel()
     if bot_app:
         await bot_app.stop()

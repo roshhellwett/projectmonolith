@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -285,8 +285,13 @@ def format_subscription_list(subscriptions: list) -> str:
         return "<b>Active Subscriptions</b>\n\nNo active subscriptions."
     lines = ["<b>Active Subscriptions</b>"]
     for sub in subscriptions[:20]:
-        expires = sub.expires_at.strftime("%d %b %Y") if sub.expires_at else "N/A"
-        days_left = (sub.expires_at - datetime.now()).days if sub.expires_at else 0
+        if sub.expires_at:
+            expires = sub.expires_at.strftime("%d %b %Y")
+            now_tz = datetime.now(UTC) if getattr(sub.expires_at, "tzinfo", None) is not None else datetime.now(UTC).replace(tzinfo=None)
+            days_left = (sub.expires_at - now_tz).days
+        else:
+            expires = "N/A"
+            days_left = 0
         lines.append(f"\u2022 <code>{sub.user_id}</code> \u2014 {expires} ({days_left}d)")
     if len(subscriptions) > 20:
         lines.append(f"\n...and {len(subscriptions) - 20} more")

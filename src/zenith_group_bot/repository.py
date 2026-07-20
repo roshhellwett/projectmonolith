@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from cachetools import TTLCache
 from sqlalchemy import delete, func, select, update
@@ -349,7 +349,7 @@ class ScheduleRepo:
     @db_retry
     async def get_due_messages(current_hour: int, current_minute: int) -> list:
         async with AsyncSessionLocal() as session:
-            now = datetime.now(UTC).replace(tzinfo=None)
+            now = utc_now()
             one_hour_ago = now - timedelta(hours=1)
             stmt = (
                 select(ScheduledMessage)
@@ -371,7 +371,7 @@ class ScheduleRepo:
                 .where(
                     ScheduledMessage.id == schedule_id,
                 )
-                .values(last_sent=datetime.now(UTC).replace(tzinfo=None))
+                .values(last_sent=utc_now())
             )
             await session.execute(stmt)
             await session.commit()
@@ -452,7 +452,7 @@ class AuditLogRepo:
     @db_retry
     async def count_actions(chat_id: int, hours: int = 24) -> dict:
         async with AsyncSessionLocal() as session:
-            cutoff = datetime.now(UTC) - timedelta(hours=hours)
+            cutoff = utc_now() - timedelta(hours=hours)
             stmt = (
                 select(
                     ModerationLog.action,
@@ -471,7 +471,7 @@ class AuditLogRepo:
     @db_retry
     async def get_top_violators(chat_id: int, hours: int = 168, limit: int = 5) -> list:
         async with AsyncSessionLocal() as session:
-            cutoff = datetime.now(UTC) - timedelta(hours=hours)
+            cutoff = utc_now() - timedelta(hours=hours)
             stmt = (
                 select(
                     ModerationLog.username,
