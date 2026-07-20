@@ -43,14 +43,17 @@ SERVICE_REGISTRY = {}
 
 
 async def rate_limit(request: Request):
-    client_ip = "unknown" if not request.client else request.client.host or "unknown"
-
     if "/webhook/" in request.url.path:
-        webhook_rate[client_ip] = webhook_rate.get(client_ip, 0) + 1
-        return webhook_rate[client_ip] <= 200
+        return True
+
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
     else:
-        api_rate[client_ip] = api_rate.get(client_ip, 0) + 1
-        return api_rate[client_ip] <= 50
+        client_ip = "unknown" if not request.client else request.client.host or "unknown"
+
+    api_rate[client_ip] = api_rate.get(client_ip, 0) + 1
+    return api_rate[client_ip] <= 50
 
 
 async def check_request_size(request: Request):
