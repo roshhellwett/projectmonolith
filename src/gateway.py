@@ -12,7 +12,6 @@ import run_ai_bot
 import run_crypto_bot
 import run_group_bot
 import run_support_bot
-from core.circuit_breaker import get_all_breaker_statuses
 from core.config import DATABASE_URL, MAINTENANCE_MODE, PORT, WEBHOOK_SECRET
 from core.data_cleanup import run_cleanup
 from core.database import dispose_engine, get_engine, init_db
@@ -101,9 +100,6 @@ async def _diagnose_network():
             logger.warning(f"🌐 {label} → {host} DNS FAILED: {e}")
 
 
-_startup_done: bool = False
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 MONOLITH STARTING")
@@ -112,7 +108,6 @@ async def lifespan(app: FastAPI):
     await _diagnose_network()
 
     async def _startup():
-        global _startup_done
         try:
             await init_db()
             await start_health_monitor(get_engine())
@@ -159,8 +154,6 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"❌ {label} webhook registration failed: {e}")
             await asyncio.sleep(1)
-
-        _startup_done = True
 
     asyncio.create_task(_startup())
 
@@ -250,28 +243,16 @@ app.include_router(webhook_router)
 
 @app.get("/health")
 async def health():
-    if not _startup_done:
-        return JSONResponse(
-            {
-                "status": "starting",
-                "db_healthy": is_db_healthy(),
-                "maintenance_mode": MAINTENANCE_MODE,
-                "services": {k: v for k, v in SERVICE_REGISTRY.items() if v is not None},
-            },
-            status_code=200,
-        )
-    db_ok = is_db_healthy()
-    breakers = get_all_breaker_statuses()
-    all_breakers_closed = all(b.get("state") == "closed" for b in breakers)
-    healthy = db_ok and all_breakers_closed and not MAINTENANCE_MODE
+    if MAINTENANCE_MODE:
+        return JSONResponse({"status": "maintenance"}, status_code=503)
     return JSONResponse(
         {
-            "status": "ok" if healthy else "degraded",
-            "db_healthy": db_ok,
+            "status": "ok",
+            "db_healthy": is_db_healthy(),
             "maintenance_mode": MAINTENANCE_MODE,
             "services": {k: v for k, v in SERVICE_REGISTRY.items() if v is not None},
         },
-        status_code=200 if healthy else 503,
+        status_code=200,
     )
 
 
