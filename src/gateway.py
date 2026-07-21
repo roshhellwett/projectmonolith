@@ -101,20 +101,25 @@ async def _diagnose_network():
             logger.warning(f"🌐 {label} → {host} DNS FAILED: {e}")
 
 
+_startup_done: bool = False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 MONOLITH STARTING")
 
     _validate_environment()
     await _diagnose_network()
-    try:
-        await init_db()
-        await start_health_monitor(get_engine())
-    except Exception as e:
-        set_db_unhealthy()
-        logger.error(f"❌ Database init failed: {e}")
 
-    async def _start_services():
+    async def _startup():
+        global _startup_done
+        try:
+            await init_db()
+            await start_health_monitor(get_engine())
+        except Exception as e:
+            set_db_unhealthy()
+            logger.error(f"❌ Database init failed: {e}")
+
         async def safe_start(name, func):
             try:
                 await asyncio.wait_for(func(), timeout=30.0)
@@ -155,7 +160,9 @@ async def lifespan(app: FastAPI):
                 logger.error(f"❌ {label} webhook registration failed: {e}")
             await asyncio.sleep(1)
 
-    asyncio.create_task(_start_services())
+        _startup_done = True
+
+    asyncio.create_task(_startup())
 
     async def _daily_cleanup():
         await asyncio.sleep(3600)
@@ -243,11 +250,20 @@ app.include_router(webhook_router)
 
 @app.get("/health")
 async def health():
+    if not _startup_done:
+        return JSONResponse(
+            {
+                "status": "starting",
+                "db_healthy": is_db_healthy(),
+                "maintenance_mode": MAINTENANCE_MODE,
+                "services": {k: v for k, v in SERVICE_REGISTRY.items() if v is not None},
+            },
+            status_code=200,
+        )
     db_ok = is_db_healthy()
     breakers = get_all_breaker_statuses()
     all_breakers_closed = all(b.get("state") == "closed" for b in breakers)
     healthy = db_ok and all_breakers_closed and not MAINTENANCE_MODE
-    status_code = 200 if healthy else 503
     return JSONResponse(
         {
             "status": "ok" if healthy else "degraded",
@@ -255,7 +271,7 @@ async def health():
             "maintenance_mode": MAINTENANCE_MODE,
             "services": {k: v for k, v in SERVICE_REGISTRY.items() if v is not None},
         },
-        status_code=status_code,
+        status_code=200 if healthy else 503,
     )
 
 
