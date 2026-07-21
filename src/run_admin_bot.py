@@ -136,7 +136,7 @@ async def admin_webhook(secret: str, request: Request):
 
     try:
         data = await request.json()
-        dedup = get_update_id_dedup_cache()
+        dedup = get_update_id_dedup_cache("ADMIN")
         update_id = data.get("update_id", 0)
         if update_id and update_id in dedup:
             return Response(status_code=200)

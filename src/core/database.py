@@ -57,7 +57,7 @@ def get_engine() -> AsyncEngine:
                 pool_recycle=3600,
                 pool_timeout=5,
                 pool_use_lifo=True,
-                connect_args={},
+                connect_args={"statement_cache_size": 0},
                 execution_options={"prepared_statement_cache_size": 0},
             )
         logger.info("Database engine created")
@@ -131,6 +131,12 @@ def _get_init_lock() -> asyncio.Lock:
 @db_retry
 async def init_db():
     async with _get_init_lock():
+        import zenith_admin_bot.models  # noqa: F401
+        import zenith_ai_bot.models  # noqa: F401
+        import zenith_crypto_bot.models  # noqa: F401
+        import zenith_group_bot.models  # noqa: F401
+        import zenith_support_bot.models  # noqa: F401
+
         engine = get_engine()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

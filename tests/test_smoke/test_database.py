@@ -14,6 +14,24 @@ class TestDatabaseEngine:
         session = get_session()
         assert callable(session)
 
+    def test_get_engine_postgres_connect_args(self):
+        import core.database as db_mod
+        from unittest.mock import patch
+
+        old_engine = db_mod._engine
+        try:
+            db_mod._engine = None
+            with patch("core.database.create_async_engine") as mock_create:
+                mock_create.return_value = "mock_engine"
+                with patch("core.database.DATABASE_URL", "postgresql+asyncpg://user:pass@localhost/db"):
+                    eng = db_mod.get_engine()
+                    assert eng == "mock_engine"
+                    assert mock_create.call_count == 1
+                    kwargs = mock_create.call_args[1]
+                    assert kwargs["connect_args"] == {"statement_cache_size": 0}
+        finally:
+            db_mod._engine = old_engine
+
 
 class TestDatabaseConnection:
     @pytest.mark.asyncio

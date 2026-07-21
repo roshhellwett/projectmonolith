@@ -21,14 +21,15 @@ from core.rate_limiter import SlidingWindowLimiter
 
 logger = setup_logger("GATEWAY")
 
-_seen_update_ids: TTLCache | None = None
+_seen_update_ids: dict[str, TTLCache] = {}
 
 
-def get_update_id_dedup_cache() -> TTLCache:
+def get_update_id_dedup_cache(bot_name: str = "default") -> TTLCache:
     global _seen_update_ids
-    if _seen_update_ids is None:
-        _seen_update_ids = TTLCache(maxsize=100000, ttl=300)
-    return _seen_update_ids
+    key = bot_name.upper()
+    if key not in _seen_update_ids:
+        _seen_update_ids[key] = TTLCache(maxsize=100000, ttl=300)
+    return _seen_update_ids[key]
 
 
 class TelegramRequestValidator:
@@ -235,6 +236,20 @@ def attach_gateway(bot_app, bot_name: str):
     from zenith_admin_bot.monitoring import register_bot_app
 
     register_bot_app(bot_name, bot_app)
+
+    original_add_handler = bot_app.add_handler
+
+    def wrapped_add_handler(handler, *args, **kwargs):
+        if hasattr(handler, "block"):
+            handler.block = True
+        return original_add_handler(handler, *args, **kwargs)
+
+    bot_app.add_handler = wrapped_add_handler
+
+    for handlers_in_group in bot_app.handlers.values():
+        for handler in handlers_in_group:
+            if hasattr(handler, "block"):
+                handler.block = True
 
     async def gateway_type_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Log incoming updates. Concurrency and validation are handled by gateway_middleware."""

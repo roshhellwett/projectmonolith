@@ -119,8 +119,8 @@ async def safe_send_message(
             return True
 
     # Try replying to message
-    if update.message or update.edited_message:
-        msg = update.message or update.edited_message
+    msg = update.message or update.edited_message or (update.callback_query.message if update.callback_query else None)
+    if msg:
         try:
             await msg.reply_text(text=text, parse_mode=parse_mode, reply_markup=reply_markup)
             return True
@@ -146,9 +146,11 @@ async def handle_bot_error(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if error is None:
         return
 
-    # Ignore "message not modified" errors — not a real problem
-    if isinstance(error, BadRequest) and "not modified" in str(error).lower():
-        return
+    # Ignore benign Telegram BadRequest errors (not modified, query too old/invalid)
+    if isinstance(error, BadRequest):
+        err_str = str(error).lower()
+        if any(msg in err_str for msg in ("not modified", "query is too old", "query id is invalid")):
+            return
 
     # Ignore user-blocked-bot errors
     if isinstance(error, Forbidden):
