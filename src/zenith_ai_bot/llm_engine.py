@@ -1,24 +1,40 @@
 from core.config import AI_SEARCH_TRIGGERS
 from core.llm_fallback import AIExecutionEngine
 from core.logger import setup_logger
+from core.secrets import get_cached_groq_key
 from zenith_ai_bot.prompts import CODE_PROMPT, IMAGINE_PROMPT, PERSONAS, RESEARCH_PROMPT, SUMMARIZE_PROMPT
+from zenith_ai_bot.repository import UsageRepo
 from zenith_ai_bot.search import perform_deep_research, perform_web_search
 from zenith_ai_bot.youtube import get_youtube_transcript
 
 logger = setup_logger("LLM_ENGINE")
 
 
+
+
+async def _check_and_record(user_id: int, query_text: str, response_text: str) -> tuple[bool, str]:
+    """Check quota and record token usage. Returns (allowed, message)."""
+    allowed, msg = await UsageRepo.check_quota(user_id)
+    if not allowed:
+        return False, msg
+    estimated = len(query_text) // 4 + len(response_text) // 4
+    await UsageRepo.record_tokens(user_id, max(1, estimated))
+    return True, ""
+
+
 async def process_ai_query(
+    user_id: int,
     user_text: str,
     context_data: str = None,
     persona: str = "default",
     max_tokens: int = 1024,
     history: list = None,
-    api_key: str = None,
     preferred_model: str = "llama-3.3-70b-versatile",
 ) -> str:
+    api_key = get_cached_groq_key()
     if not api_key:
-        return "Your Groq API key is not set. Use /setkey to configure your key."
+        return "⚠️ AI service is not configured. Please contact the admin."
+
     external_context = ""
 
     if "youtube.com/watch" in user_text or "youtu.be/" in user_text:
@@ -53,12 +69,17 @@ async def process_ai_query(
         temperature=0.5,
         max_tokens=max_tokens,
     )
-    return resp.get_formatted_content()
+
+    result = resp.get_formatted_content()
+    await UsageRepo.record_tokens(user_id, len(user_text) // 4 + len(result) // 4)
+    return result
 
 
-async def process_research(topic: str, api_key: str = None, preferred_model: str = "llama-3.3-70b-versatile") -> str:
+async def process_research(user_id: int, topic: str, preferred_model: str = "llama-3.3-70b-versatile") -> str:
+    api_key = get_cached_groq_key()
     if not api_key:
-        return "Your Groq API key is not set. Use /setkey to configure your key."
+        return "⚠️ AI service is not configured. Please contact the admin."
+
     research_data = await perform_deep_research(topic)
     if not research_data:
         return "No research data found for this topic. Try a different query."
@@ -75,12 +96,16 @@ async def process_research(topic: str, api_key: str = None, preferred_model: str
         temperature=0.3,
         max_tokens=4096,
     )
-    return resp.get_formatted_content()
+    result = resp.get_formatted_content()
+    await UsageRepo.record_tokens(user_id, len(topic) // 4 + len(result) // 4)
+    return result
 
 
-async def process_summarize(text: str, api_key: str = None, preferred_model: str = "llama-3.3-70b-versatile") -> str:
+async def process_summarize(user_id: int, text: str, preferred_model: str = "llama-3.3-70b-versatile") -> str:
+    api_key = get_cached_groq_key()
     if not api_key:
-        return "Your Groq API key is not set. Use /setkey to configure your key."
+        return "⚠️ AI service is not configured. Please contact the admin."
+
     resp = await AIExecutionEngine.execute(
         messages=[
             {"role": "system", "content": SUMMARIZE_PROMPT},
@@ -91,12 +116,16 @@ async def process_summarize(text: str, api_key: str = None, preferred_model: str
         temperature=0.3,
         max_tokens=2048,
     )
-    return resp.get_formatted_content()
+    result = resp.get_formatted_content()
+    await UsageRepo.record_tokens(user_id, len(text) // 4 + len(result) // 4)
+    return result
 
 
-async def process_code(description: str, api_key: str = None, preferred_model: str = "llama-3.3-70b-versatile") -> str:
+async def process_code(user_id: int, description: str, preferred_model: str = "llama-3.3-70b-versatile") -> str:
+    api_key = get_cached_groq_key()
     if not api_key:
-        return "Your Groq API key is not set. Use /setkey to configure your key."
+        return "⚠️ AI service is not configured. Please contact the admin."
+
     resp = await AIExecutionEngine.execute(
         messages=[
             {"role": "system", "content": CODE_PROMPT},
@@ -107,14 +136,16 @@ async def process_code(description: str, api_key: str = None, preferred_model: s
         temperature=0.2,
         max_tokens=4096,
     )
-    return resp.get_formatted_content()
+    result = resp.get_formatted_content()
+    await UsageRepo.record_tokens(user_id, len(description) // 4 + len(result) // 4)
+    return result
 
 
-async def process_imagine(
-    description: str, api_key: str = None, preferred_model: str = "llama-3.3-70b-versatile"
-) -> str:
+async def process_imagine(user_id: int, description: str, preferred_model: str = "llama-3.3-70b-versatile") -> str:
+    api_key = get_cached_groq_key()
     if not api_key:
-        return "Your Groq API key is not set. Use /setkey to configure your key."
+        return "⚠️ AI service is not configured. Please contact the admin."
+
     resp = await AIExecutionEngine.execute(
         messages=[
             {"role": "system", "content": IMAGINE_PROMPT},
@@ -125,4 +156,6 @@ async def process_imagine(
         temperature=0.7,
         max_tokens=2048,
     )
-    return resp.get_formatted_content()
+    result = resp.get_formatted_content()
+    await UsageRepo.record_tokens(user_id, len(description) // 4 + len(result) // 4)
+    return result

@@ -3,7 +3,6 @@ import contextlib
 from datetime import UTC, datetime
 from html import escape
 
-from fastapi import APIRouter, Request, Response
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -14,11 +13,12 @@ from telegram.ext import (
     filters,
 )
 
-from core.config import GROUP_BOT_TOKEN, WEBHOOK_SECRET
+from core.config import GROUP_BOT_TOKEN
 from core.database import dispose_engine
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook, validate_webhook_auth
+from core.gateway import attach_gateway, setup_bot_webhook
 from core.logger import setup_logger
+from core.webhook_router import register_bot_webhook
 from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_group_bot.group_app import (
     cmd_forgive,
@@ -69,7 +69,6 @@ from zenith_group_bot.ui import (
 )
 
 logger = setup_logger("SVC_GROUP")
-router = APIRouter()
 
 bot_app = None
 background_tasks = set()
@@ -360,6 +359,7 @@ async def start_service():
 
     bot_app.add_error_handler(handle_bot_error)
 
+    register_bot_webhook("group", bot_app)
     await bot_app.initialize()
     await bot_app.start()
 
@@ -380,28 +380,3 @@ async def stop_service(dispose_db: bool = False):
         await bot_app.shutdown()
     if dispose_db:
         await dispose_engine()
-
-
-@router.post("/webhook/group/{secret}")
-async def group_webhook(secret: str, request: Request):
-    if not validate_webhook_auth(secret, request):
-        logger.warning(f"❌ [Group] Webhook auth failed! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}")
-        return Response(status_code=403)
-    if not bot_app:
-        return Response(status_code=503)
-    try:
-        data = await request.json()
-        dedup = get_update_id_dedup_cache("GROUP")
-        update_id = data.get("update_id", 0)
-        if update_id and update_id in dedup:
-            return Response(status_code=200)
-        if update_id:
-            dedup[update_id] = True
-        logger.info(
-            f"📥 [Group] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})"
-        )
-        await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
-        return Response(status_code=200)
-    except Exception as e:
-        logger.error(f"Group Webhook Error: {e}", exc_info=True)
-        return Response(status_code=200)

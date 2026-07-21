@@ -152,6 +152,9 @@ def is_service_configured(service_name: str) -> bool:
     return True
 
 
+_SERVER_GROQ_KEY: str | None = None
+
+
 def get_groq_api_key(prefer_support: bool = False) -> str | None:
     """
     Get the best available Groq API key.
@@ -166,3 +169,11 @@ def get_groq_api_key(prefer_support: bool = False) -> str | None:
 
     main_key = os.getenv("GROQ_API_KEY", "").strip()
     return main_key if main_key else None
+
+
+def get_cached_groq_key() -> str | None:
+    """Get the server Groq API key with module-level caching."""
+    global _SERVER_GROQ_KEY
+    if _SERVER_GROQ_KEY is None:
+        _SERVER_GROQ_KEY = get_groq_api_key()
+    return _SERVER_GROQ_KEY

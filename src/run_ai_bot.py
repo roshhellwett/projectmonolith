@@ -2,7 +2,6 @@ import asyncio
 import contextlib
 import re
 
-from fastapi import APIRouter, Request, Response
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -12,12 +11,14 @@ from telegram.ext import (
     InlineQueryHandler,
 )
 
-from core.config import ADMIN_USER_ID, AI_BOT_TOKEN, WEBHOOK_SECRET
+from core.config import ADMIN_USER_ID, AI_BOT_TOKEN
 from core.database import dispose_engine, init_db
+from core.engagement_handlers import cmd_changelog, cmd_feedback, cmd_mystats, cmd_referral
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook, validate_webhook_auth
+from core.gateway import attach_gateway, setup_bot_webhook
 from core.logger import setup_logger
 from core.permissions import resolve_tier
+from core.webhook_router import register_bot_webhook
 from zenith_ai_bot.llm_engine import process_ai_query
 from zenith_ai_bot.pro_handlers import cmd_code, cmd_history, cmd_imagine, cmd_persona, cmd_research, cmd_summarize
 from zenith_ai_bot.prompts import PERSONAS
@@ -26,9 +27,6 @@ from zenith_ai_bot.search import close_http_client
 from zenith_ai_bot.ui import (
     get_activate_help,
     get_ai_dashboard,
-    get_ai_key_deleted_msg,
-    get_ai_key_set_success_msg,
-    get_ai_key_status_msg,
     get_back_button,
     get_confirm_clear_history,
     get_confirm_clear_history_msg,
@@ -39,7 +37,6 @@ from zenith_ai_bot.ui import (
     get_history_keyboard,
     get_history_list_msg,
     get_history_locked_msg,
-    get_no_key_msg,
     get_persona_switched_msg,
     get_personas_locked_msg,
     get_personas_select_msg,
@@ -51,11 +48,9 @@ from zenith_ai_bot.ui import (
     get_zenith_no_query_msg,
 )
 from zenith_ai_bot.utils import check_ai_rate_limit, sanitize_telegram_html
-from zenith_crypto_bot.ai_engine import validate_groq_key
 from zenith_crypto_bot.repository import SubscriptionRepo
 
 logger = setup_logger("SVC_AI")
-router = APIRouter()
 
 bot_app = None
 task_queue = asyncio.Queue(maxsize=100)
@@ -70,13 +65,13 @@ async def ai_worker():
             update, context, placeholder_msg, text, history_text, is_pro, persona, history = task_item
             try:
                 user_id = update.effective_user.id
-                api_key = await SubscriptionRepo.get_groq_key(user_id)
-                if not api_key:
+                quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
+                if not quota_allowed:
                     with contextlib.suppress(Exception):
                         await context.bot.edit_message_text(
                             chat_id=placeholder_msg.chat_id,
                             message_id=placeholder_msg.message_id,
-                            text=get_no_key_msg(),
+                            text=quota_msg,
                             parse_mode="HTML",
                         )
                     task_queue.task_done()
@@ -85,12 +80,12 @@ async def ai_worker():
                 max_tokens = 4096 if is_pro else 1024
                 selected_model = await UsageRepo.get_selected_model(user_id)
                 ai_response = await process_ai_query(
+                    user_id,
                     text,
                     history_text,
                     persona=persona,
                     max_tokens=max_tokens,
                     history=history,
-                    api_key=api_key,
                     preferred_model=selected_model,
                 )
                 clean_html = sanitize_telegram_html(ai_response)
@@ -146,21 +141,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     persona = usage.get("persona", "default")
     days_left = await SubscriptionRepo.get_days_left(user_id)
 
-    api_key = await SubscriptionRepo.get_groq_key(user_id)
-    if not api_key:
-        text = (
-            "<b>Zenith AI Terminal</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "Welcome! To use AI features, you need to connect your Groq API key.\n\n"
-            "1. Go to <b>console.groq.com</b> \u2192 API Keys\n"
-            "2. Create a free key\n"
-            "3. Send it right here:\n"
-            "<code>/setkey gsk_your_api_key</code>\n\n"
-            "Once connected, use /zenith to ask anything or click around the dashboard!"
-        )
-    else:
-        text = get_welcome_msg(is_pro, days_left, usage, persona)
-
+    text = get_welcome_msg(is_pro, days_left, usage, persona)
     selected_model = usage.get("selected_model", "llama-3.3-70b-versatile")
     await update.message.reply_text(
         text, reply_markup=get_ai_dashboard(is_pro, persona, usage, selected_model), parse_mode="HTML"
@@ -192,6 +173,10 @@ async def cmd_zenith(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     is_pro = await SubscriptionRepo.is_pro(user_id)
+
+    quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
+    if not quota_allowed:
+        return await msg.reply_text(quota_msg, parse_mode="HTML")
 
     allowed, reason = await check_ai_rate_limit(user_id, is_pro)
     if not allowed:
@@ -237,31 +222,35 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        return await update.message.reply_text("Usage: <code>/setkey gsk_your_groq_api_key</code>", parse_mode="HTML")
-    api_key = context.args[0].strip()
-    placeholder = await update.message.reply_text("Verifying API key...", parse_mode="HTML")
-    valid, msg = await validate_groq_key(api_key)
-    if not valid:
-        return await placeholder.edit_text(
-            f"<b>Invalid Key</b>\n\n{msg}\n\nGet a free key at console.groq.com", parse_mode="HTML"
-        )
-    await SubscriptionRepo.set_groq_key(update.effective_user.id, api_key)
-    text, kb = get_ai_key_set_success_msg()
-    await placeholder.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    await update.message.reply_text(
+        "⚡ <b>Server-Managed AI</b>\n\n"
+        "Zenith now uses its own AI engine — no personal API key needed!\n\n"
+        "You have a daily token quota based on your subscription tier:\n"
+        "• <b>Free:</b> 10,000 tokens/day\n"
+        "• <b>Pro:</b> 500,000 tokens/day\n\n"
+        "Just use <code>/zenith</code> to start chatting!",
+        parse_mode="HTML",
+    )
 
 
 async def cmd_mykey(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    key = await SubscriptionRepo.get_groq_key(user_id)
-    text, kb = get_ai_key_status_msg(key is not None)
-    await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
+    quota = await UsageRepo.get_token_quota(update.effective_user.id)
+    await update.message.reply_text(
+        f"⚡ <b>AI Token Usage</b>\n\n"
+        f"Today's usage: <b>{quota['tokens_used']:,}</b> / <b>{quota['daily_limit']:,}</b> tokens\n"
+        f"Remaining: <b>{quota['remaining']:,}</b> tokens\n\n"
+        f"Your quota resets at midnight UTC.",
+        parse_mode="HTML",
+    )
 
 
 async def cmd_delkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await SubscriptionRepo.delete_groq_key(update.effective_user.id)
-    text, kb = get_ai_key_deleted_msg()
-    await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
+    await update.message.reply_text(
+        "⚡ <b>No Key to Delete</b>\n\n"
+        "Zenith uses server-managed AI — your account is automatically configured.\n"
+        "Use <code>/zenith</code> to start asking questions!",
+        parse_mode="HTML",
+    )
 
 
 async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -295,9 +284,15 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
         elif query.data == "ai_show_key_setup":
-            has_key = await SubscriptionRepo.get_groq_key(user_id)
-            text, kb = get_ai_key_status_msg(has_key is not None)
-            await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+            quota = await UsageRepo.get_token_quota(user_id)
+            await query.edit_message_text(
+                f"⚡ <b>AI Engine Status</b>\n\n"
+                f"Mode: <b>Server-Managed</b> (no personal key needed)\n"
+                f"Today: <b>{quota['tokens_used']:,}</b> / <b>{quota['daily_limit']:,}</b> tokens\n\n"
+                f"Models available: Groq Llama 3.3 70B, DeepSeek R1, Mixtral, and more.\n"
+                f"Use <code>/zenith your question</code> to start!",
+                parse_mode="HTML",
+            )
 
         elif query.data == "ai_personas":
             if not is_pro:
@@ -402,9 +397,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 msg, kb = get_pro_feature_msg("Pro Interactive Quick-Action")
                 await query.edit_message_text(msg, reply_markup=kb, parse_mode="HTML")
             else:
-                api_key = await SubscriptionRepo.get_groq_key(user_id)
-                if not api_key:
-                    await query.edit_message_text(get_no_key_msg(), parse_mode="HTML")
+                quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
+                if not quota_allowed:
+                    await query.edit_message_text(quota_msg, parse_mode="HTML")
                 else:
                     selected_model = await UsageRepo.get_selected_model(user_id)
                     from zenith_ai_bot.llm_engine import (
@@ -425,7 +420,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         await query.edit_message_text(
                             f"🔬 <i>Executing deep research: {topic}...</i>", parse_mode="HTML"
                         )
-                        res = await process_research(topic, api_key=api_key, preferred_model=selected_model)
+                        res = await process_research(user_id, topic, preferred_model=selected_model)
                         clean = sanitize_telegram_html(res)[:4000]
                         await query.edit_message_text(
                             clean, reply_markup=get_back_button(), parse_mode="HTML", disable_web_page_preview=True
@@ -438,7 +433,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         }
                         sample = samples.get(query.data, "Summary sample text.")
                         await query.edit_message_text("📝 <i>Summarizing sample document...</i>", parse_mode="HTML")
-                        res = await process_summarize(sample, api_key=api_key, preferred_model=selected_model)
+                        res = await process_summarize(user_id, sample, preferred_model=selected_model)
                         clean = sanitize_telegram_html(res)[:4000]
                         await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
 
@@ -452,7 +447,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         await query.edit_message_text(
                             "💻 <i>Generating production code architecture...</i>", parse_mode="HTML"
                         )
-                        res = await process_code(prompt, api_key=api_key, preferred_model=selected_model)
+                        res = await process_code(user_id, prompt, preferred_model=selected_model)
                         clean = sanitize_telegram_html(res)[:4000]
                         await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
 
@@ -466,7 +461,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         await query.edit_message_text(
                             "🎨 <i>Crafting multi-platform visual prompts...</i>", parse_mode="HTML"
                         )
-                        res = await process_imagine(prompt, api_key=api_key, preferred_model=selected_model)
+                        res = await process_imagine(user_id, prompt, preferred_model=selected_model)
                         clean = sanitize_telegram_html(res)[:4000]
                         await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
 
@@ -512,9 +507,15 @@ async def start_service():
     bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
     bot_app.add_handler(CommandHandler("mykey", cmd_mykey))
     bot_app.add_handler(CommandHandler("delkey", cmd_delkey))
+    bot_app.add_handler(CommandHandler("referral", cmd_referral))
+    bot_app.add_handler(CommandHandler("feedback", cmd_feedback))
+    bot_app.add_handler(CommandHandler("changelog", cmd_changelog))
+    bot_app.add_handler(CommandHandler("mystats", cmd_mystats))
     bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
     bot_app.add_handler(InlineQueryHandler(inline_query))
     bot_app.add_error_handler(handle_bot_error)
+
+    register_bot_webhook("ai", bot_app)
 
     await init_db()
     await bot_app.initialize()
@@ -536,15 +537,13 @@ async def stop_service(dispose_db: bool = False):
             if len(task_item) >= 3:
                 _, _context, placeholder_msg = task_item[0], task_item[1], task_item[2]
                 if _context and placeholder_msg:
-                    try:
+                    with contextlib.suppress(Exception):
                         await _context.bot.edit_message_text(
                             chat_id=placeholder_msg.chat_id,
                             message_id=placeholder_msg.message_id,
                             text="System Update: Zenith is restarting. Please try again in a moment.",
                             parse_mode="HTML",
                         )
-                    except Exception:
-                        pass
             task_queue.task_done()
         except asyncio.QueueEmpty:
             break
@@ -562,29 +561,3 @@ async def stop_service(dispose_db: bool = False):
     if dispose_db:
         await dispose_engine()
     await close_http_client()
-
-
-@router.post("/webhook/ai/{secret}")
-async def ai_webhook(secret: str, request: Request):
-    if not validate_webhook_auth(secret, request):
-        logger.warning(f"❌ [AI] Webhook auth failed! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}")
-        return Response(status_code=403)
-    if not bot_app:
-        return Response(status_code=503)
-
-    try:
-        data = await request.json()
-        dedup = get_update_id_dedup_cache("AI")
-        update_id = data.get("update_id", 0)
-        if update_id and update_id in dedup:
-            return Response(status_code=200)
-        if update_id:
-            dedup[update_id] = True
-        logger.info(
-            f"📥 [AI] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})"
-        )
-        await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
-        return Response(status_code=200)
-    except Exception as e:
-        logger.error(f"AI Webhook Malformed Payload Dropped: {e}", exc_info=True)
-        return Response(status_code=200)

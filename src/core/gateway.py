@@ -28,7 +28,7 @@ def get_update_id_dedup_cache(bot_name: str = "default") -> TTLCache:
     global _seen_update_ids
     key = bot_name.upper()
     if key not in _seen_update_ids:
-        _seen_update_ids[key] = TTLCache(maxsize=100000, ttl=300)
+        _seen_update_ids[key] = TTLCache(maxsize=10000, ttl=300)
     return _seen_update_ids[key]
 
 
@@ -161,7 +161,7 @@ def get_gateway() -> GatewayController:
     return _gateway
 
 
-def validate_webhook_auth(path_secret: str, request: "Request") -> bool:
+def validate_webhook_auth(path_secret: str, request) -> bool:
     """Validate webhook path secret and Telegram secret-token header."""
     from core.config import WEBHOOK_SECRET
 
@@ -169,9 +169,7 @@ def validate_webhook_auth(path_secret: str, request: "Request") -> bool:
         return False
 
     header_token = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    if header_token and header_token != WEBHOOK_SECRET:
-        return False
-    return True
+    return not (header_token and header_token != WEBHOOK_SECRET)
 
 
 def resolve_webhook_url(bot_name: str) -> str:
@@ -254,8 +252,7 @@ def attach_gateway(bot_app, bot_name: str):
     async def gateway_type_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Log incoming updates. Concurrency and validation are handled by gateway_middleware."""
         try:
-            user_id = update.effective_user.id if update.effective_user else "unknown"
-            logger.info(f"⚡ [{bot_name}] Processing Update {update.update_id} from user {user_id}")
+            _gateway.total_processed += 1
             await _gateway.check_memory_and_prune()
         except Exception as e:
             logger.error(f"Error in gateway_type_handler ({bot_name}): {e}", exc_info=True)

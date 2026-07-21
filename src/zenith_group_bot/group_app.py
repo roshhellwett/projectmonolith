@@ -34,8 +34,8 @@ from zenith_group_bot.ui import (
 
 logger = setup_logger("GROUP_APP")
 
-_permission_errors = TTLCache(maxsize=1000, ttl=60)
-_admin_cache = TTLCache(maxsize=5000, ttl=300)
+_permission_errors = TTLCache(maxsize=500, ttl=60)
+_admin_cache = TTLCache(maxsize=1000, ttl=300)
 
 
 async def _is_admin_cached(chat_id: int, user_id: int, context) -> bool:

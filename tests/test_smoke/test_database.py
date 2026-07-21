@@ -15,8 +15,9 @@ class TestDatabaseEngine:
         assert callable(session)
 
     def test_get_engine_postgres_connect_args(self):
-        import core.database as db_mod
         from unittest.mock import patch
+
+        import core.database as db_mod
 
         old_engine = db_mod._engine
         try:

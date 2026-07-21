@@ -49,7 +49,7 @@ elif DATABASE_URL and DATABASE_URL.startswith("postgresql://") and "+asyncpg" no
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", 10))
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", 3))
 
 # ==========================================
 # Blockchain RPCs

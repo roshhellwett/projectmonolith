@@ -3,14 +3,14 @@ from collections import deque
 
 from cachetools import TTLCache
 
-user_message_history = TTLCache(maxsize=10000, ttl=5.0)
-seen_albums = TTLCache(maxsize=5000, ttl=10.0)
+user_message_history = TTLCache(maxsize=2000, ttl=5.0)
+seen_albums = TTLCache(maxsize=1000, ttl=10.0)
 
-user_command_history = TTLCache(maxsize=10000, ttl=60.0)
-user_command_count = TTLCache(maxsize=10000, ttl=3600)
-user_cooldowns = TTLCache(maxsize=10000, ttl=60)
+user_command_history = TTLCache(maxsize=2000, ttl=60.0)
+user_command_count = TTLCache(maxsize=2000, ttl=3600)
+user_cooldowns = TTLCache(maxsize=2000, ttl=60)
 
-user_warnings = TTLCache(maxsize=5000, ttl=86400)
+user_warnings = TTLCache(maxsize=1000, ttl=86400)
 
 
 def is_flooding(user_id: int, media_group_id: str = None, strength: str = "medium") -> tuple[bool, str]:

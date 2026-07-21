@@ -6,7 +6,7 @@ from utils.time_util import utc_now
 
 class GroupSettings(Base):
     __tablename__ = "zenith_group_settings"
-    chat_id = Column(BigInteger, primary_key=True, index=True)
+    chat_id = Column(BigInteger, primary_key=True)
     owner_id = Column(BigInteger, nullable=False)
     group_name = Column(String, nullable=True)
     features = Column(String, default="both")

@@ -17,8 +17,23 @@ class TestCoreImports:
     def test_core_animation(self):
         import core.animation
 
-    def test_core_task_manager(self):
-        import core.task_manager
+    def test_core_data_cleanup(self):
+        import core.data_cleanup
+
+    def test_core_rate_limit_models(self):
+        import core.rate_limit_models
+
+    def test_core_secrets(self):
+        import core.secrets
+
+    def test_core_engagement_handlers(self):
+        import core.engagement_handlers
+
+    def test_core_circuit_breaker(self):
+        import core.circuit_breaker
+
+    def test_core_db_health(self):
+        import core.db_health
 
     def test_core_subscription(self):
         import core.subscription

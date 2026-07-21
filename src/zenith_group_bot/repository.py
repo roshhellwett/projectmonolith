@@ -20,8 +20,8 @@ from zenith_group_bot.models import (
 logger = setup_logger("DB_REPO")
 
 settings_cache = TTLCache(maxsize=1000, ttl=300)
-quarantine_cache = TTLCache(maxsize=50000, ttl=3600)
-join_debounce = TTLCache(maxsize=10000, ttl=60)
+quarantine_cache = TTLCache(maxsize=5000, ttl=3600)
+join_debounce = TTLCache(maxsize=2000, ttl=60)
 custom_words_cache = TTLCache(maxsize=500, ttl=300)
 
 

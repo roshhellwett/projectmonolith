@@ -770,23 +770,19 @@ def get_pro_features_section() -> str:
     return "\n\nTop Gainers/Losers: [Pro Required]"
 
 
-def get_institutional_transfer(asset: str, amount: int, dest: str, insight: str, utc: str) -> str:
+def get_real_whale_alert(tx: dict) -> str:
+    value = tx.get("value_eth", 0)
+    from_addr = tx.get("from", "unknown")[:10] + "..."
+    to_addr = tx.get("to", "unknown")[:10] + "..."
+    tx_hash = tx.get("hash", "")[:10] + "..."
     return (
-        f"<b>Institutional Transfer</b>\n\n"
-        f"Asset: {amount:,} {asset}\n"
-        f"Destination: {dest}\n"
-        f"Insight: {insight}\n"
-        f"Time: {utc}"
-    )
-
-
-def get_onchain_transfer(asset: str, amount: int, dest: str, utc: str) -> str:
-    return (
-        f"<b>On-Chain Transfer</b>\n\n"
-        f"Asset: {amount:,} {asset}\n"
-        f"Destination: {dest}\n"
-        f"Insight: [Pro Required]\n"
-        f"Time: Delayed"
+        f"🐋 <b>Large ETH Transfer Detected</b>\n\n"
+        f"<b>Value:</b> {value:,.2f} ETH\n"
+        f"<b>From:</b> <code>{from_addr}</code>\n"
+        f"<b>To:</b> <code>{to_addr}</code>\n"
+        f"<b>Tx:</b> <code>{tx_hash}</code>\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"<i>Verified on-chain via Etherscan</i>"
     )
 
 
@@ -904,61 +900,6 @@ def get_crypto_model_selector_keyboard(current_model: str = "llama-3.3-70b-versa
     return InlineKeyboardMarkup(buttons)
 
 
-def get_ai_no_key_msg():
-    text = (
-        "<b>Crypto AI Co-Pilot</b>\n"
-        ""
-        "You need a Groq API key to use the AI assistant.\n\n"
-        "1. Go to <b>console.groq.com</b> \u2192 API Keys\n"
-        "2. Create a free key (free credits included)\n"
-        "3. Send it here:\n"
-        "<code>/setkey gsk_your_api_key</code>\n\n"
-        "Takes 2 minutes!"
-    )
-    kb = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("How to get a key", url="https://console.groq.com")],
-            [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
-        ]
-    )
-    return text, kb
-
-
-def get_ai_key_set_success_msg():
-    text = (
-        "<b>Crypto AI Co-Pilot</b>\n"
-        ""
-        "Your Groq key is connected. You're live! \U0001f680\n\n"
-        "Try asking:\n"
-        "\u2022 <code>/ai what's in my portfolio?</code>\n"
-        "\u2022 <code>/ai analyze the market today</code>\n"
-        "\u2022 <code>/ai is BTC a good buy right now?</code>"
-    )
-    kb = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Try: My Portfolio", callback_data="ai_followup_what is in my portfolio?")],
-            [InlineKeyboardButton("Try: Market Today", callback_data="ai_followup_analyze the crypto market today")],
-            [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
-        ]
-    )
-    return text, kb
-
-
-def get_ai_key_status_msg(has_key: bool):
-    if has_key:
-        return (
-            "<b>Groq API Key</b>\n" f"{format_divider()}\n\n" "Your key is set and active.\n\n" "To remove it: /delkey"
-        ), InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")]])
-    return (
-        "<b>Groq API Key</b>\n" f"{format_divider()}\n\n" "No key set.\n\n" "Set one: /setkey gsk_your_key"
-    ), InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")]])
-
-
-def get_ai_key_deleted_msg():
-    text = "<b>Groq API Key</b>\n" f"{format_divider()}\n\n" "Your key has been removed."
-    return text, InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")]])
-
-
 def get_ai_empty_query_msg():
     text = "<b>Crypto AI Co-Pilot</b>\n" f"{format_divider()}\n\n" "Ask me anything about crypto! Try one of these:"
     kb = InlineKeyboardMarkup(
@@ -1072,22 +1013,6 @@ def get_ai_rate_limited_msg():
     return text, InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Replace Key", callback_data="ai_followup_how do i set a new groq key?")],
-            [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
-        ]
-    )
-
-
-def get_ai_invalid_key_msg():
-    text = (
-        "<b>Crypto AI</b>\n"
-        ""
-        "Your Groq key doesn't seem to work anymore.\n\n"
-        "Check it at console.groq.com and update:\n"
-        "<code>/setkey gsk_new_key</code>"
-    )
-    return text, InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Set New Key", callback_data="ai_followup_how do i set a new groq key?")],
             [InlineKeyboardButton("◀️ Back", callback_data="ui_main_menu")],
         ]
     )

@@ -14,15 +14,17 @@ import run_group_bot
 import run_support_bot
 from core.circuit_breaker import get_all_breaker_statuses
 from core.config import DATABASE_URL, MAINTENANCE_MODE, PORT, WEBHOOK_SECRET
+from core.data_cleanup import run_cleanup
 from core.database import dispose_engine, get_engine, init_db
 from core.db_health import is_db_healthy, set_db_unhealthy, start_health_monitor, stop_health_monitor
 from core.logger import setup_logger
 from core.secrets import enforce_startup_secrets
+from core.webhook_router import router as webhook_router
 
 logger = setup_logger("GATEWAY")
 
-webhook_rate = TTLCache(maxsize=500000, ttl=5)
-api_rate = TTLCache(maxsize=500000, ttl=5)
+webhook_rate = TTLCache(maxsize=10000, ttl=5)
+api_rate = TTLCache(maxsize=5000, ttl=5)
 
 REQUEST_TIMEOUT_SECONDS = 25
 
@@ -43,10 +45,7 @@ SERVICE_REGISTRY = {}
 
 async def rate_limit(request: Request) -> bool:
     forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        client_ip = forwarded.split(",")[0].strip()
-    else:
-        client_ip = request.client.host if request.client else "unknown"
+    client_ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
 
     if "/webhook/" in request.url.path:
         current = webhook_rate.get(client_ip, 0)
@@ -160,6 +159,18 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(_register_webhooks())
 
+    async def _daily_cleanup():
+        await asyncio.sleep(3600)
+        while True:
+            logger.info("Starting daily data retention cleanup")
+            try:
+                await asyncio.wait_for(run_cleanup(), timeout=120.0)
+            except Exception as e:
+                logger.warning(f"Data cleanup failed: {e}")
+            await asyncio.sleep(86400)
+
+    asyncio.create_task(_daily_cleanup())
+
     yield
 
     logger.info("🛑 MONOLITH SHUTDOWN")
@@ -200,12 +211,8 @@ app = FastAPI(
 
 @app.middleware("http")
 async def global_protection(request: Request, call_next):
-    if "/webhook/" in request.url.path:
-        logger.info(
-            f"🌐 Webhook HTTP request arriving: {request.method} {request.url.path} from {request.client.host if request.client else 'unknown'}"
-        )
-        if MAINTENANCE_MODE:
-            return JSONResponse({"ok": True, "maintenance": True}, status_code=200)
+    if "/webhook/" in request.url.path and MAINTENANCE_MODE:
+        return JSONResponse({"ok": True, "maintenance": True}, status_code=200)
 
     if not await check_request_size(request):
         return JSONResponse({"error": "Payload too large. Max 1MB."}, status_code=413)
@@ -233,11 +240,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse({"error": "An internal error occurred"}, status_code=500)
 
 
-app.include_router(run_group_bot.router)
-app.include_router(run_ai_bot.router)
-app.include_router(run_crypto_bot.router)
-app.include_router(run_support_bot.router)
-app.include_router(run_admin_bot.router)
+app.include_router(webhook_router)
 
 
 @app.get("/health")

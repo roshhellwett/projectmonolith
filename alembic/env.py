@@ -29,6 +29,7 @@ from core.database import Base
 
 _proj = pathlib.Path(__file__).resolve().parent.parent
 _model_files = {
+    "core.rate_limit_models": _proj / "src" / "core" / "rate_limit_models.py",
     "zenith_admin_bot.models": _proj / "src" / "zenith_admin_bot" / "models.py",
     "zenith_ai_bot.models": _proj / "src" / "zenith_ai_bot" / "models.py",
     "zenith_crypto_bot.models": _proj / "src" / "zenith_crypto_bot" / "models.py",

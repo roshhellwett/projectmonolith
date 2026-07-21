@@ -1,6 +1,8 @@
 import asyncio
+import contextlib
 import functools
 import re
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -51,11 +53,11 @@ def get_engine() -> AsyncEngine:
         else:
             _engine = create_async_engine(
                 resolved_url,
-                pool_size=DB_POOL_SIZE,
-                max_overflow=2,
+                pool_size=min(DB_POOL_SIZE, 3),
+                max_overflow=1,
                 pool_pre_ping=True,
-                pool_recycle=3600,
-                pool_timeout=5,
+                pool_recycle=1800,
+                pool_timeout=3,
                 pool_use_lifo=True,
                 connect_args={"statement_cache_size": 0},
                 execution_options={"prepared_statement_cache_size": 0},
@@ -73,6 +75,25 @@ def get_session() -> sessionmaker:
             expire_on_commit=False,
         )
     return _sessionmaker_instance
+
+
+@contextlib.asynccontextmanager
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Context manager that provides a session with query timeout and auto-cleanup.
+
+    Usage:
+        async with get_db() as session:
+            result = await session.execute(stmt)
+    """
+    session = get_session()()
+    try:
+        yield session
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
 
 
 def db_retry(func):
@@ -131,6 +152,7 @@ def _get_init_lock() -> asyncio.Lock:
 @db_retry
 async def init_db():
     async with _get_init_lock():
+        import core.rate_limit_models  # noqa: F401
         import zenith_admin_bot.models  # noqa: F401
         import zenith_ai_bot.models  # noqa: F401
         import zenith_crypto_bot.models  # noqa: F401

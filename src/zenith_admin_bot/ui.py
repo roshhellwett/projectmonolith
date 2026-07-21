@@ -204,40 +204,28 @@ def format_bot_health(bots: list) -> str:
 
 
 def format_platform_metrics() -> str:
-    from core.metrics import get_metrics
+    from core.circuit_breaker import get_all_breaker_statuses
+    from core.db_health import is_db_healthy
 
-    summary = get_metrics().get_summary()
-    uptime = summary.get("uptime_seconds", 0)
-    mins = int(uptime // 60)
-    secs = int(uptime % 60)
+    db_status = "✅ Healthy" if is_db_healthy() else "❌ Unhealthy"
+    breakers = get_all_breaker_statuses()
+    breaker_lines = []
+    for b in breakers:
+        state = b.get("state", "unknown")
+        icon = {"closed": "✅", "open": "🔴", "half-open": "⚠️"}.get(state, "❓")
+        name = b.get("name", "unknown")
+        breaker_lines.append(f"  {icon} <b>{name}</b>: {state}")
 
     items = [
-        f"Continuous Uptime: <code>{mins}m {secs}s</code>",
+        f"Database: {db_status}",
     ]
-    reqs = summary.get("requests", {})
-    if reqs:
-        items.append("<b>Request Volumes:</b>")
-        for k, v in reqs.items():
-            items.append(f"  ▫️ {k}: <code>{v:,}</code>")
-
-    errs = summary.get("errors", {})
-    if errs:
-        items.append("<b>Recorded Errors:</b>")
-        for k, v in errs.items():
-            items.append(f"  ▫️ {k}: <code>{v:,}</code>")
-
-    lats = summary.get("latencies", {})
-    if lats:
-        items.append("<b>Latency Summaries (ms):</b>")
-        for k, stats in lats.items():
-            if stats["count"] > 0:
-                items.append(
-                    f"  ▫️ {k}: p50=<code>{stats['p50_ms']}ms</code> | p95=<code>{stats['p95_ms']}ms</code> (n={stats['count']})"
-                )
+    if breaker_lines:
+        items.append("<b>Circuit Breakers:</b>")
+        items.extend(breaker_lines)
 
     return (
-        f"{format_header('Platform Telemetry', 'High-Frequency Cluster Execution Metrics', 'LIVE')}\n"
-        f"{format_card('Execution Telemetry Table', items, '⚡')}"
+        f"{format_header('Platform Health', 'Service Status & Metrics', '')}\n"
+        f"{format_card('Health Dashboard', items, '🖥️')}"
     )
 
 

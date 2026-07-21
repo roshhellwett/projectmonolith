@@ -7,8 +7,8 @@ from core.logger import setup_logger
 
 logger = setup_logger("AI_UTILS")
 
-_rate_free = TTLCache(maxsize=10000, ttl=86400.0)  # 24h window for daily limits
-_rate_pro = TTLCache(maxsize=10000, ttl=3600.0)  # 1h window for hourly limits
+_rate_free = TTLCache(maxsize=2000, ttl=86400.0)
+_rate_pro = TTLCache(maxsize=2000, ttl=3600.0)
 
 PROMPT_INJECTION_PATTERNS = [
     re.compile(r"ignore\s+(all\s+)?previous\s+instructions", re.IGNORECASE),

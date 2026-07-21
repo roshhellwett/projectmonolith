@@ -1,21 +1,20 @@
 import asyncio
 import contextlib
 import html
-import random
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Request
-from fastapi.responses import Response
 from telegram import Update
 from telegram.error import BadRequest, Forbidden, RetryAfter
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes
 
-from core.config import CRYPTO_BOT_TOKEN, WEBHOOK_SECRET
+from core.config import CRYPTO_BOT_TOKEN
 from core.database import dispose_engine
+from core.engagement_handlers import cmd_changelog, cmd_feedback, cmd_mystats, cmd_referral
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook, validate_webhook_auth
+from core.gateway import attach_gateway, setup_bot_webhook
 from core.logger import setup_logger
 from core.permissions import resolve_tier
+from core.webhook_router import register_bot_webhook
 from zenith_ai_bot.repository import UsageRepo
 from zenith_crypto_bot import ui as crypto_ui
 from zenith_crypto_bot.ai_handlers import cmd_ai, cmd_delkey, cmd_mykey, cmd_setkey, handle_ai_followup
@@ -47,7 +46,6 @@ from zenith_crypto_bot.repository import (
 )
 
 logger = setup_logger("CRYPTO")
-router = APIRouter()
 bot_app = None
 alert_queue = asyncio.Queue(maxsize=500)
 background_tasks = set()
@@ -367,12 +365,14 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_new_pairs(query.message, is_pro)
 
         elif query.data == "ai_show_key_setup":
-            has_key = await SubscriptionRepo.get_groq_key(user_id)
-            if has_key:
-                text, kb = crypto_ui.get_ai_key_status_msg(True)
-            else:
-                text, kb = crypto_ui.get_ai_no_key_msg()
-            await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+            quota = await UsageRepo.get_token_quota(user_id)
+            await query.edit_message_text(
+                f"⚡ <b>AI Token Usage</b>\n\n"
+                f"Today's usage: <b>{quota['tokens_used']:,}</b> / <b>{quota['daily_limit']:,}</b> tokens\n"
+                f"Remaining: <b>{quota['remaining']:,}</b> tokens\n\n"
+                f"Quota resets at midnight UTC.",
+                parse_mode="HTML",
+            )
 
         elif query.data == "ui_ai_copilot":
             current_model = await UsageRepo.get_selected_model(user_id)
@@ -563,35 +563,30 @@ async def wallet_watcher():
             logger.error(f"Wallet watcher error: {e}")
 
 
-async def active_blockchain_watcher():
-    scenarios = [
-        ("Binance Deposit", "OTC liquidation on CEX."),
-        ("Coinbase Hot Wallet", "Moving to exchange ledger."),
-        ("Unknown DEX Route", "Accumulation: Routed through DEX pools."),
-        ("Wintermute OTC", "Institutional: Market maker restructuring."),
-        ("New Cold Storage", "Accumulation: Moving to deep cold storage."),
-    ]
-    coins = [("USDC", "Ethereum"), ("USDT", "Tron"), ("ETH", "Ethereum"), ("WBTC", "Ethereum"), ("SOL", "Solana")]
-
+async def real_whale_watcher():
+    """Monitor real on-chain whale movements via Etherscan."""
     while True:
-        await asyncio.sleep(180)
-        free_users, pro_users = await SubscriptionRepo.get_alert_subscribers()
-        if not free_users and not pro_users:
-            continue
-        coin, network = random.choice(coins)
-        dest, insight = random.choice(scenarios)
-        amt_pro = random.randint(1_000_000, 50_000_000) if coin not in ["ETH", "WBTC"] else random.randint(500, 5000)
-        amt_free = random.randint(50_000, 250_000) if coin not in ["ETH", "WBTC"] else random.randint(10, 50)
-        utc = datetime.now(UTC).strftime("%H:%M:%S UTC")
-
-        for uid in pro_users:
-            txt = crypto_ui.get_institutional_transfer(coin, amt_pro, dest, insight, utc)
-            with contextlib.suppress(asyncio.QueueFull):
-                alert_queue.put_nowait((uid, txt))
-        for uid in free_users:
-            txt = crypto_ui.get_onchain_transfer(coin, amt_free, dest, utc)
-            with contextlib.suppress(asyncio.QueueFull):
-                alert_queue.put_nowait((uid, txt))
+        await asyncio.sleep(300)
+        try:
+            from zenith_crypto_bot.market_service import get_whale_transfers
+            free_users, pro_users = await SubscriptionRepo.get_alert_subscribers()
+            if not free_users and not pro_users:
+                continue
+            transfers = await get_whale_transfers()
+            if not transfers:
+                continue
+            for uid in pro_users:
+                for tx in transfers[:3]:
+                    txt = crypto_ui.get_real_whale_alert(tx)
+                    with contextlib.suppress(asyncio.QueueFull):
+                        alert_queue.put_nowait((uid, txt))
+            for uid in free_users:
+                for tx in transfers[:1]:
+                    txt = crypto_ui.get_real_whale_alert(tx)
+                    with contextlib.suppress(asyncio.QueueFull):
+                        alert_queue.put_nowait((uid, txt))
+        except Exception as e:
+            logger.debug(f"Whale watcher cycle error (non-critical): {e}")
 
 
 async def subscription_monitor():
@@ -655,15 +650,20 @@ async def start_service():
     bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
     bot_app.add_handler(CommandHandler("mykey", cmd_mykey))
     bot_app.add_handler(CommandHandler("delkey", cmd_delkey))
+    bot_app.add_handler(CommandHandler("referral", cmd_referral))
+    bot_app.add_handler(CommandHandler("feedback", cmd_feedback))
+    bot_app.add_handler(CommandHandler("changelog", cmd_changelog))
+    bot_app.add_handler(CommandHandler("mystats", cmd_mystats))
     bot_app.add_handler(CallbackQueryHandler(handle_ai_followup, pattern="^ai_followup_"))
     bot_app.add_handler(CallbackQueryHandler(handle_dashboard))
     bot_app.add_error_handler(handle_bot_error)
 
+    register_bot_webhook("crypto", bot_app)
     await bot_app.initialize()
     await bot_app.start()
 
     track_task(asyncio.create_task(safe_loop("dispatcher", alert_dispatcher)))
-    track_task(asyncio.create_task(safe_loop("watcher", active_blockchain_watcher)))
+    track_task(asyncio.create_task(safe_loop("whale_watcher", real_whale_watcher)))
     track_task(asyncio.create_task(safe_loop("price_alerts", price_alert_checker)))
     track_task(asyncio.create_task(safe_loop("wallet_watcher", wallet_watcher)))
     track_task(asyncio.create_task(safe_loop("sub_monitor", subscription_monitor)))
@@ -683,30 +683,3 @@ async def stop_service(dispose_db: bool = False):
     await close_market_client()
     if dispose_db:
         await dispose_engine()
-
-
-@router.post("/webhook/crypto/{secret}")
-async def crypto_webhook(secret: str, request: Request):
-    if not validate_webhook_auth(secret, request):
-        logger.warning(
-            f"❌ [Crypto] Webhook auth failed! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}"
-        )
-        return Response(status_code=403)
-    if not bot_app:
-        return Response(status_code=503)
-    try:
-        data = await request.json()
-        dedup = get_update_id_dedup_cache("CRYPTO")
-        update_id = data.get("update_id", 0)
-        if update_id and update_id in dedup:
-            return Response(status_code=200)
-        if update_id:
-            dedup[update_id] = True
-        logger.info(
-            f"📥 [Crypto] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})"
-        )
-        await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
-        return Response(status_code=200)
-    except Exception as e:
-        logger.error(f"Webhook payload error: {e}", exc_info=True)
-        return Response(status_code=200)

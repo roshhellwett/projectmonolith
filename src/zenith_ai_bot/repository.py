@@ -95,13 +95,61 @@ class UsageRepo:
             return row.summarize_count
 
     @staticmethod
+    async def _estimate_tokens(text: str) -> int:
+        return max(1, len(text) // 4)
+
+    @staticmethod
+    @db_retry
+    async def get_token_quota(user_id: int) -> dict:
+        """Get current token usage and quota limits."""
+        from core.config import get_user_tier
+
+        async with AsyncSessionLocal() as session:
+            row = await UsageRepo._get_or_create(session, user_id)
+            tier = get_user_tier(user_id)
+            daily_limit = 50000 if tier in ("pro", "owner") else 10000
+            return {
+                "tokens_used": row.tokens_used or 0,
+                "daily_limit": daily_limit,
+                "remaining": max(0, daily_limit - (row.tokens_used or 0)),
+                "tier": tier,
+            }
+
+    @staticmethod
+    @db_retry
+    async def record_tokens(user_id: int, tokens: int):
+        async with AsyncSessionLocal() as session:
+            row = await UsageRepo._get_or_create(session, user_id)
+            row.tokens_used = (row.tokens_used or 0) + tokens
+            await session.commit()
+
+    @staticmethod
+    @db_retry
+    async def check_quota(user_id: int) -> tuple[bool, str]:
+        """Check if user has token quota remaining. Returns (allowed, message)."""
+        quota = await UsageRepo.get_token_quota(user_id)
+        if quota["remaining"] <= 0:
+            return False, (
+                f"⛔ <b>Daily Token Limit Reached</b>\n\n"
+                f"You've used <b>{quota['tokens_used']:,}</b> of <b>{quota['daily_limit']:,}</b> tokens today.\n\n"
+                f"Your quota resets at midnight UTC.\n"
+                f"💎 Upgrade to Pro for <b>500K tokens/day</b>."
+            )
+        return True, ""
+
+    @staticmethod
     @db_retry
     async def get_today_usage(user_id: int) -> dict:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
+            from core.config import get_user_tier
+            tier = get_user_tier(user_id)
+            daily_limit = 50000 if tier in ("pro", "owner") else 10000
             return {
                 "queries": row.query_count,
                 "summarizes": row.summarize_count,
+                "tokens_used": row.tokens_used or 0,
+                "daily_limit": daily_limit,
                 "persona": row.persona or "default",
                 "selected_model": row.selected_model or "llama-3.3-70b-versatile",
             }

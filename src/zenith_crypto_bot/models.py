@@ -12,7 +12,6 @@ class CryptoUser(CryptoBase):
     user_id = Column(BigInteger, primary_key=True)
     alerts_enabled = Column(Boolean, default=False)
     joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    groq_api_key = Column(String(200), nullable=True)
 
 
 class Subscription(CryptoBase):
@@ -75,3 +74,28 @@ class WatchlistToken(CryptoBase):
     quantity = Column(Float, default=1.0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     __table_args__ = (UniqueConstraint("user_id", "token_id", name="uix_user_watchlist_token"),)
+
+
+class ReferralCode(CryptoBase):
+    __tablename__ = "referral_codes"
+    user_id = Column(BigInteger, primary_key=True)
+    code = Column(String(20), unique=True, nullable=False, index=True)
+    total_redeemed = Column(Integer, default=0)
+    bonus_days = Column(Integer, default=3)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class ReferralRedemption(CryptoBase):
+    __tablename__ = "referral_redemptions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    referrer_id = Column(BigInteger, nullable=False, index=True)
+    redeemed_by = Column(BigInteger, nullable=False, unique=True)
+    redeemed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class UserFeedback(CryptoBase):
+    __tablename__ = "user_feedback"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
+    message = Column(String(2000), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

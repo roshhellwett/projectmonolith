@@ -15,7 +15,6 @@ from zenith_ai_bot.ui import (
     get_history_keyboard,
     get_history_list_msg,
     get_imagine_help,
-    get_no_key_msg,
     get_persona_already_using,
     get_persona_help,
     get_persona_locked,
@@ -74,12 +73,9 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg, kb = get_pro_feature_msg("Deep Research")
         return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
-    api_key = await SubscriptionRepo.get_groq_key(user_id)
-    if not api_key:
-        return await update.message.reply_text(
-            get_no_key_msg(),
-            parse_mode="HTML",
-        )
+    quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
+    if not quota_allowed:
+        return await update.message.reply_text(quota_msg, parse_mode="HTML")
 
     topic = " ".join(context.args) if context.args else ""
     topic = sanitize_user_input(topic)
@@ -87,7 +83,7 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not topic:
         return await update.message.reply_text(get_research_help(), parse_mode="HTML")
 
-    msg = await update.message.reply_text(
+    msg_obj = await update.message.reply_text(
         f"Launching deep research on: {html.escape(topic[:50])}...", parse_mode="HTML"
     )
 
@@ -102,7 +98,7 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         selected_model = await UsageRepo.get_selected_model(user_id)
-        result = await process_research(topic, api_key=api_key, preferred_model=selected_model)
+        result = await process_research(user_id, topic, preferred_model=selected_model)
         clean = sanitize_telegram_html(result)
 
         if len(clean) > 4000:
@@ -115,27 +111,20 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
         final_text = "Research Failed\n\nAn error occurred while researching. Please try again."
 
     try:
-        await msg.edit_text(
+        await msg_obj.edit_text(
             final_text, reply_markup=get_back_button(), parse_mode="HTML", disable_web_page_preview=True
         )
     except Exception:
         import re
 
         plain = re.sub(r"<[^>]+>", "", final_text or "")
-        await msg.edit_text(plain, disable_web_page_preview=True)
+        await msg_obj.edit_text(plain, disable_web_page_preview=True)
 
 
 async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     is_pro = await SubscriptionRepo.is_pro(user_id)
     msg_obj = update.message
-
-    api_key = await SubscriptionRepo.get_groq_key(user_id)
-    if not api_key:
-        return await msg_obj.reply_text(
-            get_no_key_msg(),
-            parse_mode="HTML",
-        )
 
     text = " ".join(context.args) if context.args else ""
     text = sanitize_user_input(text)
@@ -163,7 +152,7 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from zenith_ai_bot.utils import sanitize_telegram_html
 
     selected_model = await UsageRepo.get_selected_model(user_id)
-    result = await process_summarize(text, api_key=api_key, preferred_model=selected_model)
+    result = await process_summarize(user_id, text, preferred_model=selected_model)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -185,13 +174,6 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg, kb = get_pro_feature_msg("Code Generator")
         return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
-    api_key = await SubscriptionRepo.get_groq_key(user_id)
-    if not api_key:
-        return await update.message.reply_text(
-            get_no_key_msg(),
-            parse_mode="HTML",
-        )
-
     description = " ".join(context.args) if context.args else ""
     description = sanitize_user_input(description)
 
@@ -203,7 +185,7 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from zenith_ai_bot.utils import sanitize_telegram_html
 
     selected_model = await UsageRepo.get_selected_model(user_id)
-    result = await process_code(description, api_key=api_key, preferred_model=selected_model)
+    result = await process_code(user_id, description, preferred_model=selected_model)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -239,13 +221,6 @@ async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg, kb = get_pro_feature_msg("Image Prompt Crafter")
         return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
-    api_key = await SubscriptionRepo.get_groq_key(user_id)
-    if not api_key:
-        return await update.message.reply_text(
-            get_no_key_msg(),
-            parse_mode="HTML",
-        )
-
     description = " ".join(context.args) if context.args else ""
     description = sanitize_user_input(description)
 
@@ -259,7 +234,7 @@ async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from zenith_ai_bot.utils import sanitize_telegram_html
 
     selected_model = await UsageRepo.get_selected_model(user_id)
-    result = await process_imagine(description, api_key=api_key, preferred_model=selected_model)
+    result = await process_imagine(user_id, description, preferred_model=selected_model)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"

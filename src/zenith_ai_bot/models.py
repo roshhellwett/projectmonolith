@@ -22,5 +22,6 @@ class AIUsageLog(AIBase):
     usage_date = Column(Date, nullable=False)
     query_count = Column(Integer, default=0)
     summarize_count = Column(Integer, default=0)
+    tokens_used = Column(Integer, default=0)
     persona = Column(String(20), default="default")
     selected_model = Column(String(50), default="llama-3.3-70b-versatile")

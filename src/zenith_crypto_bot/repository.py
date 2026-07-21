@@ -5,13 +5,17 @@ from sqlalchemy import delete, func, select
 
 from core.database import AsyncSessionLocal, db_retry
 from core.logger import setup_logger
+from core.permissions import invalidate_tier_cache
 from zenith_crypto_bot.models import (
     ActivationKey,
     CryptoUser,
     PriceAlert,
+    ReferralCode,
+    ReferralRedemption,
     SavedAudit,
     Subscription,
     TrackedWallet,
+    UserFeedback,
     WatchlistToken,
 )
 
@@ -93,6 +97,7 @@ class SubscriptionRepo:
                     sub.expires_at = new_expiry
                 else:
                     session.add(Subscription(user_id=user_id, expires_at=new_expiry))
+            invalidate_tier_cache(user_id)
             return True, (
                 f"💎 <b>ZENITH PRO ACTIVATED</b>\n\n"
                 f"✅ Successfully applied <b>{key.duration_days} days</b> to your account.\n"
@@ -135,6 +140,7 @@ class SubscriptionRepo:
             else:
                 session.add(Subscription(user_id=user_id, expires_at=now + add_on))
             new_expiry = sub.expires_at if sub else now + add_on
+            invalidate_tier_cache(user_id)
             return True, (
                 f"✅ <b>Subscription Extended</b>\n\n"
                 f"<b>User:</b> <code>{user_id}</code>\n"
@@ -153,7 +159,7 @@ class SubscriptionRepo:
 
             past_date = datetime(2000, 1, 1, tzinfo=UTC)
             sub.expires_at = past_date
-
+            invalidate_tier_cache(user_id)
             return True, (
                 f"✅ <b>Subscription Revoked</b>\n\n"
                 f"<b>User:</b> <code>{user_id}</code>\n"
@@ -227,38 +233,6 @@ class SubscriptionRepo:
         async with AsyncSessionLocal() as session:
             stmt = delete(SavedAudit).where(SavedAudit.user_id == user_id)
             await session.execute(stmt)
-            await session.commit()
-
-    @staticmethod
-    @db_retry
-    async def set_groq_key(user_id: int, api_key: str) -> None:
-        async with AsyncSessionLocal() as session:
-            res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
-            user = res.scalar_one_or_none()
-            if user:
-                user.groq_api_key = api_key
-            else:
-                session.add(CryptoUser(user_id=user_id, groq_api_key=api_key))
-            await session.commit()
-
-    @staticmethod
-    @db_retry
-    async def get_groq_key(user_id: int) -> str | None:
-        async with AsyncSessionLocal() as session:
-            res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
-            user = res.scalar_one_or_none()
-            return user.groq_api_key if user and user.groq_api_key else None
-
-    @staticmethod
-    @db_retry
-    async def delete_groq_key(user_id: int) -> None:
-        async with AsyncSessionLocal() as session:
-            res = await session.execute(select(CryptoUser).where(CryptoUser.user_id == user_id))
-            user = res.scalar_one_or_none()
-            if user:
-                user.groq_api_key = None
-            else:
-                session.add(CryptoUser(user_id=user_id, groq_api_key=None))
             await session.commit()
 
     @staticmethod
@@ -491,3 +465,81 @@ class WatchlistRepo:
             stmt = select(func.count()).select_from(WatchlistToken).where(WatchlistToken.user_id == user_id)
             result = await session.execute(stmt)
             return result.scalar() or 0
+
+    @staticmethod
+    @db_retry
+    async def get_or_create_referral(user_id: int) -> str:
+        async with AsyncSessionLocal() as session:
+            res = await session.execute(select(ReferralCode).where(ReferralCode.user_id == user_id))
+            ref = res.scalar_one_or_none()
+            if ref:
+                return ref.code
+            import secrets
+
+            code = secrets.token_hex(3).upper()
+            session.add(ReferralCode(user_id=user_id, code=code))
+            await session.commit()
+            return code
+
+    @staticmethod
+    @db_retry
+    async def get_referral_stats(user_id: int) -> dict:
+        async with AsyncSessionLocal() as session:
+            res = await session.execute(select(ReferralCode).where(ReferralCode.user_id == user_id))
+            ref = res.scalar_one_or_none()
+            total = 0
+            days = 0
+            if ref:
+                total = ref.total_redeemed
+                days = ref.bonus_days
+            count_res = await session.execute(
+                select(func.count()).select_from(ReferralRedemption).where(ReferralRedemption.referrer_id == user_id)
+            )
+            used = count_res.scalar() or 0
+            return {"code": ref.code if ref else None, "total": total, "used": used, "bonus_days": days}
+
+    @staticmethod
+    @db_retry
+    async def redeem_referral(redeemer_id: int, code: str) -> tuple[bool, str]:
+        async with AsyncSessionLocal() as session, session.begin():
+            res = await session.execute(
+                select(ReferralCode).where(ReferralCode.code == code.upper()).with_for_update()
+            )
+            ref = res.scalar_one_or_none()
+            if not ref:
+                return False, "Invalid referral code."
+            if ref.user_id == redeemer_id:
+                return False, "You cannot use your own referral code."
+            existing = await session.execute(
+                select(ReferralRedemption).where(ReferralRedemption.redeemed_by == redeemer_id)
+            )
+            if existing.scalar_one_or_none():
+                return False, "You have already used a referral code."
+
+            session.add(ReferralRedemption(referrer_id=ref.user_id, redeemed_by=redeemer_id))
+            ref.total_redeemed += 1
+
+            add_on = timedelta(days=ref.bonus_days)
+            now = datetime.now(UTC)
+            for uid in [ref.user_id, redeemer_id]:
+                sub_res = await session.execute(
+                    select(Subscription).where(Subscription.user_id == uid).with_for_update()
+                )
+                sub = sub_res.scalar_one_or_none()
+                if sub and sub.expires_at > now:
+                    sub.expires_at += add_on
+                else:
+                    session.add(Subscription(user_id=uid, expires_at=now + add_on))
+                invalidate_tier_cache(uid)
+
+            return True, (
+                f"🎉 <b>Referral Redeemed!</b>\n\n"
+                f"You and your referrer each got <b>{ref.bonus_days} days</b> of Zenith Pro!"
+            )
+
+    @staticmethod
+    @db_retry
+    async def submit_feedback(user_id: int, message: str) -> None:
+        async with AsyncSessionLocal() as session:
+            session.add(UserFeedback(user_id=user_id, message=message[:2000]))
+            await session.commit()

@@ -8,8 +8,9 @@ from telegram.ext import ContextTypes
 
 from core.animation import send_typing_action
 from core.logger import setup_logger
+from zenith_ai_bot.repository import UsageRepo
 from zenith_crypto_bot import ui as crypto_ui
-from zenith_crypto_bot.ai_engine import call_crypto_ai, validate_groq_key
+from zenith_crypto_bot.ai_engine import call_crypto_ai
 from zenith_crypto_bot.repository import SubscriptionRepo
 
 logger = setup_logger("CRYPTO_AI_HANDLER")
@@ -43,10 +44,10 @@ async def _stage_through(msg: object, stages: list[str]) -> None:
 
 async def cmd_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    api_key = await SubscriptionRepo.get_groq_key(user_id)
-    if not api_key:
-        text, kb = crypto_ui.get_ai_no_key_msg()
-        await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
+
+    quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
+    if not quota_allowed:
+        await update.message.reply_text(quota_msg, parse_mode="HTML")
         return
 
     query = " ".join(context.args) if context.args else ""
@@ -61,12 +62,10 @@ async def cmd_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text(_AI_STAGES[0], parse_mode="HTML")
     try:
         await _stage_through(msg, _AI_STAGES)
-        response, error = await call_crypto_ai(api_key, user_id, query)
+        response, error = await call_crypto_ai(user_id, query)
 
         if error == "rate_limited":
             text, kb = crypto_ui.get_ai_rate_limited_msg()
-        elif error == "invalid_key":
-            text, kb = crypto_ui.get_ai_invalid_key_msg()
         elif error == "server_error":
             text, kb = crypto_ui.get_ai_server_error_msg()
         elif response:
@@ -97,30 +96,31 @@ async def cmd_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Usage: /setkey gsk_your_groq_api_key")
-        return
-    api_key = context.args[0].strip()
-    valid, msg = await validate_groq_key(api_key)
-    if not valid:
-        await update.message.reply_text(f"Invalid Key\n\n{msg}\n\nGet a free key at console.groq.com")
-        return
-    await SubscriptionRepo.set_groq_key(update.effective_user.id, api_key)
-    text, kb = crypto_ui.get_ai_key_set_success_msg()
-    await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
+    await update.message.reply_text(
+        "⚡ <b>Server-Managed AI</b>\n\n"
+        "Zenith now uses its own AI engine — no personal API key needed!\n\n"
+        "Just use <code>/ai your question</code> to analyze markets and get crypto insights.",
+        parse_mode="HTML",
+    )
 
 
 async def cmd_mykey(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    key = await SubscriptionRepo.get_groq_key(user_id)
-    text, kb = crypto_ui.get_ai_key_status_msg(key is not None)
-    await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
+    quota = await UsageRepo.get_token_quota(update.effective_user.id)
+    await update.message.reply_text(
+        f"⚡ <b>AI Token Usage</b>\n\n"
+        f"Today's usage: <b>{quota['tokens_used']:,}</b> / <b>{quota['daily_limit']:,}</b> tokens\n"
+        f"Remaining: <b>{quota['remaining']:,}</b> tokens\n\n"
+        f"Quota resets at midnight UTC.",
+        parse_mode="HTML",
+    )
 
 
 async def cmd_delkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await SubscriptionRepo.delete_groq_key(update.effective_user.id)
-    text, kb = crypto_ui.get_ai_key_deleted_msg()
-    await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
+    await update.message.reply_text(
+        "⚡ <b>No Key to Delete</b>\n\n"
+        "Zenith uses server-managed AI — your account is automatically configured.",
+        parse_mode="HTML",
+    )
 
 
 async def handle_ai_followup(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -137,19 +137,19 @@ async def handle_ai_followup(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = query.from_user.id
 
     if "set" in topic.lower() and ("key" in topic.lower() or "groq" in topic.lower()):
+        quota = await UsageRepo.get_token_quota(user_id)
         text = (
             "<b>Crypto AI</b>\n\n"
-            "Set your Groq API key like this:\n\n"
-            "<code>/setkey gsk_your_api_key</code>\n\n"
-            "Get a free key at <a href='https://console.groq.com'>console.groq.com</a>"
+            "Zenith uses a server-managed AI engine — no personal API key needed!\n\n"
+            f"Today's usage: <b>{quota['tokens_used']:,}</b> / <b>{quota['daily_limit']:,}</b> tokens\n"
+            f"Remaining: <b>{quota['remaining']:,}</b> tokens"
         )
         await query.edit_message_text(text, parse_mode="HTML")
         return
 
-    api_key = await SubscriptionRepo.get_groq_key(user_id)
-    if not api_key:
-        text, kb = crypto_ui.get_ai_no_key_msg()
-        await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+    quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
+    if not quota_allowed:
+        await query.edit_message_text(quota_msg, parse_mode="HTML")
         return
 
     context.args = [topic]
@@ -158,12 +158,10 @@ async def handle_ai_followup(update: Update, context: ContextTypes.DEFAULT_TYPE)
     msg = query.message
     try:
         await _stage_through(msg, _AI_STAGES)
-        response, error = await call_crypto_ai(api_key, user_id, topic)
+        response, error = await call_crypto_ai(user_id, topic)
 
         if error == "rate_limited":
             text, kb = crypto_ui.get_ai_rate_limited_msg()
-        elif error == "invalid_key":
-            text, kb = crypto_ui.get_ai_invalid_key_msg()
         elif error == "server_error":
             text, kb = crypto_ui.get_ai_server_error_msg()
         elif response:

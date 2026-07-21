@@ -388,3 +388,53 @@ async def get_new_pairs(from_block: int = None) -> tuple[list[dict], int]:
     except Exception as e:
         logger.error(f"New pair scan failed: {e}")
         return [], from_block or 0
+
+
+async def get_whale_transfers(min_value_eth: float = 500) -> list[dict]:
+    """Fetch real large ETH transfers from Etherscan."""
+    if not ETHERSCAN_API_KEY:
+        return []
+    breaker = get_breaker("etherscan")
+    if not breaker.can_execute():
+        return []
+    client = get_http_client()
+    try:
+        resp = await client.get(
+            ETHERSCAN_BASE,
+            params={
+                "module": "account",
+                "action": "txlist",
+                "address": "0x0000000000000000000000000000000000000000",
+                "startblock": 0,
+                "endblock": 99999999,
+                "page": 1,
+                "offset": 20,
+                "sort": "desc",
+                "apikey": ETHERSCAN_API_KEY,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("status") != "1":
+            return []
+        txns = data.get("result", [])
+        whales = []
+        for tx in txns:
+            try:
+                val_eth = int(tx.get("value", "0")) / 1e18
+                if val_eth >= min_value_eth:
+                    whales.append({
+                        "hash": tx.get("hash", ""),
+                        "from": tx.get("from", ""),
+                        "to": tx.get("to", ""),
+                        "value_eth": round(val_eth, 2),
+                        "timestamp": tx.get("timeStamp", ""),
+                    })
+            except (ValueError, ZeroDivisionError):
+                continue
+        breaker.record_success()
+        return whales[:5]
+    except Exception as e:
+        breaker.record_failure()
+        logger.debug(f"Whale transfer fetch failed (non-critical): {e}")
+        return []
