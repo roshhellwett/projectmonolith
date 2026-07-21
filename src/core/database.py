@@ -40,7 +40,8 @@ def _resolve_database_url(url: str) -> str:
         return url
     elif not url.startswith("postgresql+asyncpg://"):
         raise ValueError(f"Unsupported DATABASE_URL scheme: {url.split('://')[0]}")
-    url = re.sub(r"\?pgbouncer=true", "", url)
+    url = re.sub(r"([?&])(pgbouncer|connection_limit|pool_timeout)=[^&]+(&|$)", r"\1", url, flags=re.IGNORECASE)
+    url = re.sub(r"[?&]$", "", url)
     return url
 
 

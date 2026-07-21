@@ -80,7 +80,8 @@ async def run_async_migrations() -> None:
         return
 
     resolved_url = _resolve_database_url(url)
-    connectable = create_async_engine(resolved_url, poolclass=pool.NullPool)
+    connect_args = {"statement_cache_size": 0} if not resolved_url.startswith("sqlite") else {}
+    connectable = create_async_engine(resolved_url, poolclass=pool.NullPool, connect_args=connect_args)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
