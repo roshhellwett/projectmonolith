@@ -12,7 +12,7 @@ from telegram.ext import (
 )
 
 from core.config import ADMIN_USER_ID, AI_BOT_TOKEN
-from core.database import dispose_engine, init_db
+from core.database import dispose_engine
 from core.engagement_handlers import cmd_changelog, cmd_feedback, cmd_mystats, cmd_referral
 from core.error_handler import handle_bot_error
 from core.gateway import attach_gateway, setup_bot_webhook

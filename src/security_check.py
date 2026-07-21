@@ -218,6 +218,22 @@ def check_security_headers(root_dir: Path):
 def check_webhook_auth(root_dir: Path):
     print_header("Checking Webhook Authentication")
 
+    router_file = root_dir / "src" / "core" / "webhook_router.py"
+    gateway_file = root_dir / "src" / "core" / "gateway.py"
+
+    router_ok = False
+    gateway_ok = False
+
+    if router_file.exists():
+        content = router_file.read_text(encoding="utf-8", errors="ignore")
+        if "validate_webhook_auth(secret, request)" in content:
+            router_ok = True
+
+    if gateway_file.exists():
+        content = gateway_file.read_text(encoding="utf-8", errors="ignore")
+        if "WEBHOOK_SECRET" in content and "path_secret != WEBHOOK_SECRET" in content:
+            gateway_ok = True
+
     bot_files = [
         "run_admin_bot.py",
         "run_group_bot.py",
@@ -233,16 +249,20 @@ def check_webhook_auth(root_dir: Path):
         if not path.exists():
             continue
         content = path.read_text(encoding="utf-8", errors="ignore")
-        if "WEBHOOK_SECRET" in content and "secret != WEBHOOK_SECRET" in content:
+        if "register_bot_webhook" in content:
             results.append((bot_file, True))
         else:
             results.append((bot_file, False))
 
-    if all(r[1] for r in results):
-        print(f"{GREEN}✓ All bots have webhook secret validation{RESET}")
+    if router_ok and gateway_ok and all(r[1] for r in results):
+        print(f"{GREEN}✓ Centralized webhook validation active and all bots registered{RESET}")
         return True
     else:
-        print(f"{RED}❌ Missing webhook validation in: {[r[0] for r in results if not r[1]]}{RESET}")
+        missing = [r[0] for r in results if not r[1]]
+        if not router_ok or not gateway_ok:
+            print(f"{RED}❌ Centralized webhook auth validation missing in core router/gateway{RESET}")
+        if missing:
+            print(f"{RED}❌ Missing webhook registration in: {missing}{RESET}")
         return False
 
 

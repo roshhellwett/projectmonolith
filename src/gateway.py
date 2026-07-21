@@ -157,7 +157,7 @@ async def lifespan(app: FastAPI):
                 logger.error(f"❌ {label} webhook registration failed: {e}")
             await asyncio.sleep(1)
 
-    asyncio.create_task(_startup())
+    startup_task = asyncio.create_task(_startup())
 
     async def _daily_cleanup():
         await asyncio.sleep(3600)
@@ -165,16 +165,21 @@ async def lifespan(app: FastAPI):
             logger.info("Starting daily data retention cleanup")
             try:
                 await asyncio.wait_for(run_cleanup(), timeout=120.0)
+            except asyncio.CancelledError:
+                break
             except Exception as e:
                 logger.warning(f"Data cleanup failed: {e}")
             await asyncio.sleep(86400)
 
-    asyncio.create_task(_daily_cleanup())
+    cleanup_task = asyncio.create_task(_daily_cleanup())
 
     yield
 
     logger.info("🛑 MONOLITH SHUTDOWN")
     await stop_health_monitor()
+    for t in [startup_task, cleanup_task]:
+        t.cancel()
+    await asyncio.gather(startup_task, cleanup_task, return_exceptions=True)
     try:
         results = await asyncio.wait_for(
             asyncio.gather(

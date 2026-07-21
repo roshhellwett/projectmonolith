@@ -22,10 +22,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "src
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
+import asyncio
 import importlib.util
 import pathlib
 
-from core.database import Base
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from core.database import Base, _resolve_database_url
 
 _proj = pathlib.Path(__file__).resolve().parent.parent
 _model_files = {
@@ -64,24 +67,33 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def run_migrations_online() -> None:
-    from sqlalchemy import create_engine
+def do_run_migrations(connection) -> None:
+    context.configure(connection=connection, target_metadata=target_metadata)
+    with context.begin_transaction():
+        context.run_migrations()
 
+
+async def run_async_migrations() -> None:
     url = os.environ.get("DATABASE_URL") or config.get_main_option("sqlalchemy.url", "")
     if not url or url.startswith("${{") or url.startswith("driver://"):
         print("No real DATABASE_URL configured. Use offline mode or set sqlalchemy.url in alembic.ini.")
         return
 
-    sync_url = url.replace("+asyncpg", "").replace("+psycopg", "").split("?")[0]
-    connectable = create_engine(sync_url, poolclass=pool.NullPool)
+    resolved_url = _resolve_database_url(url)
+    connectable = create_async_engine(resolved_url, poolclass=pool.NullPool)
 
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
-        with context.begin_transaction():
-            context.run_migrations()
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+
+    await connectable.dispose()
+
+
+def run_migrations_online() -> None:
+    asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
+

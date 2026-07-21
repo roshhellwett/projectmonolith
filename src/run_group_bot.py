@@ -375,8 +375,11 @@ async def register_webhook():
 async def stop_service(dispose_db: bool = False):
     for task in list(background_tasks):
         task.cancel()
+    if background_tasks:
+        await asyncio.gather(*list(background_tasks), return_exceptions=True)
     if bot_app:
         await bot_app.stop()
         await bot_app.shutdown()
     if dispose_db:
         await dispose_engine()
+
