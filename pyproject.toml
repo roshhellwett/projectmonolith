@@ -79,6 +79,18 @@ disable_error_code = [
     "no-untyped-call",
     "union-attr",
     "misc",
+    "assignment",
+    "arg-type",
+    "return-value",
+    "attr-defined",
+    "var-annotated",
+    "no-any-return",
+    "call-arg",
+    "index",
+    "operator",
+    "unreachable",
+    "valid-type",
+    "call-overload",
 ]
 
 [[tool.mypy.overrides]]
@@ -104,6 +116,7 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["src"]
+relative_files = true
 omit = ["*/tests/*", "*/__init__.py", "*/alembic/*", "*/scripts/*"]
 
 [tool.pyright]

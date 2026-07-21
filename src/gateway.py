@@ -61,7 +61,9 @@ async def check_request_size(request: Request) -> bool:
     if content_length:
         try:
             if int(content_length) > MAX_REQUEST_SIZE:
-                logger.warning(f"Request too large: {content_length}B from {request.client.host if request.client else 'unknown'}")
+                logger.warning(
+                    f"Request too large: {content_length}B from {request.client.host if request.client else 'unknown'}"
+                )
                 return False
         except (ValueError, TypeError):
             pass
@@ -192,9 +194,7 @@ async def lifespan(app: FastAPI):
             ),
             timeout=20.0,
         )
-        for service_name, result in zip(
-            ["Group", "AI", "Crypto", "Support", "Admin"], results, strict=False
-        ):
+        for service_name, result in zip(["Group", "AI", "Crypto", "Support", "Admin"], results, strict=False):
             if isinstance(result, Exception):
                 logger.warning(f"⚠️ {service_name} service shutdown raised: {result}")
             else:

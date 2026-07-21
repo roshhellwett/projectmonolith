@@ -17,6 +17,7 @@ def _sanitize_text(text: str, max_len: int = 2000) -> str:
     cleaned = text.strip()[:max_len]
     return re.sub(r"<[^>]*>", "", cleaned)
 
+
 _CHANGELOG = (
     "<b>📋 Zenith Changelog</b>\n\n"
     "<b>July 21, 2026</b>\n"
@@ -106,7 +107,6 @@ async def cmd_mystats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Stats error: {e}")
         await update.message.reply_text(
-            "<b>📊 Your Stats</b>\n\n"
-            "Could not load stats right now. Try again later.",
+            "<b>📊 Your Stats</b>\n\n" "Could not load stats right now. Try again later.",
             parse_mode="HTML",
         )

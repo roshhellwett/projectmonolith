@@ -502,9 +502,7 @@ class WatchlistRepo:
     @db_retry
     async def redeem_referral(redeemer_id: int, code: str) -> tuple[bool, str]:
         async with AsyncSessionLocal() as session, session.begin():
-            res = await session.execute(
-                select(ReferralCode).where(ReferralCode.code == code.upper()).with_for_update()
-            )
+            res = await session.execute(select(ReferralCode).where(ReferralCode.code == code.upper()).with_for_update())
             ref = res.scalar_one_or_none()
             if not ref:
                 return False, "Invalid referral code."

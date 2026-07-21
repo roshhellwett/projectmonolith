@@ -569,6 +569,7 @@ async def real_whale_watcher():
         await asyncio.sleep(300)
         try:
             from zenith_crypto_bot.market_service import get_whale_transfers
+
             free_users, pro_users = await SubscriptionRepo.get_alert_subscribers()
             if not free_users and not pro_users:
                 continue
@@ -685,4 +686,3 @@ async def stop_service(dispose_db: bool = False):
     await close_market_client()
     if dispose_db:
         await dispose_engine()
-

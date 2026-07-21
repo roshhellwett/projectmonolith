@@ -117,8 +117,7 @@ async def cmd_mykey(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_delkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "⚡ <b>No Key to Delete</b>\n\n"
-        "Zenith uses server-managed AI — your account is automatically configured.",
+        "⚡ <b>No Key to Delete</b>\n\n" "Zenith uses server-managed AI — your account is automatically configured.",
         parse_mode="HTML",
     )
 

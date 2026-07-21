@@ -10,8 +10,6 @@ from zenith_ai_bot.youtube import get_youtube_transcript
 logger = setup_logger("LLM_ENGINE")
 
 
-
-
 async def _check_and_record(user_id: int, query_text: str, response_text: str) -> tuple[bool, str]:
     """Check quota and record token usage. Returns (allowed, message)."""
     allowed, msg = await UsageRepo.check_quota(user_id)

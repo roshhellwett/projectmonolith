@@ -14,6 +14,4 @@ class PersistentRateLimit(Base):
     count = Column(Integer, default=0)
     window_start = Column(DateTime, nullable=False, index=True)
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "action", "window_start", name="uix_rate_limit_key"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "action", "window_start", name="uix_rate_limit_key"),)

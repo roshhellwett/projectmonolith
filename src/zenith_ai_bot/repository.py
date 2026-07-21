@@ -143,6 +143,7 @@ class UsageRepo:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
             from core.config import get_user_tier
+
             tier = get_user_tier(user_id)
             daily_limit = 50000 if tier in ("pro", "owner") else 10000
             return {

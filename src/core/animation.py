@@ -102,6 +102,3 @@ async def edit_with_stages(
             pass
         await asyncio.sleep(delay)
     return await edit_or_reply(update, context, text=final_text, keyboard=final_keyboard, existing_msg=msg)
-
-
-

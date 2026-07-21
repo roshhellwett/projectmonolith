@@ -423,13 +423,15 @@ async def get_whale_transfers(min_value_eth: float = 500) -> list[dict]:
             try:
                 val_eth = int(tx.get("value", "0")) / 1e18
                 if val_eth >= min_value_eth:
-                    whales.append({
-                        "hash": tx.get("hash", ""),
-                        "from": tx.get("from", ""),
-                        "to": tx.get("to", ""),
-                        "value_eth": round(val_eth, 2),
-                        "timestamp": tx.get("timeStamp", ""),
-                    })
+                    whales.append(
+                        {
+                            "hash": tx.get("hash", ""),
+                            "from": tx.get("from", ""),
+                            "to": tx.get("to", ""),
+                            "value_eth": round(val_eth, 2),
+                            "timestamp": tx.get("timeStamp", ""),
+                        }
+                    )
             except (ValueError, ZeroDivisionError):
                 continue
         breaker.record_success()

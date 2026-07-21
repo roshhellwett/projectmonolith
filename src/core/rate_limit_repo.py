@@ -27,11 +27,15 @@ class RateLimitRepo:
     @staticmethod
     async def increment(user_id: int, action: str, window_start: datetime) -> int:
         async with get_db() as session:
-            stmt = select(PersistentRateLimit).where(
-                PersistentRateLimit.user_id == user_id,
-                PersistentRateLimit.action == action,
-                PersistentRateLimit.window_start == window_start,
-            ).with_for_update()
+            stmt = (
+                select(PersistentRateLimit)
+                .where(
+                    PersistentRateLimit.user_id == user_id,
+                    PersistentRateLimit.action == action,
+                    PersistentRateLimit.window_start == window_start,
+                )
+                .with_for_update()
+            )
             result = await session.execute(stmt)
             entry = result.scalar_one_or_none()
             if entry:

@@ -45,10 +45,14 @@ async def seed_default_faq():
     ]
     async with AsyncSessionLocal() as session:
         for faq_data in default_faqs:
-            stmt = exists(FAQEntry).where(
-                FAQEntry.question == faq_data["question"],
-                FAQEntry.category == faq_data["category"],
-            ).select()
+            stmt = (
+                exists(FAQEntry)
+                .where(
+                    FAQEntry.question == faq_data["question"],
+                    FAQEntry.category == faq_data["category"],
+                )
+                .select()
+            )
             exists_result = (await session.execute(stmt)).scalar()
             if not exists_result:
                 session.add(

@@ -51,17 +51,13 @@ def upgrade() -> None:
     if "crypto_price_alerts" in tables:
         existing = [i["name"] for i in inspector.get_indexes("crypto_price_alerts")]
         if "ix_crypto_price_alerts_active" not in existing:
-            op.create_index(
-                "ix_crypto_price_alerts_active", "crypto_price_alerts", ["is_triggered", "token_id"]
-            )
+            op.create_index("ix_crypto_price_alerts_active", "crypto_price_alerts", ["is_triggered", "token_id"])
 
     # --- zenith_support_tickets ---
     if "zenith_support_tickets" in tables:
         existing = [i["name"] for i in inspector.get_indexes("zenith_support_tickets")]
         if "ix_zenith_support_tickets_user_status" not in existing:
-            op.create_index(
-                "ix_zenith_support_tickets_user_status", "zenith_support_tickets", ["user_id", "status"]
-            )
+            op.create_index("ix_zenith_support_tickets_user_status", "zenith_support_tickets", ["user_id", "status"])
         if "ix_tickets_created_at" not in existing:
             op.create_index("ix_tickets_created_at", "zenith_support_tickets", [sa.text("created_at DESC")])
 

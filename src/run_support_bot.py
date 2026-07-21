@@ -640,4 +640,3 @@ async def stop_service(dispose_db: bool = False):
         await bot_app.shutdown()
     if dispose_db:
         await dispose_engine()
-

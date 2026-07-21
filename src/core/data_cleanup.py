@@ -1,6 +1,7 @@
 """Data retention cleanup to stay within Supabase free tier (50K rows)."""
 
 import datetime
+from typing import Any
 
 from sqlalchemy import delete
 
@@ -24,27 +25,37 @@ async def run_cleanup() -> dict[str, int]:
         now_naive = now.replace(tzinfo=None)
 
         results["zenith_ai_conversations"] = await _do_delete(
-            session, AIConversation, AIConversation.created_at,
+            session,
+            AIConversation,
+            AIConversation.created_at,
             now_naive - datetime.timedelta(days=5),
         )
 
         results["zenith_moderation_log"] = await _do_delete(
-            session, ModerationLog, ModerationLog.created_at,
+            session,
+            ModerationLog,
+            ModerationLog.created_at,
             now_naive - datetime.timedelta(days=7),
         )
 
         results["admin_audit_log"] = await _do_delete(
-            session, AdminAuditLog, AdminAuditLog.created_at,
+            session,
+            AdminAuditLog,
+            AdminAuditLog.created_at,
             now - datetime.timedelta(days=30),
         )
 
         results["zenith_ai_usage"] = await _do_delete(
-            session, AIUsageLog, AIUsageLog.usage_date,
+            session,
+            AIUsageLog,
+            AIUsageLog.usage_date,
             (now_naive - datetime.timedelta(days=90)).date(),
         )
 
         results["zenith_support_tickets"] = await _do_delete(
-            session, SupportTicket, SupportTicket.created_at,
+            session,
+            SupportTicket,
+            SupportTicket.created_at,
             now_naive - datetime.timedelta(days=30),
             extra_where=[SupportTicket.status.in_(["resolved", "closed"])],
         )
@@ -59,10 +70,16 @@ async def run_cleanup() -> dict[str, int]:
     return results
 
 
-async def _do_delete(session, model, date_col, cutoff, extra_where=None):
+async def _do_delete(
+    session: Any,
+    model: Any,
+    date_col: Any,
+    cutoff: Any,
+    extra_where: list[Any] | None = None,
+) -> int:
     stmt = delete(model).where(date_col < cutoff)
     if extra_where:
         for clause in extra_where:
             stmt = stmt.where(clause)
     result = await session.execute(stmt)
-    return result.rowcount
+    return int(result.rowcount)
