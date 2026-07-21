@@ -7,7 +7,7 @@ name = "project-monolith"
 version = "1.0.0"
 description = "Zenith — multi-bot Telegram platform with blockchain intelligence, content moderation, and AI conversations"
 requires-python = ">=3.11"
-license = {file = "LICENSE"}
+license = {file = "license"}
 dependencies = [
     "python-telegram-bot==22.6",
     "SQLAlchemy==2.0.36",
