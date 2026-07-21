@@ -114,34 +114,32 @@ async def lifespan(app: FastAPI):
         set_db_unhealthy()
         logger.error(f"❌ Database init failed: {e}")
 
-    async def safe_start(name, func):
-        try:
-            await asyncio.wait_for(func(), timeout=30.0)
-            SERVICE_REGISTRY[name] = "online"
-            logger.info(f"✅ {name} started")
-        except TimeoutError:
-            SERVICE_REGISTRY[name] = "failed: startup timeout"
-            logger.error(f"❌ {name} startup timed out after 30s")
-        except Exception as e:
-            SERVICE_REGISTRY[name] = f"failed: {e}"
-            logger.error(f"❌ {name} failed to start: {e}")
+    async def _start_services():
+        async def safe_start(name, func):
+            try:
+                await asyncio.wait_for(func(), timeout=30.0)
+                SERVICE_REGISTRY[name] = "online"
+                logger.info(f"✅ {name} started")
+            except TimeoutError:
+                SERVICE_REGISTRY[name] = "failed: startup timeout"
+                logger.error(f"❌ {name} startup timed out after 30s")
+            except Exception as e:
+                SERVICE_REGISTRY[name] = f"failed: {e}"
+                logger.error(f"❌ {name} failed to start: {e}")
 
-    services = [
-        ("GROUP", run_group_bot.start_service),
-        ("AI", run_ai_bot.start_service),
-        ("CRYPTO", run_crypto_bot.start_service),
-        ("SUPPORT", run_support_bot.start_service),
-        ("ADMIN", run_admin_bot.start_service),
-    ]
-    for name, func in services:
-        await safe_start(name, func)
-        await asyncio.sleep(1)
+        services = [
+            ("GROUP", run_group_bot.start_service),
+            ("AI", run_ai_bot.start_service),
+            ("CRYPTO", run_crypto_bot.start_service),
+            ("SUPPORT", run_support_bot.start_service),
+            ("ADMIN", run_admin_bot.start_service),
+        ]
+        await asyncio.gather(*(safe_start(n, f) for n, f in services))
 
-    online = sum(1 for v in SERVICE_REGISTRY.values() if v == "online")
-    total = len(SERVICE_REGISTRY)
-    logger.info(f"📊 MONOLITH READY: {online}/{total} services online")
+        online = sum(1 for v in SERVICE_REGISTRY.values() if v == "online")
+        total = len(SERVICE_REGISTRY)
+        logger.info(f"📊 MONOLITH READY: {online}/{total} services online")
 
-    async def _register_webhooks():
         await asyncio.sleep(3)
         for label, reg in [
             ("GROUP", run_group_bot.register_webhook),
@@ -157,7 +155,7 @@ async def lifespan(app: FastAPI):
                 logger.error(f"❌ {label} webhook registration failed: {e}")
             await asyncio.sleep(1)
 
-    asyncio.create_task(_register_webhooks())
+    asyncio.create_task(_start_services())
 
     async def _daily_cleanup():
         await asyncio.sleep(3600)
