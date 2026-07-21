@@ -5,6 +5,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
+COPY LICENSE .
+COPY src/ ./src/
 RUN pip install --no-cache-dir build && python -m build --wheel
 
 FROM python:3.11-slim AS runtime
