@@ -517,7 +517,6 @@ async def start_service():
 
     register_bot_webhook("ai", bot_app)
 
-    await init_db()
     await bot_app.initialize()
     await bot_app.start()
 

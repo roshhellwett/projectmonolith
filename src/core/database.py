@@ -53,11 +53,11 @@ def get_engine() -> AsyncEngine:
         else:
             _engine = create_async_engine(
                 resolved_url,
-                pool_size=min(DB_POOL_SIZE, 3),
-                max_overflow=1,
+                pool_size=max(5, DB_POOL_SIZE),
+                max_overflow=10,
                 pool_pre_ping=True,
                 pool_recycle=1800,
-                pool_timeout=3,
+                pool_timeout=20,
                 pool_use_lifo=True,
                 connect_args={"statement_cache_size": 0},
                 execution_options={"prepared_statement_cache_size": 0},

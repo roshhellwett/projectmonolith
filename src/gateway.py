@@ -108,12 +108,14 @@ async def lifespan(app: FastAPI):
     await _diagnose_network()
 
     async def _startup():
+        await asyncio.sleep(0.1)  # Yield loop immediately so uvicorn can start serving /health
         try:
             await init_db()
             await start_health_monitor(get_engine())
         except Exception as e:
             set_db_unhealthy()
             logger.error(f"❌ Database init failed: {e}")
+        await asyncio.sleep(0.05)  # Yield before starting heavy service initialization
 
         async def safe_start(name, func):
             try:
@@ -209,6 +211,12 @@ app = FastAPI(
 
 @app.middleware("http")
 async def global_protection(request: Request, call_next):
+    if request.url.path in ("/health", "/") or request.url.path.startswith("/health/"):
+        response = await call_next(request)
+        for header, value in SECURITY_HEADERS.items():
+            response.headers[header] = value
+        return response
+
     if "/webhook/" in request.url.path and MAINTENANCE_MODE:
         return JSONResponse({"ok": True, "maintenance": True}, status_code=200)
 
