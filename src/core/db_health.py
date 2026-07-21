@@ -120,3 +120,9 @@ async def stop_health_monitor():
 def is_db_healthy() -> bool:
     """Check if the database was healthy at last check."""
     return _is_healthy
+
+
+def set_db_unhealthy() -> None:
+    """Mark the database as unhealthy (e.g. after a failed init or connection error)."""
+    global _is_healthy
+    _is_healthy = False

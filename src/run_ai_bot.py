@@ -15,7 +15,7 @@ from telegram.ext import (
 from core.config import ADMIN_USER_ID, AI_BOT_TOKEN, WEBHOOK_SECRET
 from core.database import dispose_engine, init_db
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook
+from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook, validate_webhook_auth
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 from zenith_ai_bot.llm_engine import process_ai_query
@@ -532,16 +532,24 @@ async def register_webhook():
 async def stop_service(dispose_db: bool = False):
     while not task_queue.empty():
         try:
-            _, context, placeholder_msg, *_ = task_queue.get_nowait()
-            await context.bot.edit_message_text(
-                chat_id=placeholder_msg.chat_id,
-                message_id=placeholder_msg.message_id,
-                text="System Update: Zenith is restarting. Please try again in a moment.",
-                parse_mode="HTML",
-            )
+            task_item = task_queue.get_nowait()
+            if len(task_item) >= 3:
+                _, _context, placeholder_msg = task_item[0], task_item[1], task_item[2]
+                if _context and placeholder_msg:
+                    try:
+                        await _context.bot.edit_message_text(
+                            chat_id=placeholder_msg.chat_id,
+                            message_id=placeholder_msg.message_id,
+                            text="System Update: Zenith is restarting. Please try again in a moment.",
+                            parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass
             task_queue.task_done()
+        except asyncio.QueueEmpty:
+            break
         except Exception as e:
-            logger.warning(f"Error in worker: {e}")
+            logger.warning(f"Error draining task queue: {e}")
 
     for task in worker_tasks:
         task.cancel()
@@ -558,8 +566,8 @@ async def stop_service(dispose_db: bool = False):
 
 @router.post("/webhook/ai/{secret}")
 async def ai_webhook(secret: str, request: Request):
-    if secret != WEBHOOK_SECRET:
-        logger.warning(f"❌ [AI] Webhook secret mismatch! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}")
+    if not validate_webhook_auth(secret, request):
+        logger.warning(f"❌ [AI] Webhook auth failed! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}")
         return Response(status_code=403)
     if not bot_app:
         return Response(status_code=503)
@@ -572,7 +580,9 @@ async def ai_webhook(secret: str, request: Request):
             return Response(status_code=200)
         if update_id:
             dedup[update_id] = True
-        logger.info(f"📥 [AI] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})")
+        logger.info(
+            f"📥 [AI] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})"
+        )
         await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
         return Response(status_code=200)
     except Exception as e:

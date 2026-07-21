@@ -13,9 +13,9 @@ import run_crypto_bot
 import run_group_bot
 import run_support_bot
 from core.circuit_breaker import get_all_breaker_statuses
-from core.config import DATABASE_URL, PORT, WEBHOOK_SECRET
+from core.config import DATABASE_URL, MAINTENANCE_MODE, PORT, WEBHOOK_SECRET
 from core.database import dispose_engine, get_engine, init_db
-from core.db_health import is_db_healthy, start_health_monitor, stop_health_monitor
+from core.db_health import is_db_healthy, set_db_unhealthy, start_health_monitor, stop_health_monitor
 from core.logger import setup_logger
 from core.secrets import enforce_startup_secrets
 
@@ -23,7 +23,6 @@ logger = setup_logger("GATEWAY")
 
 webhook_rate = TTLCache(maxsize=500000, ttl=5)
 api_rate = TTLCache(maxsize=500000, ttl=5)
-seen_update_ids = TTLCache(maxsize=100000, ttl=300)
 
 REQUEST_TIMEOUT_SECONDS = 25
 
@@ -42,29 +41,33 @@ MAX_REQUEST_SIZE = 1_000_000  # 1MB
 SERVICE_REGISTRY = {}
 
 
-async def rate_limit(request: Request):
+async def rate_limit(request: Request) -> bool:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         client_ip = forwarded.split(",")[0].strip()
     else:
-        client_ip = "unknown" if not request.client else request.client.host or "unknown"
+        client_ip = request.client.host if request.client else "unknown"
 
     if "/webhook/" in request.url.path:
-        webhook_rate[client_ip] = webhook_rate.get(client_ip, 0) + 1
-        return webhook_rate[client_ip] <= 100
+        current = webhook_rate.get(client_ip, 0)
+        webhook_rate[client_ip] = current + 1
+        return current < 100
 
-    api_rate[client_ip] = api_rate.get(client_ip, 0) + 1
-    return api_rate[client_ip] <= 50
+    current = api_rate.get(client_ip, 0)
+    api_rate[client_ip] = current + 1
+    return current < 50
 
 
-async def check_request_size(request: Request):
+async def check_request_size(request: Request) -> bool:
     content_length = request.headers.get("content-length")
-    if not content_length:
-        return True
-    try:
-        return int(content_length) <= MAX_REQUEST_SIZE
-    except (ValueError, TypeError):
-        return True
+    if content_length:
+        try:
+            if int(content_length) > MAX_REQUEST_SIZE:
+                logger.warning(f"Request too large: {content_length}B from {request.client.host if request.client else 'unknown'}")
+                return False
+        except (ValueError, TypeError):
+            pass
+    return True
 
 
 def _validate_environment():
@@ -87,7 +90,6 @@ def _validate_environment():
 async def _diagnose_network():
     """Log DNS resolution for critical external hosts."""
     hosts = {
-        "Supabase PgBouncer": "aws-0-ap-northeast-1.pooler.supabase.com",
         "Telegram API": "api.telegram.org",
         "CoinGecko API": "api.coingecko.com",
     }
@@ -110,6 +112,7 @@ async def lifespan(app: FastAPI):
         await init_db()
         await start_health_monitor(get_engine())
     except Exception as e:
+        set_db_unhealthy()
         logger.error(f"❌ Database init failed: {e}")
 
     async def safe_start(name, func):
@@ -162,7 +165,7 @@ async def lifespan(app: FastAPI):
     logger.info("🛑 MONOLITH SHUTDOWN")
     await stop_health_monitor()
     try:
-        await asyncio.wait_for(
+        results = await asyncio.wait_for(
             asyncio.gather(
                 run_group_bot.stop_service(dispose_db=False),
                 run_ai_bot.stop_service(dispose_db=False),
@@ -171,12 +174,18 @@ async def lifespan(app: FastAPI):
                 run_admin_bot.stop_service(dispose_db=False),
                 return_exceptions=True,
             ),
-            timeout=15.0,
+            timeout=20.0,
         )
+        for service_name, result in zip(
+            ["Group", "AI", "Crypto", "Support", "Admin"], results, strict=False
+        ):
+            if isinstance(result, Exception):
+                logger.warning(f"⚠️ {service_name} service shutdown raised: {result}")
+            else:
+                logger.info(f"✅ {service_name} service stopped")
     except TimeoutError:
-        logger.error("⚠️ Force closing: a service refused to shut down in time.")
+        logger.error("⚠️ Force closing: one or more services refused to shut down in time.")
     await dispose_engine()
-
     logger.info("👋 MONOLITH STOPPED")
 
 
@@ -192,7 +201,11 @@ app = FastAPI(
 @app.middleware("http")
 async def global_protection(request: Request, call_next):
     if "/webhook/" in request.url.path:
-        logger.info(f"🌐 Webhook HTTP request arriving: {request.method} {request.url.path} from {request.client.host if request.client else 'unknown'}")
+        logger.info(
+            f"🌐 Webhook HTTP request arriving: {request.method} {request.url.path} from {request.client.host if request.client else 'unknown'}"
+        )
+        if MAINTENANCE_MODE:
+            return JSONResponse({"ok": True, "maintenance": True}, status_code=200)
 
     if not await check_request_size(request):
         return JSONResponse({"error": "Payload too large. Max 1MB."}, status_code=413)
@@ -229,20 +242,17 @@ app.include_router(run_admin_bot.router)
 
 @app.get("/health")
 async def health():
-    from core.config import WEBHOOK_URL
-
     db_ok = is_db_healthy()
     breakers = get_all_breaker_statuses()
     all_breakers_closed = all(b.get("state") == "closed" for b in breakers)
-    status_code = 200 if db_ok and all_breakers_closed else 503
+    healthy = db_ok and all_breakers_closed and not MAINTENANCE_MODE
+    status_code = 200 if healthy else 503
     return JSONResponse(
         {
-            "status": "ok" if status_code == 200 else "degraded",
+            "status": "ok" if healthy else "degraded",
             "db_healthy": db_ok,
-            "circuit_breakers": breakers,
-            "system": "Project Monolith",
-            "webhook_base_url": WEBHOOK_URL,
-            "services": SERVICE_REGISTRY,
+            "maintenance_mode": MAINTENANCE_MODE,
+            "services": {k: v for k, v in SERVICE_REGISTRY.items() if v is not None},
         },
         status_code=status_code,
     )
@@ -254,7 +264,6 @@ async def root():
         {
             "status": "ok",
             "system": "Project Monolith",
-            "message": "All systems operational.",
         }
     )
 

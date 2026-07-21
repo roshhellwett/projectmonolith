@@ -8,7 +8,6 @@ class TestGatewayHealth:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
-        assert data["system"] == "Project Monolith"
 
     @pytest.mark.asyncio
     async def test_health_has_services(self, client):

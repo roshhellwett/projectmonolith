@@ -67,32 +67,27 @@ docstring-code-format = false
 python_version = "3.11"
 mypy_path = ["src"]
 exclude = ["scripts/"]
+ignore_missing_imports = true
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-ignore_missing_imports = true
+warn_return_any = true
+warn_unreachable = true
+# Allow untyped defs/calls for pragmatism in a dynamic project
 disable_error_code = [
     "no-untyped-def",
     "no-untyped-call",
     "union-attr",
-    "var-annotated",
-    "arg-type",
     "misc",
-    "attr-defined",
-    "operator",
-    "assignment",
-    "valid-type",
-    "call-overload",
-    "call-arg",
-    "return-value",
-    "index",
-    "type-var",
 ]
 
 [[tool.mypy.overrides]]
 module = [
     "zenith_ai_bot.prompts",
     "zenith_group_bot.word_list",
+    "zenith_crypto_bot.ai_handlers",
+    "zenith_group_bot.group_app",
+    "zenith_group_bot.setup_flow",
 ]
 ignore_errors = true
 

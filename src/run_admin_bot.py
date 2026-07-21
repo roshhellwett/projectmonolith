@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Request, Response
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler
@@ -5,7 +7,7 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandle
 from core.config import ADMIN_BOT_TOKEN, WEBHOOK_SECRET
 from core.database import dispose_engine
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook
+from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook, validate_webhook_auth
 from core.logger import setup_logger
 from zenith_admin_bot.commands import (
     cmd_audit,
@@ -105,10 +107,15 @@ async def register_webhook():
 
 
 async def stop_service(dispose_db: bool = False):
-    await stop_monitoring()
+    try:
+        await stop_monitoring()
+    except Exception as e:
+        logger.warning(f"Monitoring stop error (non-fatal): {e}")
 
     for t in list(background_tasks):
         t.cancel()
+    if background_tasks:
+        await asyncio.gather(*list(background_tasks), return_exceptions=True)
 
     if bot_app:
         await bot_app.stop()
@@ -121,8 +128,8 @@ async def stop_service(dispose_db: bool = False):
 
 @router.post("/webhook/admin/{secret}")
 async def admin_webhook(secret: str, request: Request):
-    if secret != WEBHOOK_SECRET:
-        logger.warning(f"❌ [Admin] Webhook secret mismatch! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}")
+    if not validate_webhook_auth(secret, request):
+        logger.warning(f"❌ [Admin] Webhook auth failed! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}")
         return Response(status_code=403)
     if not bot_app:
         return Response(status_code=503)
@@ -135,7 +142,9 @@ async def admin_webhook(secret: str, request: Request):
             return Response(status_code=200)
         if update_id:
             dedup[update_id] = True
-        logger.info(f"📥 [Admin] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})")
+        logger.info(
+            f"📥 [Admin] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})"
+        )
         await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
         return Response(status_code=200)
     except Exception as e:

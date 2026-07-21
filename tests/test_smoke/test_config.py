@@ -69,12 +69,14 @@ class TestConfigHelpers:
     def test_get_user_tier_pro(self):
         from core.config import get_user_tier
 
-        assert get_user_tier(12345, days_left=30) == "pro"
+        # Use a non-admin user ID (ADMIN_USER_ID=12345 in conftest)
+        assert get_user_tier(99999, days_left=30) == "pro"
 
     def test_get_user_tier_free(self):
         from core.config import get_user_tier
 
-        assert get_user_tier(12345, days_left=0) == "free"
+        # Use a non-admin user ID (ADMIN_USER_ID=12345 in conftest)
+        assert get_user_tier(99999, days_left=0) == "free"
 
     def test_database_url_format(self):
         if DATABASE_URL:

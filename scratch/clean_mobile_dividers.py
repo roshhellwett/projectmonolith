@@ -20,12 +20,12 @@ for p in ui_files:
         if re.fullmatch(r'lines\.append\(f?"?\{?format_divider\([^)]*\)\}?"?\)', stripped):
             continue
         # If line inside list is just format_divider(),
-        if re.fullmatch(r'format_divider\([^)]*\),', stripped):
+        if re.fullmatch(r"format_divider\([^)]*\),", stripped):
             continue
         # If line is just f"{format_divider()}\n\n" inside multiline tuple/string
         if re.fullmatch(r'f"\{format_divider\([^)]*\)\}\\n\\n"', stripped):
             # Replace with empty string or newline string keeping exact leading indentation
-            leading = line[:len(line) - len(line.lstrip())]
+            leading = line[: len(line) - len(line.lstrip())]
             new_lines.append(f'{leading}""')
             continue
         if re.fullmatch(r'f"\{format_divider\([^)]*\)\}"', stripped):
@@ -35,8 +35,8 @@ for p in ui_files:
         # e.g. lines = ["<b>Title</b>", format_divider(), ""] -> lines = ["<b>Title</b>", ""]
         line = re.sub(r',\s*format_divider\([^)]*\),\s*""', r', ""', line)
         # e.g. f"<b>Title</b>\n{format_divider()}\n\n" inside a single line
-        line = re.sub(r'\\n\{format_divider\([^)]*\)\}\\n\\n', r'\\n\\n', line)
-        line = re.sub(r'\\n\{format_divider\([^)]*\)\}', r'', line)
+        line = re.sub(r"\\n\{format_divider\([^)]*\)\}\\n\\n", r"\\n\\n", line)
+        line = re.sub(r"\\n\{format_divider\([^)]*\)\}", r"", line)
 
         new_lines.append(line)
 

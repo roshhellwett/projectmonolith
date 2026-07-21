@@ -104,14 +104,14 @@ class GatewayController:
         self.active_requests = max(0, self.active_requests - 1)
         self.semaphore.release()
 
-    def check_memory_and_prune(self):
+    async def check_memory_and_prune(self):
         """
         Memory optimization check. If processed count crosses threshold,
         force garbage collection and prune expired rate limiter windows.
         """
         if self.total_processed % 500 == 0:
             logger.info("Running periodic gateway memory optimization and garbage collection...")
-            SlidingWindowLimiter.prune_all_memory()
+            await SlidingWindowLimiter.prune_all_memory()
             gc.collect()
 
     def get_stats(self) -> dict:
@@ -150,7 +150,7 @@ async def gateway_middleware(
         return
 
     try:
-        _gateway.check_memory_and_prune()
+        await _gateway.check_memory_and_prune()
         return await next_handler(update, context)
     finally:
         _gateway.release()
@@ -158,6 +158,19 @@ async def gateway_middleware(
 
 def get_gateway() -> GatewayController:
     return _gateway
+
+
+def validate_webhook_auth(path_secret: str, request: "Request") -> bool:
+    """Validate webhook path secret and Telegram secret-token header."""
+    from core.config import WEBHOOK_SECRET
+
+    if not WEBHOOK_SECRET or path_secret != WEBHOOK_SECRET:
+        return False
+
+    header_token = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if header_token and header_token != WEBHOOK_SECRET:
+        return False
+    return True
 
 
 def resolve_webhook_url(bot_name: str) -> str:
@@ -200,9 +213,13 @@ async def setup_bot_webhook(bot_app, bot_name: str) -> None:
         _log.info(f"✅ {bot_name} webhook registered at {url}")
         try:
             info = await bot_app.bot.get_webhook_info()
-            _log.info(f"📋 {bot_name} status -> pending_updates: {info.pending_update_count}, last_error: {info.last_error_message or 'None'}")
+            _log.info(
+                f"📋 {bot_name} status -> pending_updates: {info.pending_update_count}, last_error: {info.last_error_message or 'None'}"
+            )
             if info.last_error_message:
-                _log.error(f"⚠️ Telegram server reported error delivering webhook for {bot_name}: {info.last_error_message}")
+                _log.error(
+                    f"⚠️ Telegram server reported error delivering webhook for {bot_name}: {info.last_error_message}"
+                )
         except Exception as ex:
             _log.warning(f"Could not fetch get_webhook_info for {bot_name}: {ex}")
     except Exception as e:
@@ -213,32 +230,18 @@ def attach_gateway(bot_app, bot_name: str):
     """
     Attaches the central gateway middleware and registers the bot with monitoring.
     """
-    from telegram.ext import ApplicationHandlerStop, TypeHandler
+    from telegram.ext import TypeHandler
+
     from zenith_admin_bot.monitoring import register_bot_app
 
     register_bot_app(bot_name, bot_app)
 
     async def gateway_type_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Log incoming updates. Concurrency and validation are handled by gateway_middleware."""
         try:
-            logger.info(f"⚡ [{bot_name}] Processing Update {update.update_id} from user {update.effective_user.id if update.effective_user else 'unknown'}")
-            is_valid, reason = TelegramRequestValidator.validate_update(update)
-            if not is_valid:
-                logger.warning(f"Gateway rejected invalid update for {bot_name}: {reason}")
-                raise ApplicationHandlerStop
-
-            acquired = await _gateway.acquire()
-            if not acquired:
-                if update.effective_message:
-                    with contextlib.suppress(Exception):
-                        await update.effective_message.reply_text(
-                            "⚠️ Server under high load. Please try again in a few seconds."
-                        )
-                raise ApplicationHandlerStop
-
-            _gateway.check_memory_and_prune()
-            _gateway.release()
-        except ApplicationHandlerStop:
-            raise
+            user_id = update.effective_user.id if update.effective_user else "unknown"
+            logger.info(f"⚡ [{bot_name}] Processing Update {update.update_id} from user {user_id}")
+            await _gateway.check_memory_and_prune()
         except Exception as e:
             logger.error(f"Error in gateway_type_handler ({bot_name}): {e}", exc_info=True)
 

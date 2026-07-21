@@ -32,7 +32,7 @@ def _resolve_database_url(url: str) -> str:
         raise ValueError("DATABASE_URL is not set")
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-    elif url.startswith("postgresql://") and "asyncpg" not in url:
+    elif url.startswith("postgresql://") and "+asyncpg" not in url:
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     elif url.startswith("sqlite"):
         return url
@@ -47,7 +47,7 @@ def get_engine() -> AsyncEngine:
     if _engine is None:
         resolved_url = _resolve_database_url(DATABASE_URL)
         if resolved_url.startswith("sqlite"):
-            _engine = create_async_engine(resolved_url)
+            _engine = create_async_engine(resolved_url, echo=False)
         else:
             _engine = create_async_engine(
                 resolved_url,
@@ -57,10 +57,8 @@ def get_engine() -> AsyncEngine:
                 pool_recycle=3600,
                 pool_timeout=5,
                 pool_use_lifo=True,
-                connect_args={
-                    "prepared_statement_cache_size": 0,
-                    "statement_cache_size": 0,
-                },
+                connect_args={},
+                execution_options={"prepared_statement_cache_size": 0},
             )
         logger.info("Database engine created")
     return _engine
@@ -132,38 +130,11 @@ def _get_init_lock() -> asyncio.Lock:
 
 @db_retry
 async def init_db():
-    from sqlalchemy import inspect
-
     async with _get_init_lock():
         engine = get_engine()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-
-            def _ensure_columns(connection):
-                insp = inspect(connection)
-                tables = insp.get_table_names()
-                if "crypto_users" in tables:
-                    cols = [c["name"] for c in insp.get_columns("crypto_users")]
-                    if "groq_api_key" not in cols:
-                        connection.exec_driver_sql("ALTER TABLE crypto_users ADD COLUMN groq_api_key VARCHAR(200)")
-                if "zenith_group_settings" in tables:
-                    cols = [c["name"] for c in insp.get_columns("zenith_group_settings")]
-                    if "raid_mode" not in cols:
-                        if engine.dialect.name == "sqlite":
-                            connection.exec_driver_sql(
-                                "ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT 0"
-                            )
-                        else:
-                            connection.exec_driver_sql(
-                                "ALTER TABLE zenith_group_settings ADD COLUMN raid_mode BOOLEAN DEFAULT FALSE"
-                            )
-                    if "raid_expires_at" not in cols:
-                        connection.exec_driver_sql(
-                            "ALTER TABLE zenith_group_settings ADD COLUMN raid_expires_at TIMESTAMP"
-                        )
-
-            await conn.run_sync(_ensure_columns)
-        logger.info("All database tables and columns checked/created")
+        logger.info("All database tables checked/created")
 
 
 _dispose_lock: asyncio.Lock | None = None

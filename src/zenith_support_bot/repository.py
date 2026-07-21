@@ -1,8 +1,7 @@
 from datetime import timedelta
 
 from cachetools import TTLCache
-from sqlalchemy import delete, func, select, update
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import delete, exists, func, select, update
 
 from core.database import AsyncSessionLocal, db_retry
 from core.logger import setup_logger
@@ -46,17 +45,20 @@ async def seed_default_faq():
     ]
     async with AsyncSessionLocal() as session:
         for faq_data in default_faqs:
-            stmt = (
-                pg_insert(FAQEntry)
-                .values(
-                    question=faq_data["question"],
-                    answer=faq_data["answer"],
-                    category=faq_data["category"],
-                    created_by=None,
+            stmt = exists(FAQEntry).where(
+                FAQEntry.question == faq_data["question"],
+                FAQEntry.category == faq_data["category"],
+            ).select()
+            exists_result = (await session.execute(stmt)).scalar()
+            if not exists_result:
+                session.add(
+                    FAQEntry(
+                        question=faq_data["question"],
+                        answer=faq_data["answer"],
+                        category=faq_data["category"],
+                        created_by=None,
+                    )
                 )
-                .on_conflict_do_nothing()
-            )
-            await session.execute(stmt)
         await session.commit()
     faq_cache.clear()
 

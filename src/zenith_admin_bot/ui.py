@@ -287,7 +287,11 @@ def format_subscription_list(subscriptions: list) -> str:
     for sub in subscriptions[:20]:
         if sub.expires_at:
             expires = sub.expires_at.strftime("%d %b %Y")
-            now_tz = datetime.now(UTC) if getattr(sub.expires_at, "tzinfo", None) is not None else datetime.now(UTC).replace(tzinfo=None)
+            now_tz = (
+                datetime.now(UTC)
+                if getattr(sub.expires_at, "tzinfo", None) is not None
+                else datetime.now(UTC).replace(tzinfo=None)
+            )
             days_left = (sub.expires_at - now_tz).days
         else:
             expires = "N/A"

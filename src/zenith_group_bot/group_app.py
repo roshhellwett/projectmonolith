@@ -6,7 +6,7 @@ from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
-from core.subscription import SubscriptionRepo
+from zenith_crypto_bot.repository import SubscriptionRepo
 from zenith_group_bot.filters import scan_for_abuse, scan_for_spam
 from zenith_group_bot.flood_control import is_flooding
 from zenith_group_bot.repository import (

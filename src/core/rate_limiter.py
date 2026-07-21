@@ -8,7 +8,7 @@ Provides sliding-window rate limiting that:
 - Differentiates between free and pro tiers
 """
 
-import threading
+import asyncio
 import time
 from collections import deque
 
@@ -35,7 +35,7 @@ class SlidingWindowLimiter:
         self._windows: dict[str, TTLCache] = {}
         self._max_users = max_users
         self._max_windows = max_windows
-        self._lock = threading.Lock()
+        self._lock = asyncio.Lock()
 
     def _get_window(self, action: str, ttl: float) -> TTLCache:
         """Get or create a TTLCache for an action type."""
@@ -47,7 +47,7 @@ class SlidingWindowLimiter:
             self._windows[key] = TTLCache(maxsize=self._max_users, ttl=ttl)
         return self._windows[key]
 
-    def check(
+    async def check(
         self,
         user_id: int,
         action: str,
@@ -62,7 +62,7 @@ class SlidingWindowLimiter:
             - is_allowed: True if within limits
             - seconds_until_reset: seconds until the oldest entry expires (0 if allowed)
         """
-        with self._lock:
+        async with self._lock:
             cache = self._get_window(action, window_seconds)
             now = time.monotonic()
 
@@ -85,7 +85,7 @@ class SlidingWindowLimiter:
             cache[user_id] = timestamps
             return True, 0
 
-    def get_remaining(
+    async def get_remaining(
         self,
         user_id: int,
         action: str,
@@ -93,7 +93,7 @@ class SlidingWindowLimiter:
         window_seconds: float,
     ) -> int:
         """Get how many actions the user has remaining in the current window."""
-        with self._lock:
+        async with self._lock:
             cache = self._get_window(action, window_seconds)
             now = time.monotonic()
 
@@ -105,16 +105,16 @@ class SlidingWindowLimiter:
 
             return max(0, limit - active)
 
-    def prune(self):
+    async def prune(self):
         """Expire old entries across all window caches."""
-        with self._lock:
+        async with self._lock:
             for cache in self._windows.values():
                 cache.expire()
 
     @classmethod
-    def prune_all_memory(cls):
+    async def prune_all_memory(cls):
         """Class-level helper called by gateway memory optimization."""
-        _limiter.prune()
+        await _limiter.prune()
 
 
 # ==========================================================
@@ -123,7 +123,7 @@ class SlidingWindowLimiter:
 _limiter = SlidingWindowLimiter()
 
 
-def check_rate_limit(
+async def check_rate_limit(
     user_id: int,
     action: str,
     limit: int,
@@ -141,17 +141,17 @@ def check_rate_limit(
     Returns:
         (is_allowed, seconds_until_reset)
     """
-    return _limiter.check(user_id, action, limit, window_seconds)
+    return await _limiter.check(user_id, action, limit, window_seconds)
 
 
-def get_remaining_quota(
+async def get_remaining_quota(
     user_id: int,
     action: str,
     limit: int,
     window_seconds: float,
 ) -> int:
     """Get remaining quota for a user action."""
-    return _limiter.get_remaining(user_id, action, limit, window_seconds)
+    return await _limiter.get_remaining(user_id, action, limit, window_seconds)
 
 
 def format_rate_limit_message(

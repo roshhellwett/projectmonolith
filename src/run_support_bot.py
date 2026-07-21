@@ -11,7 +11,7 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandle
 from core.config import SUPPORT_BOT_TOKEN, WEBHOOK_SECRET, is_owner
 from core.database import dispose_engine
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook
+from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook, validate_webhook_auth
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 from zenith_crypto_bot.repository import SubscriptionRepo
@@ -266,7 +266,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
 
-        elif query.data == "sup_my_tickets":
+        elif query.data in ("sup_my_tickets", "support_my_tickets"):
             tickets = await TicketRepo.get_user_tickets(user_id, open_only=False)
             if not tickets:
                 await query.edit_message_text(
@@ -296,7 +296,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="HTML",
                 )
 
-        elif query.data == "sup_new_ticket":
+        elif query.data in ("sup_new_ticket", "support_new_ticket"):
             await query.edit_message_text(
                 support_ui.get_new_ticket_guide(),
                 reply_markup=support_ui.get_back_button(),
@@ -460,28 +460,6 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=support_ui.get_back_button(),
                 parse_mode="HTML",
             )
-
-        elif query.data == "support_new_ticket" or query.data == "sup_new_ticket":
-            await query.edit_message_text(
-                support_ui.get_new_ticket_guide(),
-                reply_markup=support_ui.get_back_button(),
-                parse_mode="HTML",
-            )
-
-        elif query.data == "support_my_tickets" or query.data == "sup_my_tickets":
-            tickets = await TicketRepo.get_user_tickets(user_id, open_only=False)
-            if not tickets:
-                await query.edit_message_text(
-                    support_ui.get_my_tickets_empty(),
-                    reply_markup=support_ui.get_back_button(),
-                    parse_mode="HTML",
-                )
-            else:
-                await query.edit_message_text(
-                    "<b>Your Tickets</b>",
-                    reply_markup=support_ui.get_ticket_keyboard(tickets),
-                    parse_mode="HTML",
-                )
 
         elif query.data.startswith("ticket_view_"):
             ticket_id = int(query.data.split("_")[-1])
@@ -665,8 +643,10 @@ async def stop_service(dispose_db: bool = False):
 
 @router.post("/webhook/support/{secret}")
 async def support_webhook(secret: str, request: Request):
-    if secret != WEBHOOK_SECRET:
-        logger.warning(f"❌ [Support] Webhook secret mismatch! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}")
+    if not validate_webhook_auth(secret, request):
+        logger.warning(
+            f"❌ [Support] Webhook auth failed! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}"
+        )
         return Response(status_code=403)
     if not bot_app:
         return Response(status_code=503)
@@ -678,7 +658,9 @@ async def support_webhook(secret: str, request: Request):
             return Response(status_code=200)
         if update_id:
             dedup[update_id] = True
-        logger.info(f"📥 [Support] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})")
+        logger.info(
+            f"📥 [Support] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})"
+        )
         await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
         return Response(status_code=200)
     except Exception as e:

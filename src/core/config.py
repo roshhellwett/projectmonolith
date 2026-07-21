@@ -1,8 +1,14 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Try loading .env from project root, traversing up if needed
+_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
+else:
+    load_dotenv()  # fallback to CWD
 
 # ==========================================
 # Feature Flags

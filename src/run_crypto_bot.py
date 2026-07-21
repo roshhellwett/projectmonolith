@@ -13,7 +13,7 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandle
 from core.config import CRYPTO_BOT_TOKEN, WEBHOOK_SECRET
 from core.database import dispose_engine
 from core.error_handler import handle_bot_error
-from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook
+from core.gateway import attach_gateway, get_update_id_dedup_cache, setup_bot_webhook, validate_webhook_auth
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 from zenith_ai_bot.repository import UsageRepo
@@ -687,8 +687,10 @@ async def stop_service(dispose_db: bool = False):
 
 @router.post("/webhook/crypto/{secret}")
 async def crypto_webhook(secret: str, request: Request):
-    if secret != WEBHOOK_SECRET:
-        logger.warning(f"❌ [Crypto] Webhook secret mismatch! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}")
+    if not validate_webhook_auth(secret, request):
+        logger.warning(
+            f"❌ [Crypto] Webhook auth failed! Expected len={len(WEBHOOK_SECRET)}, got len={len(secret)}"
+        )
         return Response(status_code=403)
     if not bot_app:
         return Response(status_code=503)
@@ -700,7 +702,9 @@ async def crypto_webhook(secret: str, request: Request):
             return Response(status_code=200)
         if update_id:
             dedup[update_id] = True
-        logger.info(f"📥 [Crypto] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})")
+        logger.info(
+            f"📥 [Crypto] Enqueuing update {update_id} into update_queue (qsize before={bot_app.update_queue.qsize()})"
+        )
         await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
         return Response(status_code=200)
     except Exception as e:

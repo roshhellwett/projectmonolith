@@ -1,4 +1,4 @@
-import asyncio
+import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -6,26 +6,25 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from core.database import Base, get_engine, get_session, init_db
+# Force SQLite for all tests — must happen before any core imports
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite://")
+os.environ.setdefault("WEBHOOK_SECRET", "test-secret")
+os.environ.setdefault("ADMIN_USER_ID", "12345")
+os.environ.setdefault("WEBHOOK_URL", "https://test.example.com")
 
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+from core.database import Base, get_engine, get_session, init_db  # noqa: E402
 
 
 @pytest_asyncio.fixture(scope="session")
-async def engine():
+async def engine() -> AsyncEngine:
     eng = get_engine()
     yield eng
 
 
 @pytest_asyncio.fixture
-async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
+async def db_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
     await init_db()
     async with get_session()() as session:
         yield session
