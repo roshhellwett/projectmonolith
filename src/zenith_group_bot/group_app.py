@@ -1,7 +1,7 @@
 import contextlib
 
 from cachetools import TTLCache
-from telegram import ChatPermissions, Update
+from telegram import ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
@@ -87,6 +87,26 @@ async def _notify_owner(settings, context, user, reason: str):
         )
 
 
+async def cmd_verify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not query:
+        return
+    target_id = int(query.data.split("_")[-1])
+    if query.from_user.id != target_id:
+        with contextlib.suppress(Exception):
+            await query.answer("❌ This verification button is for the new member only.", show_alert=True)
+        return
+    with contextlib.suppress(Exception):
+        await query.answer("✅ Verified successfully!")
+    chat_id = query.message.chat_id if query.message else update.effective_chat.id
+    await MemberRepo.clear_quarantine(query.from_user.id, chat_id)
+    with contextlib.suppress(Exception):
+        await query.edit_message_text(
+            f"✅ @{query.from_user.username or query.from_user.first_name} verified successfully and unlocked link posting privileges!",
+            parse_mode="HTML",
+        )
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg or not msg.from_user:
@@ -144,6 +164,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.warning(f"Failed to ban user {user_id} in chat {chat_id} (spam threshold)")
         await _notify_owner(settings, context, user, f"Spam link (Strike {strikes})")
         return
+
+    owner_is_pro = await SubscriptionRepo.is_pro(settings.owner_id)
+    if (settings.ai_enabled or owner_is_pro) and features in ("spam", "both") and text and len(text) > 10:
+        from zenith_group_bot.ai_group_handlers import scan_ai_spam_shield
+
+        is_scam, reason, risk = await scan_ai_spam_shield(text, settings.group_name or str(chat_id))
+        if is_scam and risk >= 70 and await _try_delete(msg, chat_id):
+            strikes = await GroupRepo.process_violation(user_id, chat_id)
+            await AuditLogRepo.log_action(
+                chat_id, user_id, username, "DELETED", f"AI Shield: {reason} (strike {strikes})", context.bot.id
+            )
+            if strikes >= ban_threshold:
+                try:
+                    await context.bot.ban_chat_member(chat_id, user_id)
+                    await AuditLogRepo.log_action(
+                        chat_id,
+                        user_id,
+                        username,
+                        "BANNED",
+                        f"AI Shield threshold ({ban_threshold}) reached",
+                        context.bot.id,
+                    )
+                except Exception:
+                    logger.warning(f"Failed to ban user {user_id} in chat {chat_id} (AI threshold)")
+            await _notify_owner(settings, context, user, f"AI Shield scam detected: {reason} (Strike {strikes})")
+            return
 
     if features in ("abuse", "both") and text:
         custom_words = None
@@ -230,6 +276,9 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await MemberRepo.register_new_member(member.id, chat_id)
 
         owner_is_pro = await SubscriptionRepo.is_pro(settings.owner_id)
+        kb = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🛡️ Click to Verify & Unlock Links", callback_data=f"grp_verify_{member.id}")]]
+        )
         if owner_is_pro:
             welcome_config = await WelcomeRepo.get_welcome(chat_id)
             if welcome_config:
@@ -240,11 +289,25 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 try:
                     if welcome_config.send_dm:
-                        await context.bot.send_message(chat_id=member.id, text=welcome_text, parse_mode="HTML")
+                        await context.bot.send_message(chat_id=member.id, text=welcome_text, reply_markup=kb, parse_mode="HTML")
                     else:
-                        await msg.reply_text(welcome_text, parse_mode="HTML")
+                        await msg.reply_text(welcome_text, reply_markup=kb, parse_mode="HTML")
                 except Exception as e:
                     logger.debug(f"Welcome send failed: {e}")
+            else:
+                welcome_text = (
+                    f"👋 Welcome {member.first_name or 'there'} to <b>{msg.chat.title or 'the group'}</b>!\n\n"
+                    "🛡️ <i>Anti-Spam Shield is active. Please click below to verify and unlock link posting privileges.</i>"
+                )
+                with contextlib.suppress(Exception):
+                    await msg.reply_text(welcome_text, reply_markup=kb, parse_mode="HTML")
+        else:
+            welcome_text = (
+                f"👋 Welcome {member.first_name or 'there'} to <b>{msg.chat.title or 'the group'}</b>!\n\n"
+                "🛡️ <i>Anti-Spam Shield is active. Please click below to verify and unlock link posting privileges.</i>"
+            )
+            with contextlib.suppress(Exception):
+                await msg.reply_text(welcome_text, reply_markup=kb, parse_mode="HTML")
 
 
 async def cmd_forgive(update: Update, context: ContextTypes.DEFAULT_TYPE):

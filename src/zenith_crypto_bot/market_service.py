@@ -390,7 +390,7 @@ async def get_new_pairs(from_block: int = None) -> tuple[list[dict], int]:
         return [], from_block or 0
 
 
-async def get_whale_transfers(min_value_eth: float = 500) -> list[dict]:
+async def get_whale_transfers(min_value_eth: float = 50.0) -> list[dict]:
     """Fetch real large ETH transfers from Etherscan."""
     if not ETHERSCAN_API_KEY:
         return []
@@ -404,11 +404,11 @@ async def get_whale_transfers(min_value_eth: float = 500) -> list[dict]:
             params={
                 "module": "account",
                 "action": "txlist",
-                "address": "0x0000000000000000000000000000000000000000",
+                "address": "0x28C6c06298d514Db089934071355E5743bf21d60",
                 "startblock": 0,
                 "endblock": 99999999,
                 "page": 1,
-                "offset": 20,
+                "offset": 25,
                 "sort": "desc",
                 "apikey": ETHERSCAN_API_KEY,
             },

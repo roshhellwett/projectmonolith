@@ -20,11 +20,14 @@ from core.gateway import attach_gateway, setup_bot_webhook
 from core.logger import setup_logger
 from core.webhook_router import register_bot_webhook
 from zenith_crypto_bot.repository import SubscriptionRepo
+from zenith_group_bot.ai_group_handlers import register_group_ai_handlers, set_group_ai_bot
+from zenith_group_bot.crypto_group_handlers import register_group_crypto_handlers, set_group_crypto_bot
 from zenith_group_bot.group_app import (
     cmd_forgive,
     cmd_forgive_confirm,
     cmd_reset,
     cmd_reset_confirm,
+    cmd_verify_callback,
     handle_message,
     handle_new_member,
 )
@@ -347,6 +350,12 @@ async def start_service():
     bot_app.add_handler(CommandHandler("auditlog", cmd_auditlog))
     bot_app.add_handler(CommandHandler("antiraid", cmd_antiraid))
 
+    set_group_ai_bot(bot_app)
+    register_group_ai_handlers(bot_app)
+    set_group_crypto_bot(bot_app)
+    register_group_crypto_handlers(bot_app)
+
+    bot_app.add_handler(CallbackQueryHandler(cmd_verify_callback, pattern=r"^grp_verify_"))
     bot_app.add_handler(CallbackQueryHandler(cmd_addword_confirm, pattern=r"^grp_addword_confirm_"))
     bot_app.add_handler(CallbackQueryHandler(cmd_delword_confirm, pattern=r"^grp_delword_confirm_"))
     bot_app.add_handler(CallbackQueryHandler(cmd_schedule_confirm, pattern=r"^grp_schedule_confirm_"))

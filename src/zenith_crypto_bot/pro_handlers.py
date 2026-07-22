@@ -249,6 +249,25 @@ async def cmd_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(text, reply_markup=crypto_ui.get_back_button(), parse_mode="HTML")
 
 
+async def cmd_gainers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = await send_loading_message(update, context, "Scanning top 24h market gainers...")
+    gainers, _ = await get_top_movers()
+    text = crypto_ui.get_gainers_card(gainers)
+    with contextlib.suppress(Exception):
+        await msg.edit_text(text, reply_markup=crypto_ui.get_back_button(), parse_mode="HTML")
+
+
+async def cmd_losers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = await send_loading_message(update, context, "Scanning top 24h market pullbacks...")
+    _, losers = await get_top_movers()
+    text = crypto_ui.get_losers_card(losers)
+    with contextlib.suppress(Exception):
+        await msg.edit_text(text, reply_markup=crypto_ui.get_back_button(), parse_mode="HTML")
+
+
+cmd_watchlist = cmd_portfolio
+
+
 async def cmd_gas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg_obj = await send_loading_message(update, context, crypto_ui.get_gas_loading())
     gas = await get_gas_prices()

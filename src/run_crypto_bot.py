@@ -28,13 +28,16 @@ from zenith_crypto_bot.pro_handlers import (
     cmd_alert,
     cmd_alerts,
     cmd_delalert,
+    cmd_gainers,
     cmd_gas,
+    cmd_losers,
     cmd_market,
     cmd_portfolio,
     cmd_removetoken,
     cmd_track,
     cmd_untrack,
     cmd_wallets,
+    cmd_watchlist,
     perform_real_audit,
     show_new_pairs,
 )
@@ -144,6 +147,12 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("Configuring on-chain telemetry...")
             await asyncio.sleep(0.5)
             await SubscriptionRepo.toggle_alerts(user_id, True)
+            from zenith_crypto_bot.market_service import get_whale_transfers
+
+            transfers = await get_whale_transfers()
+            if transfers:
+                with contextlib.suppress(asyncio.QueueFull):
+                    alert_queue.put_nowait((user_id, crypto_ui.get_real_whale_alert(transfers[0])))
             await query.edit_message_text(
                 crypto_ui.get_whale_radar_on(is_pro),
                 reply_markup=crypto_ui.get_back_button(),
@@ -565,8 +574,11 @@ async def wallet_watcher():
 
 async def real_whale_watcher():
     """Monitor real on-chain whale movements via Etherscan."""
+    seen_hashes = set()
+    first_run = True
     while True:
-        await asyncio.sleep(300)
+        await asyncio.sleep(10 if first_run else 120)
+        first_run = False
         try:
             from zenith_crypto_bot.market_service import get_whale_transfers
 
@@ -576,13 +588,20 @@ async def real_whale_watcher():
             transfers = await get_whale_transfers()
             if not transfers:
                 continue
+            new_transfers = [tx for tx in transfers if tx.get("hash") and tx.get("hash") not in seen_hashes]
+            if not new_transfers:
+                continue
+            for tx in new_transfers:
+                seen_hashes.add(tx.get("hash"))
+            if len(seen_hashes) > 1000:
+                seen_hashes.clear()
             for uid in pro_users:
-                for tx in transfers[:3]:
+                for tx in new_transfers[:3]:
                     txt = crypto_ui.get_real_whale_alert(tx)
                     with contextlib.suppress(asyncio.QueueFull):
                         alert_queue.put_nowait((uid, txt))
             for uid in free_users:
-                for tx in transfers[:1]:
+                for tx in new_transfers[:1]:
                     txt = crypto_ui.get_real_whale_alert(tx)
                     with contextlib.suppress(asyncio.QueueFull):
                         alert_queue.put_nowait((uid, txt))
@@ -643,7 +662,11 @@ async def start_service():
     bot_app.add_handler(CommandHandler("wallets", cmd_wallets))
     bot_app.add_handler(CommandHandler("untrack", cmd_untrack))
     bot_app.add_handler(CommandHandler("addtoken", cmd_addtoken))
+    bot_app.add_handler(CommandHandler("add", cmd_addtoken))
     bot_app.add_handler(CommandHandler("portfolio", cmd_portfolio))
+    bot_app.add_handler(CommandHandler("watchlist", cmd_watchlist))
+    bot_app.add_handler(CommandHandler("gainers", cmd_gainers))
+    bot_app.add_handler(CommandHandler("losers", cmd_losers))
     bot_app.add_handler(CommandHandler("removetoken", cmd_removetoken))
     bot_app.add_handler(CommandHandler("market", cmd_market))
     bot_app.add_handler(CommandHandler("gas", cmd_gas))

@@ -109,24 +109,33 @@ async def cmd_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
     description = args[1].strip()
     username = update.effective_user.username or update.effective_user.first_name or "Unknown"
 
-    msg = await update.message.reply_text("Creating ticket...")
+    msg = await update.message.reply_text("Creating ticket and running AI triage...")
     ticket = await TicketRepo.create_ticket(user_id, username, subject, description)
-    asyncio.create_task(notify_admin_new_ticket(ticket.id, user_id, username, subject, description))
 
-    ai_response = None
-    if is_pro or is_owner_user:
-        try:
-            from zenith_ai_bot.repository import UsageRepo
+    from zenith_ai_bot.repository import UsageRepo
+    from zenith_support_bot.ai_responder import triage_support_ticket
 
-            preferred_model = await UsageRepo.get_selected_model(user_id)
-            ai_response = await generate_ai_response(subject, description, preferred_model=preferred_model)
-            if ai_response:
-                await TicketRepo.set_ai_response(ticket.id, ai_response)
-        except Exception as e:
-            logger.error(f"AI response failed: {e}")
+    preferred_model = await UsageRepo.get_selected_model(user_id)
+    category, priority, suggested_reply = await triage_support_ticket(subject, description, preferred_model)
+    await TicketRepo.set_priority(ticket.id, priority)
+    await TicketRepo.set_ai_response(ticket.id, suggested_reply)
 
+    asyncio.create_task(
+        notify_admin_new_ticket(
+            ticket.id,
+            user_id,
+            username,
+            subject,
+            description,
+            priority=priority,
+            category=category,
+            suggested_reply=suggested_reply,
+        )
+    )
+
+    user_ai_reply = suggested_reply if (is_pro or is_owner_user) else None
     await msg.edit_text(
-        support_ui.get_ticket_created_msg(ticket.id, ai_response),
+        support_ui.get_ticket_created_msg(ticket.id, user_ai_reply),
         reply_markup=support_ui.get_back_button(),
         parse_mode="HTML",
     )
@@ -475,6 +484,35 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
                 parse_mode="HTML",
             )
+
+        elif query.data.startswith("support_ai_send_"):
+            if not is_owner_user:
+                await query.edit_message_text(
+                    support_ui.get_admin_only_msg(), reply_markup=support_ui.get_back_button()
+                )
+                return
+            ticket_id = int(query.data.split("_")[-1])
+            ticket = await TicketRepo.get_ticket(ticket_id)
+            if not ticket or not ticket.ai_response:
+                await query.edit_message_text(
+                    "❌ No AI suggested response draft found for this ticket.", reply_markup=support_ui.get_back_button()
+                )
+                return
+            from zenith_support_bot.notifications import notify_user_on_admin_reply
+
+            sent = await notify_user_on_admin_reply(ticket.user_id, ticket.id, ticket.subject, ticket.ai_response)
+            if sent:
+                await TicketRepo.set_admin_response(ticket.id, ticket.ai_response)
+                await query.edit_message_text(
+                    f"✅ <b>AI Resolution Dispatched</b>\n\nTicket #{ticket_id} has been answered with the AI draft and marked as resolved.",
+                    reply_markup=support_ui.get_back_button(),
+                    parse_mode="HTML",
+                )
+            else:
+                await query.edit_message_text(
+                    "❌ Failed to send AI response to user. They might have blocked the bot.",
+                    reply_markup=support_ui.get_back_button(),
+                )
 
         elif query.data.startswith("ticket_resolve_"):
             ticket_id = int(query.data.split("_")[-1])

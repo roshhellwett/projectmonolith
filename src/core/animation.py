@@ -1,6 +1,6 @@
 import asyncio
 import contextlib
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from telegram import InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
@@ -10,6 +10,31 @@ from telegram.ext import ContextTypes
 async def send_typing_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     with contextlib.suppress(Exception):
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+
+
+@contextlib.asynccontextmanager
+async def continuous_typing_action(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, interval: float = 4.0
+) -> AsyncGenerator[None, None]:
+    """Maintain a continuous ChatAction.TYPING state while an async block executes."""
+    chat_id = update.effective_chat.id if (update and update.effective_chat) else None
+    if not chat_id or not context or not context.bot:
+        yield
+        return
+
+    async def _loop():
+        while True:
+            with contextlib.suppress(Exception):
+                await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+            await asyncio.sleep(interval)
+
+    task = asyncio.create_task(_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 async def edit_or_reply(

@@ -110,11 +110,46 @@ Transform natural language descriptions into professional, highly detailed image
 {_FORMAT_DIRECTIVE}"""
 
 PERSONAS = {
-    "default": {"name": "Zenith", "icon": "🤖", "prompt": ZENITH_SYSTEM_PROMPT},
-    "coder": {"name": "Zenith Code", "icon": "💻", "prompt": PERSONA_CODER},
-    "writer": {"name": "Zenith Ink", "icon": "✍️", "prompt": PERSONA_WRITER},
-    "analyst": {"name": "Zenith Analyst", "icon": "📊", "prompt": PERSONA_ANALYST},
-    "tutor": {"name": "Zenith Academy", "icon": "🎓", "prompt": PERSONA_TUTOR},
-    "debate": {"name": "Zenith Debate", "icon": "⚔️", "prompt": PERSONA_DEBATE},
-    "roast": {"name": "Zenith Roast", "icon": "🔥", "prompt": PERSONA_ROAST},
+    "default": {
+        "name": "Zenith",
+        "icon": "🤖",
+        "prompt": ZENITH_SYSTEM_PROMPT,
+        "description": "An elite, highly intelligent autonomous chat and research assistant engineered with human-architect level reasoning.",
+    },
+    "coder": {
+        "name": "Zenith Code",
+        "icon": "💻",
+        "prompt": PERSONA_CODER,
+        "description": "Principal software architect and systems engineer. Generates clean, secure, modular production code with deep architectural rationale.",
+    },
+    "writer": {
+        "name": "Zenith Ink",
+        "icon": "✍️",
+        "prompt": PERSONA_WRITER,
+        "description": "Creative writing and editorial strategist. Masters engaging prose, executive communications, technical documentation, and compelling storytelling.",
+    },
+    "analyst": {
+        "name": "Zenith Analyst",
+        "icon": "📊",
+        "prompt": PERSONA_ANALYST,
+        "description": "Data-driven strategic intelligence consulting profile. Deconstructs complex business scenarios, moats, metrics, and macro downside risks.",
+    },
+    "tutor": {
+        "name": "Zenith Academy",
+        "icon": "🎓",
+        "prompt": PERSONA_TUTOR,
+        "description": "Patient, progressive educational mentor. Breaks down intricate concepts using intuitive analogies and step-by-step mathematical explanations.",
+    },
+    "debate": {
+        "name": "Zenith Debate",
+        "icon": "⚔️",
+        "prompt": PERSONA_DEBATE,
+        "description": "Sharp dialectical partner. Rigorously tests assumptions, steel-mans counterarguments, and evaluates formal logic and strategic frameworks.",
+    },
+    "roast": {
+        "name": "Zenith Roast",
+        "icon": "🔥",
+        "prompt": PERSONA_ROAST,
+        "description": "Savage, witty comedy roast assistant. Delivers brilliant, high-IQ clever humor and sharp observation without crossing into genuine cruelty.",
+    },
 }

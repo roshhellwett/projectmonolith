@@ -119,7 +119,14 @@ async def notify_ticket_auto_closed(user_id: int, ticket_id: int, subject: str):
 
 
 async def notify_admin_new_ticket(
-    ticket_id: int, user_id: int, username: str, subject: str, description: str, priority: str = "normal"
+    ticket_id: int,
+    user_id: int,
+    username: str,
+    subject: str,
+    description: str,
+    priority: str = "normal",
+    category: str = "general",
+    suggested_reply: str = None,
 ):
     if not bot_instance or not ADMIN_USER_ID:
         logger.warning("Bot instance or ADMIN_USER_ID not set for admin notifications")
@@ -134,23 +141,36 @@ async def notify_admin_new_ticket(
         }
         emoji = priority_emoji.get(priority, "🟡")
 
-        keyboard = [
+        keyboard = []
+        if suggested_reply:
+            keyboard.append([InlineKeyboardButton("🤖 Send AI Suggested Reply & Resolve", callback_data=f"support_ai_send_{ticket_id}")])
+        keyboard.extend([
             [InlineKeyboardButton("🎫 View Ticket", callback_data=f"ticket_view_{ticket_id}")],
             [InlineKeyboardButton("✅ Resolve", callback_data=f"ticket_resolve_{ticket_id}")],
             [InlineKeyboardButton("🔄 Take to In-Progress", callback_data=f"ticket_inprogress_{ticket_id}")],
-        ]
+        ])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         desc_preview = description[:300] + "..." if len(description) > 300 else description
+
+        ai_section = ""
+        if suggested_reply:
+            reply_preview = suggested_reply[:250] + "..." if len(suggested_reply) > 250 else suggested_reply
+            ai_section = (
+                f"\n\n🤖 <b>AI Suggested Resolution Draft:</b>\n"
+                f"<i>{reply_preview}</i>"
+            )
 
         message = (
             f"{emoji} <b>🎫 NEW SUPPORT TICKET</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"<b>Ticket #{ticket_id}</b>\n"
             f"<b>Subject:</b> {subject}\n"
+            f"<b>Category:</b> {category.upper()}\n"
             f"<b>Priority:</b> {priority.upper()}\n"
-            f"<b>From:</b> @{username} (ID: {user_id})\n\n"
+            f"<b>From:</b> @{username} (ID: <code>{user_id}</code>)\n\n"
             f"<b>Description:</b>\n{desc_preview}"
+            f"{ai_section}"
         )
 
         await bot_instance.send_message(

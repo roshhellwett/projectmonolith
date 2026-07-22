@@ -27,6 +27,10 @@ logger = setup_logger("GROUP_AI")
 # Limits
 FREE_MAX_TOKENS = 512
 PRO_MAX_TOKENS = 1024
+from core.llm_fallback import AIExecutionEngine
+from core.secrets import get_groq_api_key
+import json
+
 FREE_MAX_RESPONSE_LENGTH = 1500
 
 bot_app = None
@@ -35,6 +39,50 @@ bot_app = None
 def set_group_ai_bot(app):
     global bot_app
     bot_app = app
+
+
+async def scan_ai_spam_shield(text: str, group_name: str = "") -> tuple[bool, str, int]:
+    """Analyze group chat message for zero-day phishing drops, drainer contracts, and scam raids."""
+    api_key = get_groq_api_key(prefer_support=False)
+    if not api_key or len(text) < 10:
+        return False, "", 0
+
+    prompt = f"""Group Chat Message in '{group_name}':
+"{text}"
+
+Analyze if this message is a scam raid, crypto phishing link, wallet drainer drop, disguised airdrop scam, or malicious spam targeting community members.
+Output strictly raw valid JSON with two keys:
+1. "is_scam": boolean (true if malicious/scam/phishing, false if normal conversation or legitimate inquiry).
+2. "reason": string concise explanation if true (or empty if false).
+3. "risk_score": integer 0 to 100."""
+
+    try:
+        resp = await AIExecutionEngine.execute(
+            messages=[
+                {"role": "system", "content": "You are Zenith Security Shield, an AI zero-day crypto scam detector. You protect Telegram communities from phishing, wallet drainers, fake airdrop drops, and malicious raid spam."},
+                {"role": "user", "content": prompt},
+            ],
+            api_key=api_key,
+            preferred_model="llama-3.3-70b-versatile",
+            temperature=0.1,
+            max_tokens=256,
+        )
+        if not resp.is_error and resp.content:
+            raw = resp.content.strip()
+            if raw.startswith("```json"):
+                raw = raw[7:]
+            if raw.startswith("```"):
+                raw = raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            data = json.loads(raw.strip())
+            is_scam = bool(data.get("is_scam", False))
+            reason = str(data.get("reason", "Zero-day scam drop"))
+            risk = int(data.get("risk_score", 0))
+            return is_scam, reason, risk
+    except Exception as e:
+        logger.debug(f"AI Spam Shield scan error: {e}")
+    return False, "", 0
 
 
 async def cmd_group_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):

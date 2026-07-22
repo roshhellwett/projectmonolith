@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 
 from core.config import ADMIN_USER_ID, AI_BOT_TOKEN
+from core.animation import continuous_typing_action
 from core.database import dispose_engine
 from core.engagement_handlers import cmd_changelog, cmd_feedback, cmd_mystats, cmd_referral
 from core.error_handler import handle_bot_error
@@ -79,15 +80,16 @@ async def ai_worker():
 
                 max_tokens = 4096 if is_pro else 1024
                 selected_model = await UsageRepo.get_selected_model(user_id)
-                ai_response = await process_ai_query(
-                    user_id,
-                    text,
-                    history_text,
-                    persona=persona,
-                    max_tokens=max_tokens,
-                    history=history,
-                    preferred_model=selected_model,
-                )
+                async with continuous_typing_action(update, context):
+                    ai_response = await process_ai_query(
+                        user_id,
+                        text,
+                        history_text,
+                        persona=persona,
+                        max_tokens=max_tokens,
+                        history=history,
+                        preferred_model=selected_model,
+                    )
                 clean_html = sanitize_telegram_html(ai_response)
 
                 if len(clean_html) > 4000:

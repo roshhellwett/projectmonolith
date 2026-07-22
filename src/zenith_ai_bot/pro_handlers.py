@@ -3,7 +3,7 @@ import html
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from core.animation import edit_with_stages, send_typing_action
+from core.animation import continuous_typing_action, edit_with_stages, send_typing_action
 from core.logger import setup_logger
 from zenith_ai_bot.llm_engine import process_code, process_imagine, process_research, process_summarize
 from zenith_ai_bot.prompts import PERSONAS
@@ -98,7 +98,8 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         selected_model = await UsageRepo.get_selected_model(user_id)
-        result = await process_research(user_id, topic, preferred_model=selected_model)
+        async with continuous_typing_action(update, context):
+            result = await process_research(user_id, topic, preferred_model=selected_model)
         clean = sanitize_telegram_html(result)
 
         if len(clean) > 4000:
@@ -152,7 +153,8 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from zenith_ai_bot.utils import sanitize_telegram_html
 
     selected_model = await UsageRepo.get_selected_model(user_id)
-    result = await process_summarize(user_id, text, preferred_model=selected_model)
+    async with continuous_typing_action(update, context):
+        result = await process_summarize(user_id, text, preferred_model=selected_model)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -185,7 +187,8 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from zenith_ai_bot.utils import sanitize_telegram_html
 
     selected_model = await UsageRepo.get_selected_model(user_id)
-    result = await process_code(user_id, description, preferred_model=selected_model)
+    async with continuous_typing_action(update, context):
+        result = await process_code(user_id, description, preferred_model=selected_model)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -234,7 +237,8 @@ async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from zenith_ai_bot.utils import sanitize_telegram_html
 
     selected_model = await UsageRepo.get_selected_model(user_id)
-    result = await process_imagine(user_id, description, preferred_model=selected_model)
+    async with continuous_typing_action(update, context):
+        result = await process_imagine(user_id, description, preferred_model=selected_model)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"

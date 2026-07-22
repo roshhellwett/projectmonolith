@@ -528,6 +528,30 @@ def get_market_card(
     return "\n".join(lines)
 
 
+def get_gainers_card(gainers: list) -> str:
+    if not gainers:
+        return "<b>Top Gainers (24h)</b>\n\nMarket data unavailable right now. Try again shortly."
+    lines = [format_header("Top Gainers (24h)", "Best Performing Tokens", "MARKET"), ""]
+    for i, g in enumerate(gainers[:10], 1):
+        pct = g.get("price_change_percentage_24h", 0) or 0
+        price = g.get("current_price", 0)
+        lines.append(f"<b>#{i} {g['symbol'].upper()}</b> ({g.get('name', 'Unknown')})")
+        lines.append(f"  Price: <code>${price:,.4f}</code> | 🟢 <b>+{pct:.2f}%</b>\n")
+    return "\n".join(lines)
+
+
+def get_losers_card(losers: list) -> str:
+    if not losers:
+        return "<b>Top Losers (24h)</b>\n\nMarket data unavailable right now. Try again shortly."
+    lines = [format_header("Top Losers (24h)", "Biggest 24h Pullbacks", "MARKET"), ""]
+    for i, l in enumerate(losers[:10], 1):
+        pct = l.get("price_change_percentage_24h", 0) or 0
+        price = l.get("current_price", 0)
+        lines.append(f"<b>#{i} {l['symbol'].upper()}</b> ({l.get('name', 'Unknown')})")
+        lines.append(f"  Price: <code>${price:,.4f}</code> | 🔴 <b>{pct:.2f}%</b>\n")
+    return "\n".join(lines)
+
+
 def get_gas_loading() -> str:
     return "Reading Ethereum mempool..."
 

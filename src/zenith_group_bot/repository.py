@@ -235,6 +235,17 @@ class MemberRepo:
             quarantine_cache[cache_key] = "CLEARED"
             return False
 
+    @staticmethod
+    @db_retry
+    async def clear_quarantine(user_id: int, chat_id: int) -> bool:
+        cache_key = f"{chat_id}_{user_id}"
+        quarantine_cache[cache_key] = "CLEARED"
+        async with AsyncSessionLocal() as session:
+            stmt = delete(NewMember).where(NewMember.user_id == user_id, NewMember.chat_id == chat_id)
+            result = await session.execute(stmt)
+            await session.commit()
+            return result.rowcount > 0
+
 
 class CustomWordRepo:
     @staticmethod

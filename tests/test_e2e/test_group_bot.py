@@ -104,7 +104,33 @@ class TestGroupModels:
 
 class TestGroupApp:
     def test_group_app_imports(self):
-        from zenith_group_bot.group_app import handle_message, handle_new_member
+        from zenith_group_bot.group_app import cmd_verify_callback, handle_message, handle_new_member
 
         assert callable(handle_message)
         assert callable(handle_new_member)
+        assert callable(cmd_verify_callback)
+
+
+class TestGroupAiShield:
+    @pytest.mark.asyncio
+    async def test_scan_ai_spam_shield_fallback_and_short_text(self, monkeypatch):
+        from zenith_group_bot.ai_group_handlers import scan_ai_spam_shield
+
+        # Short text should bypass quickly
+        is_scam, reason, risk = await scan_ai_spam_shield("hi")
+        assert is_scam is False
+        assert risk == 0
+
+        # Missing key fallback
+        monkeypatch.setattr("zenith_group_bot.ai_group_handlers.get_groq_api_key", lambda prefer_support=False: None)
+        is_scam, reason, risk = await scan_ai_spam_shield("Visit this suspicious link right away!")
+        assert is_scam is False
+        assert risk == 0
+
+
+class TestGroupVerification:
+    def test_clear_quarantine_method_exists(self):
+        from zenith_group_bot.repository import MemberRepo
+
+        assert hasattr(MemberRepo, "clear_quarantine")
+        assert callable(MemberRepo.clear_quarantine)

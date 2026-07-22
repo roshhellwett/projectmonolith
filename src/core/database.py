@@ -54,8 +54,8 @@ def get_engine() -> AsyncEngine:
         else:
             _engine = create_async_engine(
                 resolved_url,
-                pool_size=max(5, DB_POOL_SIZE),
-                max_overflow=10,
+                pool_size=max(1, DB_POOL_SIZE),
+                max_overflow=max(2, DB_POOL_SIZE),
                 pool_pre_ping=True,
                 pool_recycle=1800,
                 pool_timeout=20,
