@@ -190,6 +190,11 @@ async def setup_bot_webhook(bot_app, bot_name: str) -> None:
     from core.logger import setup_logger as _setup_logger
 
     _log = _setup_logger("WEBHOOK")
+    for handlers_in_group in bot_app.handlers.values():
+        for handler in handlers_in_group:
+            if hasattr(handler, "block"):
+                handler.block = True
+
     url = resolve_webhook_url(bot_name)
     if not url:
         _log.warning(f"Webhook URL not configured — {bot_name} running in polling mode")
@@ -242,7 +247,13 @@ def attach_gateway(bot_app, bot_name: str):
             handler.block = True
         return original_add_handler(handler, *args, **kwargs)
 
-    bot_app.add_handler = wrapped_add_handler
+    try:
+        bot_app.add_handler = wrapped_add_handler
+    except AttributeError:
+        try:
+            object.__setattr__(bot_app, "add_handler", wrapped_add_handler)
+        except Exception:
+            pass
 
     for handlers_in_group in bot_app.handlers.values():
         for handler in handlers_in_group:
