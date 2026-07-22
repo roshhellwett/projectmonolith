@@ -156,10 +156,11 @@ def format_user_management(user_id: int, sub_details: dict) -> str:
         )
     expires = sub_details.get("expires_at")
     expires_str = expires.strftime("%d %b %Y") if expires else "N/A"
+    days_left = sub_details.get("days_left", 0)
     return (
         f"{format_header('User Dossier', f'Account Telemetry — ID: {user_id}', 'PRO ACTIVE')}\n"
         f"{format_kv('Account Status', 'Enterprise Pro VIP Member', '💎')}\n"
-        f"{format_kv('Days Remaining', f'{sub_details.get('days_left', 0)} days', '🗓️')}\n"
+        f"{format_kv('Days Remaining', f'{days_left} days', '🗓️')}\n"
         f"{format_kv('Expiration Date', expires_str, '⚡')}\n\n"
         f"<i>Use /extend or /revoke to manage this license.</i>"
     )
