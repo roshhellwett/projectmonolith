@@ -88,14 +88,14 @@ def _validate_environment():
 
 
 async def _diagnose_network():
-    """Log DNS resolution for critical external hosts."""
+    """Log DNS resolution for critical external hosts without blocking the event loop."""
     hosts = {
         "Telegram API": "api.telegram.org",
         "CoinGecko API": "api.coingecko.com",
     }
     for label, host in hosts.items():
         try:
-            addrs = socket.getaddrinfo(host, 0)
+            addrs = await asyncio.to_thread(socket.getaddrinfo, host, 0)
             ips = list({a[4][0] for a in addrs})
             logger.info(f"🌐 {label} → {host} resolves to {ips}")
         except Exception as e:
@@ -107,10 +107,10 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 MONOLITH STARTING")
 
     _validate_environment()
-    await _diagnose_network()
 
     async def _startup():
         await asyncio.sleep(0.1)  # Yield loop immediately so uvicorn can start serving /health
+        await _diagnose_network()
         try:
             await init_db()
             await start_health_monitor(get_engine())
@@ -256,11 +256,9 @@ app.include_router(webhook_router)
 
 @app.get("/health")
 async def health():
-    if MAINTENANCE_MODE:
-        return JSONResponse({"status": "maintenance"}, status_code=503)
     return JSONResponse(
         {
-            "status": "ok",
+            "status": "maintenance" if MAINTENANCE_MODE else "ok",
             "db_healthy": is_db_healthy(),
             "maintenance_mode": MAINTENANCE_MODE,
             "services": {k: v for k, v in SERVICE_REGISTRY.items() if v is not None},

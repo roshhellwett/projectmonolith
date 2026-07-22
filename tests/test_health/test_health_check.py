@@ -66,3 +66,16 @@ async def test_env_vars_for_production():
     required = ["ADMIN_BOT_TOKEN", "DATABASE_URL", "WEBHOOK_SECRET"]
     for var in required:
         assert os.getenv(var), f"Missing required env var: {var}"
+
+
+@pytest.mark.asyncio
+async def test_health_endpoint_during_maintenance_mode(client):
+    from unittest.mock import patch
+
+    with patch("gateway.MAINTENANCE_MODE", True):
+        response = await client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "maintenance"
+        assert data["maintenance_mode"] is True
+
