@@ -28,7 +28,6 @@ logger = setup_logger("GROUP_AI")
 FREE_MAX_TOKENS = 512
 PRO_MAX_TOKENS = 1024
 from core.llm_fallback import AIExecutionEngine
-from core.secrets import get_groq_api_key
 import json
 
 FREE_MAX_RESPONSE_LENGTH = 1500
