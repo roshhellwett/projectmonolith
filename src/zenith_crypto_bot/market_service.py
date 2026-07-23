@@ -16,7 +16,7 @@ _gas_cache: TTLCache = TTLCache(maxsize=1, ttl=15)  # 15s for gas prices
 
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 GOPLUS_BASE = "https://api.gopluslabs.io/api/v1"
-ETHERSCAN_BASE = "https://api.etherscan.io/api"
+ETHERSCAN_BASE = "https://api.etherscan.io/v2/api"
 FEAR_GREED_URL = "https://api.alternative.me/fng/?limit=1"
 
 UNISWAP_V2_FACTORY = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
@@ -219,6 +219,7 @@ async def get_wallet_recent_txns(wallet_address: str, last_known_hash: str = Non
         resp = await client.get(
             ETHERSCAN_BASE,
             params={
+                "chainid": 1,
                 "module": "account",
                 "action": "txlist",
                 "address": wallet_address,
@@ -261,6 +262,7 @@ async def get_wallet_token_txns(wallet_address: str) -> list[dict]:
         resp = await client.get(
             ETHERSCAN_BASE,
             params={
+                "chainid": 1,
                 "module": "account",
                 "action": "tokentx",
                 "address": wallet_address,
@@ -410,13 +412,14 @@ async def get_whale_transfers(min_value_eth: float = 50.0) -> list[dict]:
         resp = await client.get(
             ETHERSCAN_BASE,
             params={
+                "chainid": 1,
                 "module": "account",
                 "action": "txlist",
                 "address": "0x28C6c06298d514Db089934071355E5743bf21d60",
                 "startblock": 0,
                 "endblock": 99999999,
                 "page": 1,
-                "offset": 25,
+                "offset": 500,
                 "sort": "desc",
                 "apikey": ETHERSCAN_API_KEY,
             },
