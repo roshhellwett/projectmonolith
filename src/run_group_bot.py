@@ -106,6 +106,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text(get_start_group_msg())
 
     user_id = update.effective_user.id
+    
+    from zenith_ai_bot.repository import SettingsRepo as AISettingsRepo
+    api_key = await AISettingsRepo.get_api_key(user_id)
+    if not api_key:
+        from zenith_ai_bot.ui import get_key_required_msg
+        return await update.message.reply_text(get_key_required_msg(), parse_mode="HTML")
+        
     is_pro = await SubscriptionRepo.is_pro(user_id)
     groups = await SettingsRepo.get_owned_groups(user_id)
     days_left = await SubscriptionRepo.get_days_left(user_id)

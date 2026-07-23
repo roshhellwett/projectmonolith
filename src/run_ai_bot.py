@@ -182,11 +182,18 @@ async def ai_worker():
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    
+    api_key = await SettingsRepo.get_api_key(user_id)
+    if not api_key:
+        from zenith_ai_bot.ui import get_key_required_msg
+        return await update.message.reply_text(get_key_required_msg(), parse_mode="HTML")
+        
+    await SubscriptionRepo.register_user(user_id)
+    first_name = html.escape(update.effective_user.first_name or "User")
     usage = await UsageRepo.get_today_usage(user_id)
     persona = usage.get("persona", "default")
     days_left = await SubscriptionRepo.get_days_left(user_id)
-
+    is_pro = days_left > 0
     text = get_welcome_msg(is_pro, days_left, usage, persona)
     selected_model = usage.get("selected_model", "llama-3.3-70b-versatile")
     await update.message.reply_text(
@@ -282,7 +289,8 @@ async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     from core.llm_fallback import AIExecutionEngine
     msg = await update.message.reply_text("🔄 Verifying API key...", parse_mode="HTML")
-    is_valid = await AIExecutionEngine.check_key_validity(key)
+    resp = await AIExecutionEngine.execute([{"role": "user", "content": "ping"}], api_key=key, max_tokens=10)
+    is_valid = not resp.is_error
     
     if not is_valid:
         return await msg.edit_text("❌ <b>Invalid API Key</b>\n\nThe key you provided was rejected by Groq.", parse_mode="HTML")

@@ -622,3 +622,15 @@ def get_code_no_query() -> str:
 
 def get_imagine_no_query() -> str:
     return get_imagine_help()
+
+
+def get_key_required_msg() -> str:
+    return (
+        "🔐 <b>Groq API Key Required</b>\n\n"
+        "You are using Zenith in <b>BYOK (Bring Your Own Key)</b> mode. "
+        "This allows for unlimited usage without daily limits!\n\n"
+        "Status: ❌ <b>Not configured</b>\n\n"
+        "To unlock all features, please set your personal Groq API key using:\n"
+        "<code>/setkey [your_key]</code>\n\n"
+        "<i>Get your free key at <a href='https://console.groq.com'>console.groq.com</a></i>"
+    )

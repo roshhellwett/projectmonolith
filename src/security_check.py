@@ -239,7 +239,6 @@ def check_webhook_auth(root_dir: Path):
         "run_group_bot.py",
         "run_ai_bot.py",
         "run_crypto_bot.py",
-        "run_support_bot.py",
     ]
 
     results = []

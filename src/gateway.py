@@ -11,7 +11,6 @@ import run_admin_bot
 import run_ai_bot
 import run_crypto_bot
 import run_group_bot
-import run_support_bot
 from core.config import DATABASE_URL, MAINTENANCE_MODE, PORT, WEBHOOK_SECRET
 from core.data_cleanup import run_cleanup
 from core.database import dispose_engine, get_engine, init_db
@@ -135,7 +134,6 @@ async def lifespan(app: FastAPI):
             ("GROUP", run_group_bot.start_service),
             ("AI", run_ai_bot.start_service),
             ("CRYPTO", run_crypto_bot.start_service),
-            ("SUPPORT", run_support_bot.start_service),
             ("ADMIN", run_admin_bot.start_service),
         ]
         await asyncio.gather(*(safe_start(n, f) for n, f in services))
@@ -149,7 +147,6 @@ async def lifespan(app: FastAPI):
             ("GROUP", run_group_bot.register_webhook),
             ("AI", run_ai_bot.register_webhook),
             ("CRYPTO", run_crypto_bot.register_webhook),
-            ("SUPPORT", run_support_bot.register_webhook),
             ("ADMIN", run_admin_bot.register_webhook),
         ]:
             try:
@@ -188,13 +185,12 @@ async def lifespan(app: FastAPI):
                 run_group_bot.stop_service(dispose_db=False),
                 run_ai_bot.stop_service(dispose_db=False),
                 run_crypto_bot.stop_service(dispose_db=False),
-                run_support_bot.stop_service(dispose_db=False),
                 run_admin_bot.stop_service(dispose_db=False),
                 return_exceptions=True,
             ),
             timeout=20.0,
         )
-        for service_name, result in zip(["Group", "AI", "Crypto", "Support", "Admin"], results, strict=False):
+        for service_name, result in zip(["Group", "AI", "Crypto", "Admin"], results, strict=False):
             if isinstance(result, Exception):
                 logger.warning(f"⚠️ {service_name} service shutdown raised: {result}")
             else:
