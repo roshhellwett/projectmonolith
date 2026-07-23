@@ -597,12 +597,12 @@ async def real_whale_watcher():
                 seen_hashes.clear()
             for uid in pro_users:
                 for tx in new_transfers[:3]:
-                    txt = crypto_ui.get_real_whale_alert(tx)
+                    txt = crypto_ui.get_real_whale_alert(tx, is_pro=True)
                     with contextlib.suppress(asyncio.QueueFull):
                         alert_queue.put_nowait((uid, txt))
             for uid in free_users:
                 for tx in new_transfers[:1]:
-                    txt = crypto_ui.get_real_whale_alert(tx)
+                    txt = crypto_ui.get_real_whale_alert(tx, is_pro=False)
                     with contextlib.suppress(asyncio.QueueFull):
                         alert_queue.put_nowait((uid, txt))
         except Exception as e:

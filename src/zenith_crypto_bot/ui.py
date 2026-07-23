@@ -794,19 +794,31 @@ def get_pro_features_section() -> str:
     return "\n\nTop Gainers/Losers: [Pro Required]"
 
 
-def get_real_whale_alert(tx: dict) -> str:
+def get_real_whale_alert(tx: dict, is_pro: bool = True) -> str:
     value = tx.get("value_eth", 0)
-    from_addr = tx.get("from", "unknown")[:10] + "..."
-    to_addr = tx.get("to", "unknown")[:10] + "..."
-    tx_hash = tx.get("hash", "")[:10] + "..."
+    full_from = tx.get("from", "unknown")
+    full_to = tx.get("to", "unknown")
+    full_hash = tx.get("hash", "")
+    
+    if is_pro:
+        from_addr = f"<a href='https://etherscan.io/address/{full_from}'><code>{full_from[:10]}...{full_from[-4:]}</code></a>"
+        to_addr = f"<a href='https://etherscan.io/address/{full_to}'><code>{full_to[:10]}...{full_to[-4:]}</code></a>"
+        tx_hash = f"<a href='https://etherscan.io/tx/{full_hash}'><code>{full_hash[:10]}...</code></a>"
+        footer = "<i>Verified on-chain via Etherscan</i>"
+    else:
+        from_addr = f"<code>{full_from[:6]}...</code> [PRO Required]"
+        to_addr = f"<code>{full_to[:6]}...</code> [PRO Required]"
+        tx_hash = f"<code>{full_hash[:6]}...</code> [PRO Required]"
+        footer = "⭐ <b>Upgrade to PRO (/pro) to view full on-chain wallets and track this whale!</b>"
+
     return (
         f"🐋 <b>Large ETH Transfer Detected</b>\n\n"
         f"<b>Value:</b> {value:,.2f} ETH\n"
-        f"<b>From:</b> <code>{from_addr}</code>\n"
-        f"<b>To:</b> <code>{to_addr}</code>\n"
-        f"<b>Tx:</b> <code>{tx_hash}</code>\n"
+        f"<b>From:</b> {from_addr}\n"
+        f"<b>To:</b> {to_addr}\n"
+        f"<b>Tx:</b> {tx_hash}\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"<i>Verified on-chain via Etherscan</i>"
+        f"{footer}"
     )
 
 
