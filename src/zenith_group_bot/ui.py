@@ -25,7 +25,6 @@ def get_admin_dashboard(is_pro: bool, groups: list, usage: dict = None) -> Inlin
             InlineKeyboardButton("🚀 Features", callback_data="grp_features"),
             InlineKeyboardButton("❓ Help & Commands", callback_data="grp_help"),
         ],
-        [InlineKeyboardButton(f"🛡️ Protected Groups ({group_count}/{group_limit})", callback_data="grp_list")],
     ]
 
     if is_pro:
@@ -93,7 +92,7 @@ def get_group_settings_keyboard(chat_id: int, group_settings: dict = None) -> In
             )
         ],
         [InlineKeyboardButton("Configure", callback_data=f"grp_config_{chat_id}")],
-        [InlineKeyboardButton("Back to Groups", callback_data="grp_list")],
+        [InlineKeyboardButton("Back to Dashboard", callback_data="grp_dash")],
     ]
     return InlineKeyboardMarkup(rows)
 
@@ -118,7 +117,7 @@ def get_confirm_forgive(user_id: int, user_name: str = None, strikes: int = 0) -
     kb = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Yes, Forgive", callback_data=f"grp_forgive_{user_id}")],
-            [InlineKeyboardButton("Cancel", callback_data="grp_list")],
+            [InlineKeyboardButton("Cancel", callback_data="grp_dash")],
         ]
     )
     return msg, kb
@@ -139,7 +138,7 @@ def get_confirm_reset(group_name: str = None, chat_id: int = None) -> tuple:
     kb = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Yes, Reset Everything", callback_data=cb_data)],
-            [InlineKeyboardButton("Cancel", callback_data="grp_list")],
+            [InlineKeyboardButton("Cancel", callback_data="grp_dash")],
         ]
     )
     return msg, kb

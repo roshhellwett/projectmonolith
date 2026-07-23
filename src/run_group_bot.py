@@ -177,14 +177,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = get_status_msg(is_pro, days)
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
-        elif data == "grp_list":
-            groups = await SettingsRepo.get_owned_groups(user_id)
-            text = get_group_list_msg(groups)
-            await query.edit_message_text(
-                text,
-                reply_markup=get_group_picker(groups, "grp_config", is_pro),
-                parse_mode="HTML",
-            )
+
 
         elif data in (
             "grp_words_help",
