@@ -16,7 +16,7 @@ from zenith_ai_bot.prompts import PERSONAS
 
 
 def get_ai_dashboard(
-    is_pro: bool, persona: str, usage: dict, selected_model: str = "llama-3.3-70b-versatile"
+    persona: str, usage: dict, selected_model: str
 ) -> InlineKeyboardMarkup:
     persona_info = PERSONAS.get(persona, PERSONAS["default"])
     persona_label = f"{persona_info['icon']} {persona_info['name']}"
@@ -24,13 +24,7 @@ def get_ai_dashboard(
     model_info = AVAILABLE_MODELS.get(selected_model, AVAILABLE_MODELS["llama-3.3-70b-versatile"])
     model_label = f"{model_info['icon']} {model_info['name']}"
 
-    message_limit = usage.get("message_limit", 100) if is_pro else usage.get("message_limit", 10)
-    messages_used = usage.get("messages_used", 0)
-    message_bar = format_progress_bar(messages_used, message_limit, length=12)
-
-    tier_label = "💎 PRO MEMBERSHIP ACTIVE" if is_pro else "⚪ STANDARD FREE TIER"
     rows = [
-        [InlineKeyboardButton(tier_label, callback_data="ai_status")],
         [
             InlineKeyboardButton(f"🧠 Persona: {persona_label}", callback_data="ai_personas"),
             InlineKeyboardButton(f"⚙️ Engine: {model_label}", callback_data="ai_models"),
@@ -44,17 +38,13 @@ def get_ai_dashboard(
             InlineKeyboardButton("🔑 Groq API Key", callback_data="ai_show_key_setup"),
         ],
     ]
-    if not is_pro:
-        rows.append(
-            [InlineKeyboardButton("💎 Upgrade to Pro Bundle (Unlimited Access)", url=f"tg://user?id={ADMIN_USER_ID}")]
-        )
     return InlineKeyboardMarkup(rows)
 
 
-def get_model_selector_keyboard(current_model: str, is_pro: bool = False) -> InlineKeyboardMarkup:
+def get_model_selector_keyboard(current_model: str) -> InlineKeyboardMarkup:
     rows = []
     for model_id, info in AVAILABLE_MODELS.items():
-        marker = " [🔒 PRO]" if info["tier"] == "pro" and not is_pro else " ✅" if model_id == current_model else ""
+        marker = " ✅" if model_id == current_model else ""
         rows.append(
             [
                 InlineKeyboardButton(
@@ -63,8 +53,6 @@ def get_model_selector_keyboard(current_model: str, is_pro: bool = False) -> Inl
                 )
             ]
         )
-    if not is_pro:
-        rows.append([InlineKeyboardButton("💎 Unlock All 70B & DeepSeek Models", url=f"tg://user?id={ADMIN_USER_ID}")])
     rows.append([InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")])
     return InlineKeyboardMarkup(rows)
 
@@ -80,14 +68,12 @@ def get_model_selector_msg(current_model: str) -> str:
     )
 
 
-def get_persona_keyboard(current: str, is_pro: bool = False) -> InlineKeyboardMarkup:
-    available = PERSONAS if is_pro else {"default": PERSONAS["default"]}
+def get_persona_keyboard(current: str) -> InlineKeyboardMarkup:
+    available = PERSONAS
     rows = []
     for key, info in available.items():
         marker = " ✅" if key == current else ""
         rows.append([InlineKeyboardButton(f"{info['icon']} {info['name']}{marker}", callback_data=f"ai_persona_{key}")])
-    if not is_pro:
-        rows.append([InlineKeyboardButton("💎 Unlock 6 Specialized AI Personas", url=f"tg://user?id={ADMIN_USER_ID}")])
     rows.append([InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")])
     return InlineKeyboardMarkup(rows)
 
@@ -168,30 +154,7 @@ def get_welcome_msg(usage: dict, persona: str) -> str:
     return text
 
 
-def get_status_msg(is_pro: bool, days: int) -> str:
-    if is_pro:
-        items = [
-            "Full access to all 6 AI Personas",
-            "Multi-pass Deep Research Engine",
-            "Principal Code Architect generator",
-            "Visual Prompt Crafter for AI art",
-            "Context memory (10 message rolling window)",
-        ]
-        return (
-            f"{format_header('Subscription Status', 'Zenith Pro Membership', 'ACTIVE')}\n"
-            f"{format_kv('Days Remaining', f'{days} days', '🗓️')}\n"
-            f"{format_kv('System Tier', 'Pro Suite', '💎')}\n\n"
-            f"{format_card('Unlocked Pro Capabilities', items, '✨')}"
-        )
-    items = [
-        "Default assistant persona only",
-        "No Context memory",
-    ]
-    return (
-        f"{format_header('Subscription Status', 'Standard Tier Access', 'FREE')}\n"
-        f"{format_card('Current Tier Limitations', items, '🔒')}\n\n"
-        f"⚡ <i>Unlock the full potential of Zenith AI with our Pro Bundle. Contact @roshhellwett or use <code>/activate YOUR-KEY</code>.</i>"
-    )
+
 
 def get_api_key_status_msg(api_key: str | None, tokens_used: int) -> str:
     if not api_key:
@@ -215,20 +178,6 @@ def get_api_key_status_msg(api_key: str | None, tokens_used: int) -> str:
     )
 
 
-def get_personas_locked_msg() -> str:
-    items = [
-        "<b>Coder</b> — Production-grade software & debugging",
-        "<b>Writer</b> — Creative prose & content mastery",
-        "<b>Analyst</b> — Strategic data & market breakdowns",
-        "<b>Tutor</b> — Patient, step-by-step educational explanations",
-        "<b>Debate</b> — Rigorous dialectic & counter-arguments",
-        "<b>Roast</b> — Witty comedy & sharp satire",
-    ]
-    return (
-        f"{format_header('Specialized AI Personas', 'Custom Neural Profiles', 'PRO REQUIRED')}\n"
-        f"{format_card('Available Personalities', items, '🧠')}\n\n"
-        f"💎 <i>Upgrade to Pro to unlock all specialized neural personas using <code>/activate YOUR-KEY</code>.</i>"
-    )
 
 
 def get_personas_select_msg() -> str:
@@ -244,19 +193,6 @@ def get_persona_switched_msg(persona_key: str) -> str:
     )
 
 
-def get_history_locked_msg() -> str:
-    return format_alert(
-        "Chat Memory Locked",
-        "Zenith's rolling context memory (retaining recent messages for multi-turn conversations) requires a Pro membership.\n\nActivate using <code>/activate YOUR-KEY</code>.",
-        "PRO",
-    )
-
-
-def get_history_empty_msg() -> str:
-    return (
-        f"{format_header('Context Memory', 'Active Conversation Buffer', 'EMPTY')}\n"
-        f"📭 No conversation history stored.\nStart chatting using <code>/zenith [question]</code> to build context."
-    )
 
 
 def get_history_list_msg(history: list) -> str:
@@ -331,12 +267,6 @@ def get_ai_help_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def get_activate_help() -> str:
-    return format_alert(
-        "License Activation",
-        "Enter your license key using the format:\n<code>/activate ZENITH-XXXX-XXXX</code>\n\nContact @roshhellwett to acquire your Pro bundle key.",
-        "PRO",
-    )
 
 
 def get_zenith_no_query_msg() -> str:

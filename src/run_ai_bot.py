@@ -51,8 +51,7 @@ from zenith_ai_bot.ui import (
     get_worker_error_msg,
     get_zenith_no_query_msg,
 )
-from zenith_ai_bot.utils import check_ai_rate_limit, sanitize_telegram_html
-from zenith_crypto_bot.repository import SubscriptionRepo
+from zenith_ai_bot.utils import sanitize_telegram_html
 
 logger = setup_logger("SVC_AI")
 
@@ -66,7 +65,7 @@ async def ai_worker():
         task_item = None
         try:
             task_item = await task_queue.get()
-            update, context, placeholder_msg, text, history_text, is_pro, persona, history = task_item
+            update, context, placeholder_msg, text, history_text, persona, history = task_item
             try:
                 user_id = update.effective_user.id
                 quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
@@ -189,16 +188,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from zenith_ai_bot.ui import get_key_required_msg
         return await update.message.reply_text(get_key_required_msg(), parse_mode="HTML")
         
-    await SubscriptionRepo.register_user(user_id)
     first_name = html.escape(update.effective_user.first_name or "User")
     usage = await UsageRepo.get_today_usage(user_id)
     persona = usage.get("persona", "default")
-    days_left = await SubscriptionRepo.get_days_left(user_id)
-    is_pro = days_left > 0
     text = get_welcome_msg(usage, persona)
     selected_model = usage.get("selected_model", "llama-3.3-70b-versatile")
     await update.message.reply_text(
-        text, reply_markup=get_ai_dashboard(is_pro, persona, usage, selected_model), parse_mode="HTML"
+        text, reply_markup=get_ai_dashboard(persona, usage, selected_model), parse_mode="HTML"
     )
 
 
@@ -206,14 +202,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     tier = await resolve_tier(user_id)
 
-    text = get_help_msg(is_pro=tier.is_pro)
+    text = get_help_msg()
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-    buttons = []
-    if not tier.is_pro:
-        buttons.append([InlineKeyboardButton("Buy Pro", url=f"tg://user?id={ADMIN_USER_ID}")])
-    buttons.append([InlineKeyboardButton("Back", callback_data="ai_main_menu")])
+    buttons = [[InlineKeyboardButton("Back", callback_data="ai_main_menu")]]
 
     keyboard = InlineKeyboardMarkup(buttons)
 
@@ -226,15 +218,10 @@ async def cmd_zenith(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
 
     quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
     if not quota_allowed:
         return await msg.reply_text(quota_msg, parse_mode="HTML")
-
-    allowed, reason = await check_ai_rate_limit(user_id, is_pro)
-    if not allowed:
-        return await msg.reply_text(reason, parse_mode="HTML")
 
     text = ""
     if context.args:
@@ -259,25 +246,10 @@ async def cmd_zenith(update: Update, context: ContextTypes.DEFAULT_TYPE):
     p = PERSONAS.get(persona, PERSONAS["default"])
     try:
         placeholder = await msg.reply_text(f"{p['icon']} Thinking...", parse_mode="HTML")
-        task_queue.put_nowait((update, context, placeholder, text, history_text, is_pro, persona, conversation_history))
+        task_queue.put_nowait((update, context, placeholder, text, history_text, persona, conversation_history))
         await UsageRepo.increment_queries(user_id)
     except asyncio.QueueFull:
         await msg.reply_text(get_queue_full_msg())
-
-
-async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        user_id = update.effective_user.id
-        is_pro = await SubscriptionRepo.is_pro(user_id)
-        if is_pro:
-            return await update.message.reply_text(
-                "💎 <b>Active Pro Membership</b>\n\nYou already have an active Pro membership! No activation needed right now.",
-                parse_mode="HTML",
-            )
-        return await update.message.reply_text(get_activate_help(), parse_mode="HTML")
-    key = context.args[0].strip()
-    success, msg = await SubscriptionRepo.redeem_key(update.effective_user.id, key)
-    await update.message.reply_text(msg, parse_mode="HTML")
 
 
 async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -326,27 +298,20 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with contextlib.suppress(Exception):
         await query.answer()
     user_id = query.from_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
 
     try:
         if query.data == "ai_main_menu":
             usage = await UsageRepo.get_today_usage(user_id)
             persona = usage.get("persona", "default")
             selected_model = usage.get("selected_model", "llama-3.3-70b-versatile")
-            days_left = await SubscriptionRepo.get_days_left(user_id)
             text = get_welcome_msg(usage, persona)
             await query.edit_message_text(
-                text, reply_markup=get_ai_dashboard(is_pro, persona, usage, selected_model), parse_mode="HTML"
+                text, reply_markup=get_ai_dashboard(persona, usage, selected_model), parse_mode="HTML"
             )
-
-        elif query.data == "ai_status":
-            days = await SubscriptionRepo.get_days_left(user_id)
-            text = get_status_msg(is_pro, days)
-            await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
         elif query.data == "ai_usage":
             usage = await UsageRepo.get_today_usage(user_id)
-            text = get_usage_card(usage, is_pro)
+            text = get_usage_card(usage)
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
         elif query.data == "ai_show_key_setup":
@@ -387,7 +352,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             await query.edit_message_text(
                 get_personas_select_msg(),
-                reply_markup=get_persona_keyboard(current, is_pro=True),
+                reply_markup=get_persona_keyboard(current),
                 parse_mode="HTML",
             )
 
@@ -412,34 +377,13 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = get_history_cleared_msg(deleted)
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
-        elif query.data == "ai_activate_help":
-            if is_pro:
-                text = "💎 <b>Active Pro Membership</b>\n\nYou already have an active Pro membership! No activation needed right now."
-                await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
-            else:
-                from zenith_ai_bot.ui import get_activate_help_keyboard
-
-                text = get_activate_help()
-                await query.edit_message_text(text, reply_markup=get_activate_help_keyboard(), parse_mode="HTML")
-
-        elif query.data in ("ai_research_help", "ai_summarize_help", "ai_code_help", "ai_imagine_help"):
-            feature_map = {
-                "ai_research_help": "research",
-                "ai_summarize_help": "summarize",
-                "ai_code_help": "code",
-                "ai_imagine_help": "imagine",
-            }
-            feature = feature_map[query.data]
-            msg_text, kb = get_feature_help_msg(feature, is_pro)
-            await query.edit_message_text(msg_text, reply_markup=kb, parse_mode="HTML")
-
         elif query.data == "ai_models":
             current_model = await UsageRepo.get_selected_model(user_id)
             from zenith_ai_bot.ui import get_model_selector_keyboard, get_model_selector_msg
 
             await query.edit_message_text(
                 get_model_selector_msg(current_model),
-                reply_markup=get_model_selector_keyboard(current_model, is_pro=is_pro),
+                reply_markup=get_model_selector_keyboard(current_model),
                 parse_mode="HTML",
             )
 
@@ -455,7 +399,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     + get_model_selector_msg(model_id)
                 )
                 await query.edit_message_text(
-                    text, reply_markup=get_model_selector_keyboard(model_id, is_pro=True), parse_mode="HTML"
+                    text, reply_markup=get_model_selector_keyboard(model_id), parse_mode="HTML"
                 )
 
         elif query.data.startswith("ai_quick_"):
@@ -566,7 +510,6 @@ async def start_service():
     bot_app.add_handler(CommandHandler("code", cmd_code))
     bot_app.add_handler(CommandHandler("history", cmd_history))
     bot_app.add_handler(CommandHandler("imagine", cmd_imagine))
-    bot_app.add_handler(CommandHandler("activate", cmd_activate))
     bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
     bot_app.add_handler(CommandHandler("rotate", cmd_setkey))
     bot_app.add_handler(CommandHandler("mykey", cmd_mykey))
