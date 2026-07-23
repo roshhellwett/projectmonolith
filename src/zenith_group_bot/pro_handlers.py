@@ -1,6 +1,6 @@
 import contextlib
 
-from telegram import Update
+from telegram import Update, ChatPermissions
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
@@ -40,6 +40,138 @@ from zenith_group_bot.ui import (
 
 logger = setup_logger("GRP_PRO")
 
+from zenith_group_bot.flood_control import add_warning, get_flood_action
+
+async def cmd_warn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    if not ok:
+        return
+
+    target_id = None
+    if update.message.reply_to_message:
+        target_id = update.message.reply_to_message.from_user.id
+    elif context.args:
+        try:
+            target_id = int(context.args[0])
+        except ValueError:
+            pass
+
+    if not target_id:
+        return await update.message.reply_text("⚠️ Reply to a user's message or provide their ID.", parse_mode="HTML")
+
+    if target_id == user_id or target_id == context.bot.id:
+        return await update.message.reply_text("❌ You cannot warn yourself or the bot.")
+        
+    try:
+        member = await context.bot.get_chat_member(chat_id, target_id)
+        if member.status in ["administrator", "creator"]:
+            return await update.message.reply_text("❌ You cannot warn an admin.")
+    except Exception:
+        pass
+
+    warn_count = add_warning(target_id)
+    action, duration = get_flood_action(warn_count, is_pro=True)
+    
+    reason = " ".join(context.args[1:]) if len(context.args) > 1 else "Manual Warning"
+
+    await AuditLogRepo.log_action(chat_id, target_id, str(target_id), "WARN", f"{reason} (Count: {warn_count})", user_id)
+
+    if action == "kick":
+        with contextlib.suppress(Exception):
+            if duration > 0:
+                from datetime import timedelta
+                until = update.message.date + timedelta(seconds=duration)
+                await context.bot.ban_chat_member(chat_id, target_id, until_date=until)
+            else:
+                await context.bot.ban_chat_member(chat_id, target_id)
+        return await update.message.reply_text(f"🛑 User warned ({warn_count}). Flood limit reached, user kicked/banned.")
+    elif action == "mute":
+        with contextlib.suppress(Exception):
+            from datetime import timedelta
+            until = update.message.date + timedelta(seconds=duration)
+            await context.bot.restrict_chat_member(chat_id, target_id, ChatPermissions(can_send_messages=False), until_date=until)
+        return await update.message.reply_text(f"🔇 User warned ({warn_count}). Flood limit reached, user muted for {duration}s.")
+    else:
+        return await update.message.reply_text(f"⚠️ User has been warned. Total warnings: {warn_count}")
+
+from zenith_group_bot.gamification import add_rep_sync
+from zenith_group_bot.models import GroupMemberStats
+from core.database import AsyncSessionLocal
+from sqlalchemy.future import select
+
+async def cmd_rep(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    if not ok:
+        return
+
+    if not update.message.reply_to_message:
+        return await update.message.reply_text("⚠️ You must reply to a user's message to give them reputation.")
+
+    target_id = update.message.reply_to_message.from_user.id
+    if target_id == user_id or target_id == context.bot.id:
+        return await update.message.reply_text("❌ You cannot give reputation to yourself or the bot.")
+
+    add_rep_sync(target_id, chat_id, 1)
+    await update.message.reply_text("🌟 Reputation granted! +1 Rep")
+
+async def cmd_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    
+    async with AsyncSessionLocal() as session:
+        stmt = select(GroupMemberStats).where(
+            GroupMemberStats.user_id == user_id, GroupMemberStats.chat_id == chat_id
+        )
+        result = await session.execute(stmt)
+        stat = result.scalar_one_or_none()
+        
+    if not stat:
+        return await update.message.reply_text("📊 You haven't earned any XP yet! Start chatting.")
+        
+    text = (
+        f"👤 <b>{update.effective_user.first_name}'s Profile</b>\n\n"
+        f"🎖️ <b>Level:</b> {stat.level}\n"
+        f"✨ <b>XP:</b> {stat.xp}\n"
+        f"🌟 <b>Reputation:</b> {stat.reputation}\n"
+        f"💬 <b>Messages Sent:</b> {stat.messages_sent}"
+    )
+    await update.message.reply_text(text, parse_mode="HTML")
+
+async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    
+    async with AsyncSessionLocal() as session:
+        stmt = select(GroupMemberStats).where(GroupMemberStats.chat_id == chat_id).order_by(GroupMemberStats.xp.desc()).limit(10)
+        result = await session.execute(stmt)
+        stats = result.scalars().all()
+        
+    if not stats:
+        return await update.message.reply_text("📊 No active members yet.")
+        
+    text = f"🏆 <b>Top Active Members</b> 🏆\n\n"
+    for i, stat in enumerate(stats, 1):
+        try:
+            member = await context.bot.get_chat_member(chat_id, stat.user_id)
+            name = member.user.first_name or f"User {stat.user_id}"
+        except Exception:
+            name = f"User {stat.user_id}"
+            
+        text += f"{i}. <b>{name}</b> - Level {stat.level} (XP: {stat.xp})\n"
+        
+    await update.message.reply_text(text, parse_mode="HTML")
+
+async def cmd_train(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
+    if not ok:
+        return
+        
+    knowledge = " ".join(context.args)
+    if not knowledge:
+        return await update.message.reply_text("⚠️ Usage: /train [rules/FAQ text]")
+        
+    await SettingsRepo.upsert_settings(chat_id, user_id, group_name=update.effective_chat.title, faq_knowledge=knowledge)
+    await update.message.reply_text("🧠 AI Auto-Responder knowledge updated successfully!")
+
 # Hardcoded limits
 MAX_CUSTOM_WORDS = 200
 MAX_SCHEDULED_MESSAGES = 10
@@ -58,8 +190,14 @@ async def _check_group_admin_pro(update: Update, context: ContextTypes.DEFAULT_T
     try:
         member = await context.bot.get_chat_member(chat_id, user_id)
         if member.status not in ["administrator", "creator"]:
+            import contextlib
+            with contextlib.suppress(Exception):
+                await update.message.delete()
             return chat_id, user_id, False
     except Exception:
+        import contextlib
+        with contextlib.suppress(Exception):
+            await update.message.delete()
         return chat_id, user_id, False
 
     settings = await SettingsRepo.get_settings(chat_id)
@@ -78,8 +216,70 @@ async def _check_group_admin_pro(update: Update, context: ContextTypes.DEFAULT_T
     return chat_id, user_id, True
 
 
+async def _check_dm_admin_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        import contextlib
+        with contextlib.suppress(Exception):
+            await update.message.delete()
+        await update.message.reply_text("⚠️ This command can only be used in DMs with the bot to keep the group clean.")
+        return None, None, False
+
+    user_id = update.effective_user.id
+    owned_groups = await SettingsRepo.get_owned_groups(user_id)
+    if not owned_groups:
+        await update.message.reply_text("❌ You have not set up the bot in any group yet. Add the bot to your group and type /setup.")
+        return None, None, False
+
+    settings = owned_groups[0]
+    chat_id = settings.chat_id
+
+    is_pro = await SubscriptionRepo.is_pro(settings.owner_id)
+    if not is_pro:
+        await update.message.reply_text(
+            "Pro Feature\n\nYou need Zenith Pro to unlock this feature.\n/activate [KEY]",
+            parse_mode="HTML",
+        )
+        return chat_id, user_id, False
+        
+    # BYOK Verification
+    if not getattr(settings, "groq_api_key", None):
+        await update.message.reply_text("🔑 Please set your Groq API Key first to unlock the dashboard.\n\nUse: <code>/setkey gsk_xxxxxx</code>", parse_mode="HTML")
+        return chat_id, user_id, False
+        
+    return chat_id, user_id, True
+
+async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        import contextlib
+        with contextlib.suppress(Exception):
+            await update.message.delete()
+        return await update.message.reply_text("⚠️ Please use this command in DMs for security.")
+        
+    user_id = update.effective_user.id
+    owned_groups = await SettingsRepo.get_owned_groups(user_id)
+    if not owned_groups:
+        return await update.message.reply_text("❌ You have not set up the bot in any group yet.")
+        
+    chat_id = owned_groups[0].chat_id
+    key = " ".join(context.args).strip()
+    if not key:
+        return await update.message.reply_text("⚠️ Usage: /setkey [your_groq_api_key]")
+        
+    from core.llm_fallback import AIExecutionEngine
+    resp = await AIExecutionEngine.execute(
+        messages=[{"role": "user", "content": "ping"}],
+        api_key=key,
+        max_tokens=10
+    )
+    if resp.is_error:
+        return await update.message.reply_text(f"❌ Invalid or Rate-Limited API Key: {resp.error_type}")
+        
+    await SettingsRepo.upsert_settings(chat_id, user_id, group_name=owned_groups[0].group_name, groq_api_key=key)
+    await update.message.reply_text("✅ Groq API Key verified and securely saved!")
+
+
 async def cmd_addword(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
 
@@ -129,7 +329,7 @@ async def cmd_addword_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def cmd_delword(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
 
@@ -172,7 +372,7 @@ async def cmd_delword_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def cmd_wordlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
 
@@ -183,7 +383,7 @@ async def cmd_wordlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
 
@@ -248,7 +448,7 @@ async def cmd_schedule_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def cmd_schedules(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
 
@@ -258,7 +458,7 @@ async def cmd_schedules(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_delschedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
 
@@ -275,7 +475,7 @@ async def cmd_delschedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
 
@@ -293,7 +493,7 @@ async def cmd_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_welcomeoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
     disabled = await WelcomeRepo.disable_welcome(chat_id)
@@ -302,7 +502,7 @@ async def cmd_welcomeoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
 
@@ -318,7 +518,7 @@ async def cmd_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_auditlog(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id, user_id, ok = await _check_group_admin_pro(update, context)
+    chat_id, user_id, ok = await _check_dm_admin_pro(update, context)
     if not ok:
         return
 

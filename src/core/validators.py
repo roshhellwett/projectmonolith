@@ -301,6 +301,14 @@ def validate_custom_word(word: str, max_length: int = 100) -> ValidationResult:
 
     word = word.strip()
 
+    if word.startswith("regex:"):
+        try:
+            import re
+            re.compile(word[6:])
+            return ValidationResult(is_valid=True, sanitized_value=word)
+        except re.error as e:
+            return ValidationResult(is_valid=False, error_message=f"Invalid regex: {e}", error_code="INVALID_REGEX")
+
     if len(word) > max_length:
         return ValidationResult(
             is_valid=False, error_message=f"Word too long (max {max_length} characters)", error_code="WORD_TOO_LONG"

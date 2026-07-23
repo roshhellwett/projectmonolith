@@ -46,6 +46,12 @@ from zenith_group_bot.pro_handlers import (
     cmd_welcome,
     cmd_welcomeoff,
     cmd_wordlist,
+    cmd_warn,
+    cmd_profile,
+    cmd_leaderboard,
+    cmd_rep,
+    cmd_train,
+    cmd_setkey,
 )
 from zenith_group_bot.repository import (
     AuditLogRepo,
@@ -62,6 +68,8 @@ from zenith_group_bot.ui import (
     get_back_button,
     get_dashboard_help_msg,
     get_dashboard_main_msg,
+    get_features_card,
+    get_help_card,
     get_forgive_result,
     get_group_list_msg,
     get_group_picker,
@@ -148,6 +156,20 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text,
                 reply_markup=get_admin_dashboard(is_pro, groups),
                 parse_mode="HTML",
+            )
+
+        elif data == "grp_features":
+            await query.edit_message_text(
+                get_features_card(is_pro),
+                reply_markup=get_back_button(),
+                parse_mode="HTML"
+            )
+
+        elif data == "grp_help":
+            await query.edit_message_text(
+                get_help_card(),
+                reply_markup=get_back_button(),
+                parse_mode="HTML"
             )
 
         elif data == "grp_status":
@@ -349,6 +371,12 @@ async def start_service():
     bot_app.add_handler(CommandHandler("analytics", cmd_analytics))
     bot_app.add_handler(CommandHandler("auditlog", cmd_auditlog))
     bot_app.add_handler(CommandHandler("antiraid", cmd_antiraid))
+    bot_app.add_handler(CommandHandler("warn", cmd_warn))
+    bot_app.add_handler(CommandHandler("profile", cmd_profile))
+    bot_app.add_handler(CommandHandler("leaderboard", cmd_leaderboard))
+    bot_app.add_handler(CommandHandler("rep", cmd_rep))
+    bot_app.add_handler(CommandHandler("train", cmd_train))
+    bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
 
     set_group_ai_bot(bot_app)
     register_group_ai_handlers(bot_app)
@@ -374,6 +402,9 @@ async def start_service():
 
     track_task(asyncio.create_task(safe_loop("scheduled_messages", scheduled_message_loop)))
     logger.info("⏰ Scheduled Message Loop: Online")
+    from zenith_group_bot.gamification import gamification_loop
+    track_task(asyncio.create_task(safe_loop("gamification", gamification_loop)))
+    logger.info("🎮 Gamification Loop: Online")
 
 
 async def register_webhook():

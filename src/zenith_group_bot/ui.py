@@ -21,6 +21,10 @@ def get_admin_dashboard(is_pro: bool, groups: list, usage: dict = None) -> Inlin
     tier_label = "💎 PRO SHIELD ACTIVE" if is_pro else "⚪ STANDARD FREE TIER"
     rows = [
         [InlineKeyboardButton(tier_label, callback_data="grp_status")],
+        [
+            InlineKeyboardButton("🚀 Features", callback_data="grp_features"),
+            InlineKeyboardButton("❓ Help & Commands", callback_data="grp_help"),
+        ],
         [InlineKeyboardButton(f"🛡️ Protected Groups ({group_count}/{group_limit})", callback_data="grp_list")],
     ]
 
@@ -201,29 +205,16 @@ def get_dashboard_main_msg(is_pro: bool, groups: list, days_left: int = 0) -> st
         f"Security Shield: <b>{'🛡️ Enterprise Pro Lockdown' if is_pro else '⚪ Basic Public Shield'}</b>",
         f"Automated Filters: <b>{'Anti-Raid + Custom Regex + AI Scans' if is_pro else 'Default Spam Filter'}</b>",
     ]
-    cmds = [
-        "<code>/setup</code> — Run interactive group protection wizard (in-group)",
-    ]
-    if not is_pro:
-        cmds.append("<code>/activate [KEY]</code> — Activate Pro Shield bundle license")
-    pro_cmds = [
-        "<code>/addword</code> / <code>/delword</code> — Configure custom auto-delete filters",
-        "<code>/antiraid on/off</code> — Instant emergency lockdown shield",
-        "<code>/analytics</code> — Inspect real-time moderation telemetry",
-        "<code>/schedule HH:MM [msg]</code> — Program recurring daily broadcasts",
-        "<code>/welcome [msg]</code> — Set customized member onboarding protocols",
-        "<code>/auditlog [count]</code> — View forensic moderation action logs",
-    ]
+    if is_pro:
+        items.append(f"Pro Access Remaining: <b>{days_left} Days</b>")
 
     text = (
         f"{format_header('Zenith Group Shield', 'Autonomous Community Protection Matrix', status_badge)}\n"
         f"{format_card('System Telemetry', items, '⚡')}\n\n"
-        f"{format_card('Core Management Commands', cmds, '🛠️')}"
+        "<i>Use the dashboard below to navigate the terminal.</i>"
     )
-    if is_pro:
-        text += f"\n\n{format_card('Pro Shield Capabilities (In-Group)', pro_cmds, '💎')}"
-    else:
-        text += "\n\n<i>💎 Tip: Upgrade to Pro Shield for custom word filters, anti-raid lockdown, and up to 5 protected communities.</i>"
+    if not is_pro:
+        text += "\n\n<i>💎 Tip: Upgrade to Pro Shield (/activate) to unlock custom word filters, anti-raid lockdown, and 5 groups.</i>"
     return text
 
 
@@ -787,4 +778,53 @@ def get_violation_notification(group_name: str, user_name: str, user_id: int, re
         f"Group: <code>{escape(group_name)}</code>\n"
         f"User: {escape(user_name)} (<code>{user_id}</code>)\n"
         f"Reason: {escape(reason)}"
+    )
+
+def get_features_card(is_pro: bool) -> str:
+    if is_pro:
+        return (
+            "🚀 <b>Zenith Group Shield PRO Active</b>\n\n"
+            "▫️ ✅ <b>Basic Spam Filter</b> — Block basic Telegram spam\n"
+            "▫️ ✅ <b>Member Verification</b> — Require new users to click buttons\n"
+            "▫️ ✅ <b>Custom Filters</b> — Build an impenetrable auto-delete filter\n"
+            "▫️ ✅ <b>Anti-Raid Lockdown</b> — 1-click emergency lockdown during coordinated attacks\n"
+            "▫️ ✅ <b>Analytics Dashboard</b> — Track top violators and moderation metrics\n"
+            "▫️ ✅ <b>Automated Schedules</b> — Program recurring daily community broadcasts\n"
+            "▫️ ✅ <b>Welcome Protocols</b> — Design customized new member welcome messages\n"
+            "▫️ ✅ <b>Forensic Audit Log</b> — Track exactly which admin did what\n\n"
+            "<i>Your PRO account is fully unlocked. Your communities are secure.</i>"
+        )
+    else:
+        return (
+            "🚀 <b>Group Shield Modules</b>\n\n"
+            "▫️ 🛡️ <b>Basic Spam Filter</b> — Block basic Telegram spam\n"
+            "▫️ 👮 <b>Member Verification</b> — Require new users to click buttons\n\n"
+            "🔒 <b>PRO EXCLUSIVE CAPABILITIES</b>\n"
+            "▫️ 🚫 <b>Custom Filters</b> — Build an impenetrable auto-delete filter\n"
+            "▫️ 🚨 <b>Anti-Raid Lockdown</b> — 1-click emergency lockdown during coordinated attacks\n"
+            "▫️ 📊 <b>Analytics Dashboard</b> — Track top violators and moderation metrics\n"
+            "▫️ ⏰ <b>Automated Schedules</b> — Program recurring daily community broadcasts\n"
+            "▫️ 👋 <b>Welcome Protocols</b> — Design customized new member welcome messages\n"
+            "▫️ 📜 <b>Forensic Audit Log</b> — Track exactly which admin did what\n\n"
+            "⭐ <i>Upgrade to Pro Shield (/activate) to unlock enterprise community protection.</i>"
+        )
+
+def get_help_card() -> str:
+    return (
+        "❓ <b>Command Directory</b>\n\n"
+        "🛡️ <b>Security & Filters</b>\n"
+        "▫️ <code>/antiraid on/off</code> - Emergency group lockdown\n"
+        "▫️ <code>/addword [word]</code> - Add word to auto-delete filter\n"
+        "▫️ <code>/delword [word]</code> - Remove word from filter\n"
+        "▫️ <code>/wordlist</code> - View all active filters\n\n"
+        "🤖 <b>Automation</b>\n"
+        "▫️ <code>/schedule HH:MM [msg]</code> - Set a daily recurring broadcast\n"
+        "▫️ <code>/delschedule [id]</code> - Remove a scheduled broadcast\n"
+        "▫️ <code>/schedules</code> - View all schedules\n"
+        "▫️ <code>/welcome [msg]</code> - Set a custom welcome message\n"
+        "▫️ <code>/welcomeoff</code> - Disable custom welcome\n\n"
+        "📊 <b>Telemetry</b>\n"
+        "▫️ <code>/analytics</code> - View moderation analytics\n"
+        "▫️ <code>/auditlog [count]</code> - View recent admin actions\n"
+        "▫️ <code>/setup</code> - Re-run the interactive setup wizard\n"
     )

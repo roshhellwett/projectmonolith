@@ -11,6 +11,8 @@ def _word_to_pattern(word: str) -> str:
     word = word.strip()
     if not word:
         return ""
+    if word.startswith("regex:"):
+        return word[6:]
     escaped = re.escape(word)
     prefix = r"\b" if re.match(r"^\w", word, re.UNICODE) else r"(?:^|(?<=\s|\W))"
     suffix = r"\b" if re.search(r"\w$", word, re.UNICODE) else r"(?:$|(?=\s|\W))"

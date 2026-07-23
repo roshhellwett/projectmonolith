@@ -6,9 +6,11 @@ from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
-from zenith_crypto_bot.repository import SubscriptionRepo
+from core.permissions import _is_admin_cached, resolve_tier
+from core.settings import EXPERIMENTAL_FEATURES
+from zenith_group_bot.gamification import add_xp_sync
 from zenith_group_bot.filters import scan_for_abuse, scan_for_spam
-from zenith_group_bot.flood_control import is_flooding
+from zenith_group_bot.flood_control import is_flooding, get_flood_action, add_warning
 from zenith_group_bot.repository import (
     AuditLogRepo,
     CustomWordRepo,
@@ -91,11 +93,21 @@ async def cmd_verify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     if not query:
         return
-    target_id = int(query.data.split("_")[-1])
+    
+    parts = query.data.split("_")
+    target_id = int(parts[-1])
+    
     if query.from_user.id != target_id:
         with contextlib.suppress(Exception):
             await query.answer("❌ This verification button is for the new member only.", show_alert=True)
         return
+        
+    if "fail" in query.data:
+        with contextlib.suppress(Exception):
+            await query.answer("❌ Incorrect answer. You remain in quarantine.", show_alert=True)
+            await query.edit_message_text("❌ Verification failed.")
+        return
+        
     with contextlib.suppress(Exception):
         await query.answer("✅ Verified successfully!")
     chat_id = query.message.chat_id if query.message else update.effective_chat.id
@@ -106,6 +118,50 @@ async def cmd_verify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             parse_mode="HTML",
         )
 
+async def _background_ai_scan(msg, chat_id, user_id, username, text, settings, ban_threshold, context):
+    if not getattr(settings, "groq_api_key", None):
+        return
+    try:
+        from zenith_group_bot.ai_group_handlers import scan_ai_spam_shield
+        is_scam, reason, risk = await scan_ai_spam_shield(text, settings.groq_api_key, settings.group_name or str(chat_id))
+        if is_scam and risk >= 70 and await _try_delete(msg, chat_id):
+            strikes = await GroupRepo.process_violation(user_id, chat_id)
+            await AuditLogRepo.log_action(
+                chat_id, user_id, username, "DELETED", f"AI Shield: {reason} (strike {strikes})", context.bot.id
+            )
+            if strikes >= ban_threshold:
+                try:
+                    await context.bot.ban_chat_member(chat_id, user_id)
+                    await AuditLogRepo.log_action(
+                        chat_id, user_id, username, "BANNED", f"AI Shield threshold ({ban_threshold}) reached", context.bot.id
+                    )
+                except Exception:
+                    logger.warning(f"Failed to ban user {user_id} in chat {chat_id} (AI threshold)")
+            await _notify_owner(settings, context, msg.from_user, f"AI Shield scam detected: {reason} (Strike {strikes})")
+    except Exception as e:
+        logger.error(f"AI background scan failed: {e}")
+
+async def _background_ai_faq(msg, text: str, faq_knowledge: str, api_key: str):
+    if not api_key:
+        return
+    try:
+        from core.llm_fallback import AIExecutionEngine
+        prompt = f"You are a helpful group moderator. The group's knowledge base is: {faq_knowledge}. The user asked: {text}. If the knowledge base contains the answer, answer it concisely. If not, reply with 'NO_ANSWER'."
+        resp = await AIExecutionEngine.execute(
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            api_key=api_key,
+            preferred_model="llama-3.1-8b-instant",
+            max_tokens=256,
+        )
+        if not resp.is_error and resp.content:
+            response = resp.content.strip()
+            if "NO_ANSWER" not in response:
+                await msg.reply_text(f"🤖 {response}")
+    except Exception as e:
+        logger.debug(f"AI FAQ failed: {e}")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -137,6 +193,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await AuditLogRepo.log_action(chat_id, user_id, username, "DELETED", "Anti-raid lockdown", context.bot.id)
         return
 
+    tier_ctx = await resolve_tier(settings.owner_id)
+    owner_is_pro = tier_ctx.is_pro
+
+    media_group_id = msg.media_group_id
+    is_flood, flood_reason = is_flooding(user_id, media_group_id, strength)
+    if is_flood:
+        if await _try_delete(msg, chat_id):
+            warn_count = add_warning(user_id)
+            action, duration = get_flood_action(warn_count, owner_is_pro)
+            await AuditLogRepo.log_action(
+                chat_id, user_id, username, "DELETED", f"Flood control (Warn {warn_count})", context.bot.id
+            )
+            if action == "kick":
+                with contextlib.suppress(Exception):
+                    if duration > 0:
+                        from datetime import timedelta
+                        until = msg.date + timedelta(seconds=duration)
+                        await context.bot.ban_chat_member(chat_id, user_id, until_date=until)
+                    else:
+                        await context.bot.ban_chat_member(chat_id, user_id)
+                    await AuditLogRepo.log_action(chat_id, user_id, username, "BANNED", "Flood limit exceeded", context.bot.id)
+            elif action == "mute":
+                with contextlib.suppress(Exception):
+                    from datetime import timedelta
+                    until = msg.date + timedelta(seconds=duration)
+                    await context.bot.restrict_chat_member(chat_id, user_id, ChatPermissions(can_send_messages=False), until_date=until)
+                    await AuditLogRepo.log_action(chat_id, user_id, username, "MUTED", f"Flood muted {duration}s", context.bot.id)
+        return
+
     is_restricted = await MemberRepo.is_restricted(user_id, chat_id)
     if is_restricted:
         has_link = msg.entities and any(e.type in ("url", "text_link") for e in msg.entities)
@@ -165,35 +250,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _notify_owner(settings, context, user, f"Spam link (Strike {strikes})")
         return
 
-    owner_is_pro = await SubscriptionRepo.is_pro(settings.owner_id)
     if (settings.ai_enabled or owner_is_pro) and features in ("spam", "both") and text and len(text) > 10:
-        from zenith_group_bot.ai_group_handlers import scan_ai_spam_shield
-
-        is_scam, reason, risk = await scan_ai_spam_shield(text, settings.group_name or str(chat_id))
-        if is_scam and risk >= 70 and await _try_delete(msg, chat_id):
-            strikes = await GroupRepo.process_violation(user_id, chat_id)
-            await AuditLogRepo.log_action(
-                chat_id, user_id, username, "DELETED", f"AI Shield: {reason} (strike {strikes})", context.bot.id
-            )
-            if strikes >= ban_threshold:
-                try:
-                    await context.bot.ban_chat_member(chat_id, user_id)
-                    await AuditLogRepo.log_action(
-                        chat_id,
-                        user_id,
-                        username,
-                        "BANNED",
-                        f"AI Shield threshold ({ban_threshold}) reached",
-                        context.bot.id,
-                    )
-                except Exception:
-                    logger.warning(f"Failed to ban user {user_id} in chat {chat_id} (AI threshold)")
-            await _notify_owner(settings, context, user, f"AI Shield scam detected: {reason} (Strike {strikes})")
-            return
+        # Rate limit optimization: Check for URL, Crypto Address, or Spam keywords
+        import re
+        spam_pattern = r"(http[s]?://|0x[a-fA-F0-9]{40}|airdrop|giveaway|presale|claim|whitelist)"
+        if re.search(spam_pattern, text.lower()):
+            import asyncio
+            asyncio.create_task(_background_ai_scan(msg, chat_id, user_id, username, text, settings, ban_threshold, context))
 
     if features in ("abuse", "both") and text:
         custom_words = None
-        owner_is_pro = await SubscriptionRepo.is_pro(settings.owner_id)
         if owner_is_pro:
             custom_words = await CustomWordRepo.get_words(chat_id)
 
@@ -238,6 +304,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             except Exception:
                 logger.warning(f"Failed to ban user {user_id} in chat {chat_id} (flood threshold)")
+        return
+        
+    # Gamification Tracking
+    add_xp_sync(user_id, chat_id, 1)
+
+    # AI FAQ Auto-Responder
+    if getattr(settings, "faq_knowledge", None) and getattr(settings, "ai_enabled", False) and getattr(settings, "groq_api_key", None):
+        # Rate limit optimization: Require bot tag or !ask trigger
+        bot_username = context.bot.username.lower() if context.bot.username else ""
+        text_lower = text.lower()
+        if (f"@{bot_username}" in text_lower or text_lower.startswith("!ask")) and "?" in text:
+            import asyncio
+            asyncio.create_task(_background_ai_faq(msg, text, settings.faq_knowledge, settings.groq_api_key))
 
 
 async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -275,10 +354,22 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await MemberRepo.register_new_member(member.id, chat_id)
 
-        owner_is_pro = await SubscriptionRepo.is_pro(settings.owner_id)
-        kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🛡️ Click to Verify & Unlock Links", callback_data=f"grp_verify_{member.id}")]]
-        )
+        tier_ctx = await resolve_tier(settings.owner_id)
+        owner_is_pro = tier_ctx.is_pro
+        
+        import random
+        a = random.randint(1, 10)
+        b = random.randint(1, 10)
+        correct = a + b
+        options = [
+            (str(correct), f"grp_verify_pass_{member.id}"),
+            (str(correct + random.randint(1, 3)), f"grp_verify_fail_{member.id}"),
+            (str(correct - random.randint(1, 3)), f"grp_verify_fail_{member.id}"),
+        ]
+        random.shuffle(options)
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton(text, callback_data=cb) for text, cb in options]])
+        captcha_q = f"What is {a} + {b}?"
+
         if owner_is_pro:
             welcome_config = await WelcomeRepo.get_welcome(chat_id)
             if welcome_config:
@@ -287,6 +378,7 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     .replace("{username}", f"@{member.username}" if member.username else member.first_name or "there")
                     .replace("{group}", msg.chat.title or "our group")
                 )
+                welcome_text += f"\n\n🛡️ <b>Anti-Spam Challenge:</b> {captcha_q} (Click below to verify and unlock link posting)"
                 try:
                     if welcome_config.send_dm:
                         await context.bot.send_message(chat_id=member.id, text=welcome_text, reply_markup=kb, parse_mode="HTML")
@@ -297,14 +389,14 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 welcome_text = (
                     f"👋 Welcome {member.first_name or 'there'} to <b>{msg.chat.title or 'the group'}</b>!\n\n"
-                    "🛡️ <i>Anti-Spam Shield is active. Please click below to verify and unlock link posting privileges.</i>"
+                    f"🛡️ <b>Anti-Spam Challenge:</b> {captcha_q} (Click below to verify and unlock link posting)"
                 )
                 with contextlib.suppress(Exception):
                     await msg.reply_text(welcome_text, reply_markup=kb, parse_mode="HTML")
         else:
             welcome_text = (
                 f"👋 Welcome {member.first_name or 'there'} to <b>{msg.chat.title or 'the group'}</b>!\n\n"
-                "🛡️ <i>Anti-Spam Shield is active. Please click below to verify and unlock link posting privileges.</i>"
+                f"🛡️ <b>Anti-Spam Challenge:</b> {captcha_q} (Click below to verify and unlock link posting)"
             )
             with contextlib.suppress(Exception):
                 await msg.reply_text(welcome_text, reply_markup=kb, parse_mode="HTML")

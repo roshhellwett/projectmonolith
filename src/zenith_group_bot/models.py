@@ -17,6 +17,8 @@ class GroupSettings(Base):
     raid_mode = Column(Boolean, default=False)
     raid_expires_at = Column(DateTime, nullable=True)
     setup_date = Column(DateTime, default=utc_now)
+    faq_knowledge = Column(Text, nullable=True)
+    groq_api_key = Column(String(255), nullable=True)
 
 
 class GroupStrike(Base):
@@ -80,3 +82,15 @@ class ModerationLog(Base):
     reason = Column(Text, nullable=True)
     moderator_id = Column(BigInteger, nullable=True)
     created_at = Column(DateTime, default=utc_now)
+
+
+class GroupMemberStats(Base):
+    __tablename__ = "zenith_group_member_stats"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    chat_id = Column(BigInteger, index=True, nullable=False)
+    xp = Column(Integer, default=0)
+    level = Column(Integer, default=1)
+    reputation = Column(Integer, default=0)
+    messages_sent = Column(Integer, default=0)
+    __table_args__ = (UniqueConstraint("user_id", "chat_id", name="_stats_user_chat_uc"),)

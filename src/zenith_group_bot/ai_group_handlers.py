@@ -41,9 +41,8 @@ def set_group_ai_bot(app):
     bot_app = app
 
 
-async def scan_ai_spam_shield(text: str, group_name: str = "") -> tuple[bool, str, int]:
+async def scan_ai_spam_shield(text: str, api_key: str, group_name: str = "") -> tuple[bool, str, int]:
     """Analyze group chat message for zero-day phishing drops, drainer contracts, and scam raids."""
-    api_key = get_groq_api_key(prefer_support=False)
     if not api_key or len(text) < 10:
         return False, "", 0
 
