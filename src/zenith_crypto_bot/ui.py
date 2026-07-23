@@ -906,11 +906,11 @@ def get_ai_copilot_menu_keyboard(current_model: str = "llama-3.3-70b-versatile",
             [
                 InlineKeyboardButton(
                     "⛽ Gas Optimization",
-                    callback_data="ai_followup_what are current gas fees and when should I trade?",
+                    callback_data="ai_followup_current gas fees and when to trade?",
                 ),
                 InlineKeyboardButton(
                     "📈 BTC Technicals",
-                    callback_data="ai_followup_analyze bitcoin technical action and support resistance levels",
+                    callback_data="ai_followup_analyze btc technicals and support levels",
                 ),
             ],
             [
