@@ -161,6 +161,20 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
 
+        elif query.data == "ui_features":
+            await query.edit_message_text(
+                crypto_ui.get_features_card(is_pro),
+                reply_markup=crypto_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
+        elif query.data == "ui_help":
+            await query.edit_message_text(
+                crypto_ui.get_help_card(),
+                reply_markup=crypto_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+
         elif query.data == "ui_audit":
             await query.edit_message_text(
                 crypto_ui.get_audit_help(),

@@ -22,6 +22,10 @@ def get_main_dashboard(
     keyboard = [
         [InlineKeyboardButton(f"⚡ Status: {tier_badge}", callback_data="ui_pro_info")],
         [
+            InlineKeyboardButton("🚀 Features", callback_data="ui_features"),
+            InlineKeyboardButton("❓ Help & Commands", callback_data="ui_help"),
+        ],
+        [
             InlineKeyboardButton("📊 Market Intel", callback_data="ui_market"),
             InlineKeyboardButton("⛽ Gas Tracker", callback_data="ui_gas"),
         ],
@@ -1069,7 +1073,7 @@ def get_ai_response_msg(response: str, query: str) -> tuple:
 def get_ai_rate_limited_msg():
     text = (
         "<b>Crypto AI</b>\n"
-        ""
+        "\n"
         "Your Groq key reached its rate limit.\n\n"
         "Wait a bit or replace your key:\n"
         "<code>/setkey gsk_new_key</code>"
@@ -1111,4 +1115,95 @@ def get_wallet_activity(wallet_label: str, direction: str, amount: float, tx_has
         f"Action: {direction}\n"
         f"Amount: {amount:.4f} ETH\n"
         f"Tx: <a href='https://etherscan.io/tx/{tx_hash}'>{tx_hash[:10]}...</a>"
+    )
+
+def get_unlocks_card(unlocks: list, is_pro: bool) -> str:
+    if not unlocks:
+        return "<b>No major token unlocks detected in the near future.</b>"
+        
+    lines = ["⚠️ <b>Upcoming Token Unlocks</b>", ""]
+    for u in unlocks:
+        token = u["token"]
+        date = u["date"]
+        amt = u["amount"]
+        
+        if is_pro:
+            lines.append(
+                f"🚨 <b>{token}</b> - {date}\n"
+                f"Amount: {amt} ({u['pct_supply']}% of supply)\n"
+                f"Est. Value: ${u['usd_value']:,.0f}\n"
+                f"Recipient: <b>{u['recipient']}</b>\n"
+            )
+        else:
+            lines.append(
+                f"🚨 <b>{token}</b> - {date}\n"
+                f"Amount: {amt}\n"
+                f"Value/Recipient: [PRO Required]\n"
+            )
+            
+    if not is_pro:
+        lines.append("⭐ <b>Upgrade to PRO (/pro) to see exactly who is dumping and the USD value!</b>")
+        
+    return "\n".join(lines)
+
+def get_features_card(is_pro: bool) -> str:
+    if is_pro:
+        return (
+            "🚀 <b>Zenith PRO Modules Active</b>\n\n"
+            "▫️ ✅ <b>Market Intelligence</b> — Live macro indices, Fear & Greed, top movers\n"
+            "▫️ ✅ <b>Token Scanner</b> — Deep bytecode safety verification & GoPlus audits\n"
+            "▫️ ✅ <b>Portfolio P/L</b> — Live valuation, multi-token tracking & profit telemetry\n"
+            "▫️ ✅ <b>Price Alerts</b> — Instant cross-threshold notification engine\n"
+            "▫️ ✅ <b>Wallet Tracker</b> — Copy-trade & monitor institutional whale wallets\n"
+            "▫️ ✅ <b>New Pairs</b> — Real-time liquidity pool emergence radar\n"
+            "▫️ ✅ <b>Orderflow</b> — Deep institutional block trades & token swaps\n"
+            "▫️ ✅ <b>Token Unlocks</b> — Early warnings for VC vesting dumps\n"
+            "▫️ ✅ <b>Gas Optimizer</b> — Gwei timing forecasts & execution optimization\n"
+            "▫️ ✅ <b>1-Click Sniping</b> — Deep links to execute directly on DEX snipers\n\n"
+            "<i>Your PRO account is fully unlocked. You have the ultimate edge.</i>"
+        )
+    else:
+        return (
+            "🚀 <b>Integrated Modules</b>\n\n"
+            "▫️ 📊 <b>Market Intelligence</b> — Live macro indices, Fear & Greed\n"
+            "▫️ 🛡️ <b>Token Scanner</b> — Deep bytecode safety verification\n"
+            "▫️ 💼 <b>Portfolio P/L</b> — Live valuation & social flex cards\n\n"
+            "🔒 <b>PRO EXCLUSIVE FEATURES</b>\n"
+            "▫️ 🔔 <b>Price Alerts</b> — Instant cross-threshold notification engine\n"
+            "▫️ 🐋 <b>Wallet Tracker</b> — Copy-trade & monitor institutional whale wallets\n"
+            "▫️ 🔥 <b>New Pairs Radar</b> — Snipe new liquidity pools instantly\n"
+            "▫️ 🌊 <b>Orderflow</b> — Monitor deep institutional whale block trades\n"
+            "▫️ 🚨 <b>Token Unlocks</b> — Early warnings for VC vesting dumps\n"
+            "▫️ ⛽️ <b>Gas Optimizer</b> — Gwei timing forecasts\n"
+            "▫️ ⚡ <b>1-Click Sniping</b> — Deep links to execute directly on DEX snipers\n\n"
+            "⭐ <i>Upgrade to PRO (/pro) to unlock the full institutional suite.</i>"
+        )
+
+def get_help_card() -> str:
+    return (
+        "❓ <b>Command Directory</b>\n\n"
+        
+        "💼 <b>Portfolio & Trading</b>\n"
+        "▫️ <code>/portfolio</code> - View live PnL and generate Flex Cards.\n"
+        "▫️ <code>/addtoken [symbol] [amount] [entry_price]</code>\n"
+        "   <i>Example: /addtoken PEPE 1000000 0.0001</i>\n"
+        "▫️ <code>/removetoken [symbol]</code> - Remove token.\n\n"
+        
+        "🐋 <b>Whale Tracking</b>\n"
+        "▫️ <code>/wallets</code> - Manage your tracked whale wallets.\n"
+        "▫️ <code>/track [address] [label]</code>\n"
+        "   <i>Example: /track 0x123... Smart_Money_1</i>\n"
+        "▫️ <code>/untrack [address]</code> - Stop monitoring a wallet.\n\n"
+        
+        "🚨 <b>Alerts & Scanners</b>\n"
+        "▫️ <code>/alerts</code> - Manage your active price alerts.\n"
+        "▫️ <code>/alert [symbol] [above/below] [price]</code>\n"
+        "   <i>Example: /alert ETH above 4000</i>\n"
+        "▫️ <code>/audit [contract]</code> - Deep safety scan for honeypots.\n"
+        "▫️ <code>/unlocks</code> - Check upcoming token VC vesting schedules.\n\n"
+        
+        "📊 <b>Market Data</b>\n"
+        "▫️ <code>/market</code> - Live macro indices and Fear & Greed.\n"
+        "▫️ <code>/gas</code> - Live Ethereum network execution fees.\n"
+        "▫️ <code>/start</code> - Open the main visual dashboard.\n"
     )
