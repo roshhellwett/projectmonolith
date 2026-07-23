@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
-from core.subscription import SubscriptionRepo
+from zenith_group_bot.repository import GroupSubscriptionRepo
 from zenith_group_bot.repository import SettingsRepo
 from zenith_group_bot.ui import (
     get_setup_complete_msg,
@@ -57,7 +57,7 @@ async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         return await msg.reply_text(get_setup_verify_error())
 
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await GroupSubscriptionRepo.is_pro(user_id)
     existing_groups = await SettingsRepo.count_owned_groups(user_id)
 
     existing_settings = await SettingsRepo.get_settings(chat_id)
@@ -126,7 +126,7 @@ async def setup_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 is_active=True,
             )
 
-            is_pro = await SubscriptionRepo.is_pro(user_id)
+            is_pro = await GroupSubscriptionRepo.is_pro(user_id)
             msg_text = get_setup_complete_msg(state["group_name"], state["features"], strength, is_pro)
             await query.edit_message_text(msg_text, parse_mode="HTML")
         except Exception as e:

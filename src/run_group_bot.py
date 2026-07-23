@@ -19,7 +19,7 @@ from core.error_handler import handle_bot_error
 from core.gateway import attach_gateway, setup_bot_webhook
 from core.logger import setup_logger
 from core.webhook_router import register_bot_webhook
-from zenith_crypto_bot.repository import SubscriptionRepo
+from zenith_group_bot.repository import GroupSubscriptionRepo
 from zenith_group_bot.ai_group_handlers import register_group_ai_handlers, set_group_ai_bot
 from zenith_group_bot.crypto_group_handlers import register_group_crypto_handlers, set_group_crypto_bot
 from zenith_group_bot.group_app import (
@@ -98,6 +98,7 @@ async def safe_loop(name, coro):
             break
         except Exception as e:
             logger.error(f"Loop '{name}' crashed: {e}")
+            raise e  # Bubble up to handle_bot_error
             await asyncio.sleep(5)
 
 
@@ -113,9 +114,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from zenith_ai_bot.ui import get_key_required_msg
         return await update.message.reply_text(get_key_required_msg(), parse_mode="HTML")
         
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await GroupSubscriptionRepo.is_pro(user_id)
     groups = await SettingsRepo.get_owned_groups(user_id)
-    days_left = await SubscriptionRepo.get_days_left(user_id)
+    days_left = await GroupSubscriptionRepo.get_days_left(user_id)
 
     text = get_dashboard_main_msg(is_pro, groups, days_left)
     await update.message.reply_text(
@@ -128,7 +129,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         user_id = update.effective_user.id
-        is_pro = await SubscriptionRepo.is_pro(user_id)
+        is_pro = await GroupSubscriptionRepo.is_pro(user_id)
         if is_pro:
             return await update.message.reply_text(
                 "💎 <b>Active Pro Shield</b>\n\nYou are already an active Enterprise Pro Shield member! No activation is needed right now.",
@@ -136,7 +137,7 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return await update.message.reply_text(get_activate_help(), parse_mode="HTML")
     key = context.args[0].strip()
-    success, msg = await SubscriptionRepo.redeem_key(update.effective_user.id, key)
+    success, msg = await GroupSubscriptionRepo.redeem_key(update.effective_user.id, key)
     await update.message.reply_text(msg, parse_mode="HTML")
 
 
@@ -153,11 +154,11 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await setup_callback(update, context)
 
     try:
-        is_pro = await SubscriptionRepo.is_pro(user_id)
+        is_pro = await GroupSubscriptionRepo.is_pro(user_id)
 
         if data == "grp_main_menu":
             groups = await SettingsRepo.get_owned_groups(user_id)
-            days_left = await SubscriptionRepo.get_days_left(user_id)
+            days_left = await GroupSubscriptionRepo.get_days_left(user_id)
             text = get_dashboard_main_msg(is_pro, groups, days_left)
             await query.edit_message_text(
                 text,
@@ -189,7 +190,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif data == "grp_status":
-            days = await SubscriptionRepo.get_days_left(user_id)
+            days = await GroupSubscriptionRepo.get_days_left(user_id)
             text = get_status_msg(is_pro, days)
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
@@ -336,6 +337,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         if "not modified" not in str(e).lower():
             logger.error(f"Group Dashboard error: {e}", exc_info=True)
+            raise e  # Bubble up to handle_bot_error
 
 
 async def scheduled_message_loop():

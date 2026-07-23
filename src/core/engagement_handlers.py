@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
-from zenith_crypto_bot.repository import SubscriptionRepo
+from zenith_crypto_bot.repository import CryptoSubscriptionRepo
 
 logger = setup_logger("ENGAGEMENT")
 
@@ -32,8 +32,8 @@ _CHANGELOG = (
 
 async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    code = await SubscriptionRepo.get_or_create_referral(user_id)
-    stats = await SubscriptionRepo.get_referral_stats(user_id)
+    code = await CryptoSubscriptionRepo.get_or_create_referral(user_id)
+    stats = await CryptoSubscriptionRepo.get_referral_stats(user_id)
 
     raw_code = "".join(context.args).strip().upper() if context.args else ""
     if raw_code:
@@ -42,7 +42,7 @@ async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "❌ Invalid referral code format. Codes are 6-20 alphanumeric characters.",
             )
             return
-        success, msg = await SubscriptionRepo.redeem_referral(user_id, raw_code)
+        success, msg = await CryptoSubscriptionRepo.redeem_referral(user_id, raw_code)
         await update.message.reply_text(msg, parse_mode="HTML")
         return
 
@@ -73,7 +73,7 @@ async def cmd_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not clean:
         await update.message.reply_text("Your feedback was empty. Please write something!")
         return
-    await SubscriptionRepo.submit_feedback(update.effective_user.id, clean)
+    await CryptoSubscriptionRepo.submit_feedback(update.effective_user.id, clean)
     await update.message.reply_text(
         "✅ <b>Thanks for your feedback!</b> We review every submission.",
         parse_mode="HTML",
@@ -90,8 +90,8 @@ async def cmd_mystats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from zenith_ai_bot.repository import UsageRepo
 
         quota = await UsageRepo.get_token_quota(user_id)
-        days = await SubscriptionRepo.get_days_left(user_id)
-        stats = await SubscriptionRepo.get_referral_stats(user_id)
+        days = await CryptoSubscriptionRepo.get_days_left(user_id)
+        stats = await CryptoSubscriptionRepo.get_referral_stats(user_id)
         tier = "Pro" if days > 0 else "Free"
 
         text = (

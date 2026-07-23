@@ -45,7 +45,7 @@ from zenith_crypto_bot.pro_handlers import (
 )
 from zenith_crypto_bot.repository import (
     PriceAlertRepo,
-    SubscriptionRepo,
+    CryptoSubscriptionRepo,
     WalletTrackerRepo,
     WatchlistRepo,
 )
@@ -69,6 +69,7 @@ async def safe_loop(name, coro):
             break
         except Exception as e:
             logger.error(f"Loop '{name}' crashed: {e}")
+            raise e  # Bubble up to handle_bot_error
             await asyncio.sleep(5)
 
 
@@ -81,9 +82,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from zenith_ai_bot.ui import get_key_required_msg
         return await update.message.reply_text(get_key_required_msg(), parse_mode="HTML")
         
-    await SubscriptionRepo.register_user(user_id)
+    await CryptoSubscriptionRepo.register_user(user_id)
     first_name = html.escape(update.effective_user.first_name or "Trader")
-    days_left = await SubscriptionRepo.get_days_left(user_id)
+    days_left = await CryptoSubscriptionRepo.get_days_left(user_id)
     is_pro = days_left > 0
     await update.message.reply_text(
         crypto_ui.get_welcome_msg(first_name, user_id, is_pro, days_left),
@@ -103,7 +104,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         user_id = update.effective_user.id
-        days_left = await SubscriptionRepo.get_days_left(user_id)
+        days_left = await CryptoSubscriptionRepo.get_days_left(user_id)
         if days_left > 0:
             return await update.message.reply_text(
                 f"💎 <b>Active Subscription</b>\n\nYou are already an active Enterprise Pro VIP member with <b>{days_left} days</b> remaining! No activation needed.",
@@ -111,7 +112,7 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return await update.message.reply_text(crypto_ui.get_activate_help(), parse_mode="HTML")
     key_string = context.args[0].strip()
-    success, msg = await SubscriptionRepo.redeem_key(update.effective_user.id, key_string)
+    success, msg = await CryptoSubscriptionRepo.redeem_key(update.effective_user.id, key_string)
     await update.message.reply_text(msg, parse_mode="HTML")
 
 
@@ -121,7 +122,7 @@ async def cmd_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     contract = context.args[0][:100].strip()
     user_id = update.effective_user.id
     msg = await update.message.reply_text("Initializing scanner...")
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
     await perform_real_audit(user_id, contract, msg, is_pro)
 
 
@@ -134,7 +135,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     first_name = html.escape(update.effective_user.first_name or "Trader")
-    days_left = await SubscriptionRepo.get_days_left(user_id)
+    days_left = await CryptoSubscriptionRepo.get_days_left(user_id)
     is_pro = days_left > 0
 
     try:
@@ -155,7 +156,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == "ui_whale_radar":
             await query.edit_message_text("Configuring on-chain telemetry...")
             await asyncio.sleep(0.5)
-            await SubscriptionRepo.toggle_alerts(user_id, True)
+            await CryptoSubscriptionRepo.toggle_alerts(user_id, True)
             from zenith_crypto_bot.market_service import get_whale_transfers
 
             transfers = await get_whale_transfers()
@@ -190,7 +191,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif query.data == "ui_saved_audits":
-            audits = await SubscriptionRepo.get_saved_audits(user_id)
+            audits = await CryptoSubscriptionRepo.get_saved_audits(user_id)
             if not audits:
                 await query.edit_message_text(
                     crypto_ui.get_audit_vault_empty(),
@@ -206,8 +207,8 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif query.data.startswith("ui_del_audit_"):
             audit_id = int(query.data.split("_")[-1])
-            await SubscriptionRepo.delete_audit(user_id, audit_id)
-            audits = await SubscriptionRepo.get_saved_audits(user_id)
+            await CryptoSubscriptionRepo.delete_audit(user_id, audit_id)
+            audits = await CryptoSubscriptionRepo.get_saved_audits(user_id)
             if not audits:
                 await query.edit_message_text(
                     crypto_ui.get_audit_vault_cleared(),
@@ -222,7 +223,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
         elif query.data == "ui_clear_audits":
-            await SubscriptionRepo.clear_all_audits(user_id)
+            await CryptoSubscriptionRepo.clear_all_audits(user_id)
             await query.edit_message_text(
                 crypto_ui.get_audit_vault_cleared(),
                 reply_markup=crypto_ui.get_back_button(),
@@ -231,7 +232,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif query.data.startswith("ui_view_audit_"):
             audit_id = int(query.data.split("_")[-1])
-            audit_record = await SubscriptionRepo.get_audit_by_id(user_id, audit_id)
+            audit_record = await CryptoSubscriptionRepo.get_audit_by_id(user_id, audit_id)
             if audit_record:
                 await perform_real_audit(user_id, audit_record.contract, query.message, is_pro)
 
@@ -552,6 +553,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"UI Error: {e}")
     except Exception as e:
         logger.error(f"❌ Unhandled exception in crypto handle_dashboard: {e}", exc_info=True)
+        raise e  # Bubble up to handle_bot_error
 
 
 async def alert_dispatcher():
@@ -563,9 +565,10 @@ async def alert_dispatcher():
             await asyncio.sleep(e.retry_after + 1)
             await alert_queue.put((chat_id, text))
         except Forbidden:
-            await SubscriptionRepo.toggle_alerts(chat_id, False)
+            await CryptoSubscriptionRepo.toggle_alerts(chat_id, False)
         except Exception as e:
             logger.error(f"Dispatch failed: {e}")
+            raise e  # Bubble up to handle_bot_error
         finally:
             alert_queue.task_done()
             await asyncio.sleep(0.05)
@@ -597,6 +600,7 @@ async def price_alert_checker():
                         alert_queue.put_nowait((alert.user_id, text))
         except Exception as e:
             logger.error(f"Price alert checker error: {e}")
+            raise e  # Bubble up to handle_bot_error
 
 
 async def wallet_watcher():
@@ -620,6 +624,7 @@ async def wallet_watcher():
                 await asyncio.sleep(0.5)
         except Exception as e:
             logger.error(f"Wallet watcher error: {e}")
+            raise e  # Bubble up to handle_bot_error
 
 
 async def real_whale_watcher():
@@ -632,7 +637,7 @@ async def real_whale_watcher():
         try:
             from zenith_crypto_bot.market_service import get_whale_transfers
 
-            free_users, pro_users = await SubscriptionRepo.get_alert_subscribers()
+            free_users, pro_users = await CryptoSubscriptionRepo.get_alert_subscribers()
             if not free_users and not pro_users:
                 continue
             transfers = await get_whale_transfers()
@@ -668,7 +673,7 @@ async def unlocks_watcher():
         await asyncio.sleep(20 if first_run else 3600)  # Check hourly
         first_run = False
         try:
-            _, pro_users = await SubscriptionRepo.get_alert_subscribers()
+            _, pro_users = await CryptoSubscriptionRepo.get_alert_subscribers()
             if not pro_users:
                 continue
                 
@@ -704,7 +709,7 @@ async def subscription_monitor():
     while True:
         await asyncio.sleep(3600)
         try:
-            expiring = await SubscriptionRepo.get_expiring_users(within_hours=72)
+            expiring = await CryptoSubscriptionRepo.get_expiring_users(within_hours=72)
             for sub in expiring:
                 if sub.user_id in notified_warning:
                     continue
@@ -714,7 +719,7 @@ async def subscription_monitor():
                 with contextlib.suppress(asyncio.QueueFull):
                     alert_queue.put_nowait((sub.user_id, text))
 
-            expired = await SubscriptionRepo.get_just_expired_users(within_hours=1)
+            expired = await CryptoSubscriptionRepo.get_just_expired_users(within_hours=1)
             for sub in expired:
                 if sub.user_id in notified_expired:
                     continue
@@ -729,6 +734,7 @@ async def subscription_monitor():
                 notified_expired.clear()
         except Exception as e:
             logger.error(f"Subscription monitor error: {e}")
+            raise e  # Bubble up to handle_bot_error
 
 
 async def start_service():

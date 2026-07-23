@@ -26,14 +26,14 @@ from zenith_ai_bot.ui import (
     get_summarize_limit_reached,
 )
 from zenith_ai_bot.utils import sanitize_user_input
-from zenith_crypto_bot.repository import SubscriptionRepo
+from zenith_crypto_bot.repository import CryptoSubscriptionRepo
 
 logger = setup_logger("AI_PRO")
 
 
 async def cmd_persona(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
 
     if not context.args:
         current = await UsageRepo.get_persona(user_id)
@@ -62,7 +62,7 @@ async def cmd_persona(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
 
     quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
     if not quota_allowed:
@@ -119,7 +119,7 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
     msg_obj = update.message
 
     text = " ".join(context.args) if context.args else ""
@@ -162,7 +162,7 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
 
     description = " ".join(context.args) if context.args else ""
     description = sanitize_user_input(description)
@@ -196,7 +196,7 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
 
     history = await ConversationRepo.get_history(user_id, limit=10)
     text = get_history_list_msg(history)
@@ -206,7 +206,7 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
 
     description = " ".join(context.args) if context.args else ""
     description = sanitize_user_input(description)

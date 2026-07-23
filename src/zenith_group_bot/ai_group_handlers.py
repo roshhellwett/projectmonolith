@@ -8,7 +8,7 @@ from telegram.ext import CommandHandler, ContextTypes
 from core.animation import send_loading_message
 from core.llm_helpers import process_ai_query, sanitize_telegram_html
 from core.logger import setup_logger
-from core.subscription import SubscriptionRepo
+from zenith_group_bot.repository import GroupSubscriptionRepo
 from zenith_group_bot.flood_control import add_warning, check_bot_command_limit, get_flood_action
 from zenith_group_bot.repository import SettingsRepo
 from zenith_group_bot.ui import (
@@ -99,7 +99,7 @@ async def cmd_group_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not settings or not settings.is_active:
         return
 
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await GroupSubscriptionRepo.is_pro(user_id)
     is_flooding, msg, remaining = check_bot_command_limit(user_id, is_pro)
 
     if is_flooding:
@@ -185,7 +185,7 @@ async def cmd_group_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.message.chat.type not in ["group", "supergroup"]:
         return
 
-    is_pro = await SubscriptionRepo.is_pro(update.effective_user.id)
+    is_pro = await GroupSubscriptionRepo.is_pro(update.effective_user.id)
     msg = get_ai_help_msg(is_pro)
     await update.message.reply_text(msg, parse_mode="HTML")
 

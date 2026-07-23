@@ -95,3 +95,21 @@ class GroupMemberStats(Base):
     reputation = Column(Integer, default=0)
     messages_sent = Column(Integer, default=0)
     __table_args__ = (UniqueConstraint("user_id", "chat_id", name="_stats_user_chat_uc"),)
+
+
+class GroupSubscription(Base):
+    __tablename__ = "group_subscriptions"
+    user_id = Column(BigInteger, primary_key=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+
+class GroupActivationKey(Base):
+    __tablename__ = "group_activation_keys"
+    key_string = Column(String(50), primary_key=True)
+    duration_days = Column(Integer, nullable=False)
+    is_used = Column(Boolean, default=False)
+    used_by = Column(BigInteger, nullable=True)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)

@@ -4,7 +4,7 @@ from telegram import Update, ChatPermissions
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
-from core.subscription import SubscriptionRepo
+from zenith_group_bot.repository import GroupSubscriptionRepo
 from core.validators import validate_custom_word
 from zenith_group_bot.repository import (
     AuditLogRepo,
@@ -205,7 +205,7 @@ async def _check_group_admin_pro(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("Run /setup first to configure this group.")
         return chat_id, user_id, False
 
-    is_pro = await SubscriptionRepo.is_pro(settings.owner_id)
+    is_pro = await GroupSubscriptionRepo.is_pro(settings.owner_id)
     if not is_pro:
         await update.message.reply_text(
             "Pro Feature\n\nThe group owner needs Zenith Pro to unlock this feature.\n/activate [KEY]",
@@ -233,7 +233,7 @@ async def _check_dm_admin_pro(update: Update, context: ContextTypes.DEFAULT_TYPE
     settings = owned_groups[0]
     chat_id = settings.chat_id
 
-    is_pro = await SubscriptionRepo.is_pro(settings.owner_id)
+    is_pro = await GroupSubscriptionRepo.is_pro(settings.owner_id)
     if not is_pro:
         await update.message.reply_text(
             "Pro Feature\n\nYou need Zenith Pro to unlock this feature.\n/activate [KEY]",

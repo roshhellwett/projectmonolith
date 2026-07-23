@@ -22,7 +22,7 @@ from zenith_crypto_bot.models import (
 logger = setup_logger("CRYPTO_DB")
 
 
-class SubscriptionRepo:
+class CryptoSubscriptionRepo:
     @staticmethod
     @db_retry
     async def register_user(user_id: int):

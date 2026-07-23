@@ -24,13 +24,13 @@ from zenith_crypto_bot.market_service import (
     resolve_token_id,
     search_token,
 )
-from zenith_crypto_bot.repository import PriceAlertRepo, SubscriptionRepo, WalletTrackerRepo, WatchlistRepo
+from zenith_crypto_bot.repository import PriceAlertRepo, CryptoSubscriptionRepo, WalletTrackerRepo, WatchlistRepo
 
 logger = setup_logger("PRO_HANDLERS")
 
 async def cmd_unlocks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
     
     msg = await send_loading_message(update, context, "Scanning blockchain for upcoming token unlocks...")
     
@@ -41,7 +41,7 @@ async def cmd_unlocks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
 
     if not context.args or len(context.args) < 3:
         return await update.message.reply_text(crypto_ui.get_alert_help(), parse_mode="HTML")
@@ -83,7 +83,7 @@ async def cmd_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_typing_action(update, context)
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
     alerts = await PriceAlertRepo.get_user_alerts(user_id)
     if not alerts:
         return await update.message.reply_text(crypto_ui.get_alerts_empty(), parse_mode="HTML")
@@ -107,7 +107,7 @@ async def cmd_delalert(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
     if not is_pro:
         msg, kb = crypto_ui.get_pro_feature_msg("Wallet Tracker")
         return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
@@ -147,7 +147,7 @@ async def cmd_track(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_typing_action(update, context)
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
     wallets = await WalletTrackerRepo.get_user_wallets(user_id)
     if not wallets:
         return await update.message.reply_text(crypto_ui.get_wallets_empty(), parse_mode="HTML")
@@ -177,7 +177,7 @@ async def cmd_untrack(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_addtoken(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
 
     if not context.args or len(context.args) < 2:
         return await update.message.reply_text(crypto_ui.get_addtoken_help(), parse_mode="HTML")
@@ -242,7 +242,7 @@ async def cmd_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
     fng, (gainers, losers), btc_data = await asyncio.gather(
         get_fear_greed_index(), get_top_movers(), get_prices(["bitcoin", "ethereum"])
     )
-    is_pro = await SubscriptionRepo.is_pro(update.effective_user.id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(update.effective_user.id)
 
     fng_val = fng["value"] if fng else 0
     fng_class = fng["classification"] if fng else "N/A"
@@ -296,7 +296,7 @@ async def perform_real_audit(user_id: int, contract: str, msg, is_pro: bool):
             await asyncio.sleep(0.4)
 
         security = await get_token_security(contract)
-        await SubscriptionRepo.save_audit(user_id, contract)
+        await CryptoSubscriptionRepo.save_audit(user_id, contract)
 
         if not security:
             await msg.edit_text(

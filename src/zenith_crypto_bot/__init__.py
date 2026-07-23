@@ -12,7 +12,7 @@ from zenith_crypto_bot.models import (
     TrackedWallet,
     WatchlistToken,
 )
-from zenith_crypto_bot.repository import SubscriptionRepo, WalletTrackerRepo, WatchlistRepo
+from zenith_crypto_bot.repository import CryptoSubscriptionRepo, WalletTrackerRepo, WatchlistRepo
 
 __all__ = [
     "CryptoUser",
@@ -22,7 +22,7 @@ __all__ = [
     "PriceAlert",
     "TrackedWallet",
     "WatchlistToken",
-    "SubscriptionRepo",
+    "CryptoSubscriptionRepo",
     "WalletTrackerRepo",
     "WatchlistRepo",
     "get_prices",

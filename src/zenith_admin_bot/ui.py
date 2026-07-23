@@ -16,19 +16,15 @@ def get_admin_main_menu() -> InlineKeyboardMarkup:
     keyboard = [
         [
             InlineKeyboardButton("📊 Overview", callback_data="admin_overview"),
-            InlineKeyboardButton("🎫 Support Tickets", callback_data="admin_tickets"),
+            InlineKeyboardButton("🟢 Bot Health", callback_data="admin_health"),
         ],
         [
-            InlineKeyboardButton("🔑 License Keys", callback_data="admin_keys"),
-            InlineKeyboardButton("⚡ Bulk KeyGen", callback_data="admin_bulk_keys"),
+            InlineKeyboardButton("🪙 Crypto Bot Admin", callback_data="admin_crypto_menu"),
+            InlineKeyboardButton("🛡️ Group Bot Admin", callback_data="admin_group_menu"),
         ],
         [
             InlineKeyboardButton("👥 User Registry", callback_data="admin_users"),
-            InlineKeyboardButton("🛡️ Group Shield", callback_data="admin_groups"),
-        ],
-        [
             InlineKeyboardButton("📡 Broadcast", callback_data="admin_broadcast"),
-            InlineKeyboardButton("🟢 Bot Health", callback_data="admin_health"),
         ],
         [
             InlineKeyboardButton("💰 Revenue & MRR", callback_data="admin_revenue"),
@@ -47,45 +43,37 @@ def get_back_button() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="admin_main")]])
 
 
-def get_tickets_keyboard() -> InlineKeyboardMarkup:
+def get_crypto_admin_menu() -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton("All Tickets", callback_data="admin_tickets_all")],
-        [InlineKeyboardButton("Open", callback_data="admin_tickets_open")],
-        [InlineKeyboardButton("In Progress", callback_data="admin_tickets_progress")],
-        [InlineKeyboardButton("Resolved", callback_data="admin_tickets_resolved")],
-        [InlineKeyboardButton("Stale Tickets", callback_data="admin_tickets_stale")],
+        [
+            InlineKeyboardButton("🔑 Gen Crypto Key (30d)", callback_data="admin_crypto_keygen_30"),
+            InlineKeyboardButton("🔑 Gen Crypto Key (90d)", callback_data="admin_crypto_keygen_90"),
+        ],
+        [
+            InlineKeyboardButton("📋 View Crypto Subs", callback_data="admin_crypto_subs"),
+        ],
         [InlineKeyboardButton("Back", callback_data="admin_main")],
     ]
     return InlineKeyboardMarkup(keyboard)
 
+
+def get_group_admin_menu() -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton("🔑 Gen Group Key (30d)", callback_data="admin_group_keygen_30"),
+            InlineKeyboardButton("🔑 Gen Group Key (90d)", callback_data="admin_group_keygen_90"),
+        ],
+        [
+            InlineKeyboardButton("📋 View Group Subs", callback_data="admin_group_subs"),
+        ],
+        [InlineKeyboardButton("Back", callback_data="admin_main")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 def get_system_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton("Database Stats", callback_data="admin_db_stats")],
         [InlineKeyboardButton("Key History", callback_data="admin_key_history")],
-        [InlineKeyboardButton("FAQ & Canned", callback_data="admin_faq_menu")],
-        [InlineKeyboardButton("Back", callback_data="admin_main")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-
-def get_bulk_keygen_keyboard() -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton("5 Keys (30d)", callback_data="admin_bulk_5_30")],
-        [InlineKeyboardButton("10 Keys (30d)", callback_data="admin_bulk_10_30")],
-        [InlineKeyboardButton("5 Keys (90d)", callback_data="admin_bulk_5_90")],
-        [InlineKeyboardButton("10 Keys (90d)", callback_data="admin_bulk_10_90")],
-        [InlineKeyboardButton("Back", callback_data="admin_main")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-
-def get_faq_keyboard() -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton("List FAQs", callback_data="admin_faq_list")],
-        [InlineKeyboardButton("Add FAQ", callback_data="admin_faq_add")],
-        [InlineKeyboardButton("Delete FAQ", callback_data="admin_faq_delete")],
-        [InlineKeyboardButton("Canned Responses", callback_data="admin_canned_list")],
         [InlineKeyboardButton("Back", callback_data="admin_main")],
     ]
     return InlineKeyboardMarkup(keyboard)

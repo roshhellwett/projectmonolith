@@ -46,7 +46,7 @@ async def resolve_tier(user_id: int) -> TierContext:
     Resolve a user's tier with caching.
 
     Single DB call, cached for 60 seconds. All handlers should use this
-    instead of making their own SubscriptionRepo calls.
+    instead of making their own CryptoSubscriptionRepo calls.
     """
     # Check cache first
     cached = _tier_cache.get(user_id)
@@ -54,7 +54,7 @@ async def resolve_tier(user_id: int) -> TierContext:
         return cached
 
     # Import here to avoid circular imports at module level
-    from zenith_crypto_bot.repository import SubscriptionRepo
+    from zenith_crypto_bot.repository import CryptoSubscriptionRepo
 
     owner = is_owner(user_id)
 
@@ -67,7 +67,7 @@ async def resolve_tier(user_id: int) -> TierContext:
             tier_name="owner",
         )
     else:
-        days_left = await SubscriptionRepo.get_days_left(user_id)
+        days_left = await CryptoSubscriptionRepo.get_days_left(user_id)
         is_pro = days_left > 0
         ctx = TierContext(
             user_id=user_id,

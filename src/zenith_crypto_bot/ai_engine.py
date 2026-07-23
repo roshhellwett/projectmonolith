@@ -4,7 +4,7 @@ from core.logger import setup_logger
 from zenith_ai_bot.repository import UsageRepo, SettingsRepo
 from zenith_ai_bot.search import perform_web_search
 from zenith_ai_bot.utils import sanitize_telegram_html
-from zenith_crypto_bot.repository import SubscriptionRepo
+from zenith_crypto_bot.repository import CryptoSubscriptionRepo
 
 logger = setup_logger("CRYPTO_AI")
 
@@ -69,7 +69,7 @@ async def call_crypto_ai(
         if preferred_model is None:
             preferred_model = await UsageRepo.get_selected_model(user_id)
 
-        user_context = await SubscriptionRepo.get_user_ai_context(user_id)
+        user_context = await CryptoSubscriptionRepo.get_user_ai_context(user_id)
         search_context = ""
         if await needs_search(query):
             try:

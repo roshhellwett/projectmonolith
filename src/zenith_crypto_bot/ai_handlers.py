@@ -11,7 +11,7 @@ from core.logger import setup_logger
 from zenith_ai_bot.repository import UsageRepo
 from zenith_crypto_bot import ui as crypto_ui
 from zenith_crypto_bot.ai_engine import call_crypto_ai
-from zenith_crypto_bot.repository import SubscriptionRepo
+from zenith_crypto_bot.repository import CryptoSubscriptionRepo
 
 logger = setup_logger("CRYPTO_AI_HANDLER")
 
@@ -56,7 +56,7 @@ async def cmd_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
         return
 
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
     await send_typing_action(update, context)
 
     msg = await update.message.reply_text(_AI_STAGES[0], parse_mode="HTML")
@@ -150,7 +150,7 @@ async def handle_ai_followup(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     context.args = [topic]
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await CryptoSubscriptionRepo.is_pro(user_id)
 
     msg = query.message
     try:

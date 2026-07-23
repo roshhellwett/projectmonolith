@@ -6,7 +6,8 @@ from telegram.ext import CommandHandler, ContextTypes
 
 from core.animation import send_loading_message
 from core.logger import setup_logger
-from core.subscription import SubscriptionRepo, get_fear_greed_index, get_prices, resolve_token_id
+from zenith_group_bot.repository import GroupSubscriptionRepo
+from zenith_crypto_bot.market_service import get_fear_greed_index, get_prices, resolve_token_id
 from zenith_group_bot.flood_control import add_warning, check_bot_command_limit, get_flood_action
 from zenith_group_bot.repository import SettingsRepo
 from zenith_group_bot.ui import (
@@ -42,7 +43,7 @@ async def cmd_group_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not settings or not settings.is_active:
         return
 
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await GroupSubscriptionRepo.is_pro(user_id)
     is_flooding, msg, remaining = check_bot_command_limit(user_id, is_pro)
 
     if is_flooding:
@@ -92,7 +93,7 @@ async def cmd_group_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await GroupSubscriptionRepo.is_pro(user_id)
 
     if not is_pro:
         await update.message.reply_text(get_alert_pro_msg(), parse_mode="HTML")
@@ -112,7 +113,7 @@ async def cmd_group_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not settings or not settings.is_active:
         return
 
-    is_pro = await SubscriptionRepo.is_pro(user_id)
+    is_pro = await GroupSubscriptionRepo.is_pro(user_id)
     is_flooding, msg, remaining = check_bot_command_limit(user_id, is_pro)
 
     if is_flooding:

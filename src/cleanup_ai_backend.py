@@ -7,7 +7,7 @@ new_lines = []
 skip_mode = False
 for i, line in enumerate(lines):
     # Remove imports
-    if 'from zenith_crypto_bot.repository import SubscriptionRepo' in line:
+    if 'from zenith_crypto_bot.repository import CryptoSubscriptionRepo' in line:
         continue
     if 'check_ai_rate_limit,' in line:
         line = line.replace('check_ai_rate_limit, ', '')
@@ -26,8 +26,8 @@ for i, line in enumerate(lines):
     if 'CommandHandler("activate", cmd_activate)' in line:
         continue
         
-    # Remove SubscriptionRepo calls and is_pro assignments
-    if 'SubscriptionRepo.' in line:
+    # Remove CryptoSubscriptionRepo calls and is_pro assignments
+    if 'CryptoSubscriptionRepo.' in line:
         continue
     if re.match(r'^\s*is_pro\s*=\s*', line):
         continue
