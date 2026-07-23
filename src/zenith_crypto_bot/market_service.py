@@ -9,9 +9,9 @@ logger = setup_logger("MARKET_SVC")
 _http_client: httpx.AsyncClient | None = None
 
 # Response caches — serve stale data when APIs are down
-_price_cache: TTLCache = TTLCache(maxsize=500, ttl=30)  # 30s for prices
-_movers_cache: TTLCache = TTLCache(maxsize=1, ttl=60)  # 60s for top movers
-_fng_cache: TTLCache = TTLCache(maxsize=1, ttl=300)  # 5min for fear & greed
+_price_cache: TTLCache = TTLCache(maxsize=500, ttl=90)  # 90s for prices
+_movers_cache: TTLCache = TTLCache(maxsize=1, ttl=300)  # 5m for top movers
+_fng_cache: TTLCache = TTLCache(maxsize=1, ttl=600)  # 10m for fear & greed
 _gas_cache: TTLCache = TTLCache(maxsize=1, ttl=15)  # 15s for gas prices
 
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
@@ -113,10 +113,13 @@ async def get_prices(token_ids: list[str]) -> dict:
         return data
     except Exception as e:
         breaker.record_failure()
-        logger.error(f"CoinGecko price fetch failed: {e}")
+        if "429" in str(e):
+            logger.debug(f"CoinGecko price fetch rate-limited (429): {e}")
+        else:
+            logger.error(f"CoinGecko price fetch failed: {e}")
         cached = _price_cache.get(cache_key)
         if cached:
-            logger.info("Serving stale cached prices")
+            logger.debug("Serving stale cached prices")
             return cached
         return {}
 
@@ -153,7 +156,10 @@ async def get_top_movers() -> tuple[list, list]:
         return gainers, losers
     except Exception as e:
         breaker.record_failure()
-        logger.error(f"CoinGecko top movers failed: {e}")
+        if "429" in str(e):
+            logger.debug(f"CoinGecko top movers rate-limited (429): {e}")
+        else:
+            logger.error(f"CoinGecko top movers failed: {e}")
         cached = _movers_cache.get("movers")
         if cached:
             return cached
@@ -347,7 +353,9 @@ async def get_new_pairs(from_block: int = None) -> tuple[list[dict], int]:
         latest_block = int(resp.json().get("result", "0x0"), 16)
 
         if from_block is None:
-            from_block = latest_block - 50
+            from_block = max(0, latest_block - 50)
+        else:
+            from_block = max(0, from_block, latest_block - 1900)
 
         resp2 = await client.post(
             ETH_RPC_URL,
