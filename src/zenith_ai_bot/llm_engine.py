@@ -1,7 +1,6 @@
 from core.config import AI_SEARCH_TRIGGERS
 from core.llm_fallback import AIExecutionEngine
 from core.logger import setup_logger
-from core.secrets import get_cached_groq_key
 from zenith_ai_bot.prompts import CODE_PROMPT, IMAGINE_PROMPT, PERSONAS, RESEARCH_PROMPT, SUMMARIZE_PROMPT
 from zenith_ai_bot.repository import UsageRepo
 from zenith_ai_bot.search import perform_deep_research, perform_web_search
@@ -28,10 +27,10 @@ async def process_ai_query(
     max_tokens: int = 1024,
     history: list = None,
     preferred_model: str = "llama-3.3-70b-versatile",
+    api_key: str = None,
 ) -> str:
-    api_key = get_cached_groq_key()
     if not api_key:
-        return "⚠️ AI service is not configured. Please contact the admin."
+        return "⚠️ AI service is not configured. Please use /setkey to connect your personal Groq API key."
 
     external_context = ""
 
@@ -73,10 +72,9 @@ async def process_ai_query(
     return result
 
 
-async def process_research(user_id: int, topic: str, preferred_model: str = "llama-3.3-70b-versatile") -> str:
-    api_key = get_cached_groq_key()
+async def process_research(user_id: int, topic: str, preferred_model: str = "llama-3.3-70b-versatile", api_key: str = None) -> str:
     if not api_key:
-        return "⚠️ AI service is not configured. Please contact the admin."
+        return "⚠️ AI service is not configured. Please use /setkey to connect your personal Groq API key."
 
     research_data = await perform_deep_research(topic)
     if not research_data:
@@ -99,10 +97,9 @@ async def process_research(user_id: int, topic: str, preferred_model: str = "lla
     return result
 
 
-async def process_summarize(user_id: int, text: str, preferred_model: str = "llama-3.3-70b-versatile") -> str:
-    api_key = get_cached_groq_key()
+async def process_summarize(user_id: int, text: str, preferred_model: str = "llama-3.3-70b-versatile", api_key: str = None) -> str:
     if not api_key:
-        return "⚠️ AI service is not configured. Please contact the admin."
+        return "⚠️ AI service is not configured. Please use /setkey to connect your personal Groq API key."
 
     resp = await AIExecutionEngine.execute(
         messages=[
@@ -119,10 +116,9 @@ async def process_summarize(user_id: int, text: str, preferred_model: str = "lla
     return result
 
 
-async def process_code(user_id: int, description: str, preferred_model: str = "llama-3.3-70b-versatile") -> str:
-    api_key = get_cached_groq_key()
+async def process_code(user_id: int, description: str, preferred_model: str = "llama-3.3-70b-versatile", api_key: str = None) -> str:
     if not api_key:
-        return "⚠️ AI service is not configured. Please contact the admin."
+        return "⚠️ AI service is not configured. Please use /setkey to connect your personal Groq API key."
 
     resp = await AIExecutionEngine.execute(
         messages=[
@@ -139,10 +135,9 @@ async def process_code(user_id: int, description: str, preferred_model: str = "l
     return result
 
 
-async def process_imagine(user_id: int, description: str, preferred_model: str = "llama-3.3-70b-versatile") -> str:
-    api_key = get_cached_groq_key()
+async def process_imagine(user_id: int, description: str, preferred_model: str = "llama-3.3-70b-versatile", api_key: str = None) -> str:
     if not api_key:
-        return "⚠️ AI service is not configured. Please contact the admin."
+        return "⚠️ AI service is not configured. Please use /setkey to connect your personal Groq API key."
 
     resp = await AIExecutionEngine.execute(
         messages=[

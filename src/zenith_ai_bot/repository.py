@@ -184,3 +184,29 @@ class UsageRepo:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
             return row.selected_model or "llama-3.3-70b-versatile"
+
+
+class SettingsRepo:
+    @staticmethod
+    @db_retry
+    async def get_api_key(user_id: int) -> str | None:
+        async with AsyncSessionLocal() as session:
+            from zenith_ai_bot.models import AIUserSettings
+            stmt = select(AIUserSettings).where(AIUserSettings.user_id == user_id)
+            row = (await session.execute(stmt)).scalar_one_or_none()
+            return row.groq_api_key if row else None
+
+    @staticmethod
+    @db_retry
+    async def set_api_key(user_id: int, api_key: str | None):
+        async with AsyncSessionLocal() as session:
+            from zenith_ai_bot.models import AIUserSettings
+            stmt = select(AIUserSettings).where(AIUserSettings.user_id == user_id)
+            row = (await session.execute(stmt)).scalar_one_or_none()
+            if not row:
+                row = AIUserSettings(user_id=user_id, groq_api_key=api_key)
+                session.add(row)
+            else:
+                row.groq_api_key = api_key
+            await session.commit()
+

@@ -58,6 +58,28 @@ async def safe_loop(name, coro):
             await asyncio.sleep(5)
 
 
+async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not is_owner(user_id):
+        return await update.message.reply_text("⛔ <b>Admin Only</b>\n\nOnly the platform owner can configure the global Support API key.", parse_mode="HTML")
+        
+    if not context.args:
+        return await update.message.reply_text("⚠️ <b>Usage:</b>\n<code>/setkey [your_groq_api_key]</code>", parse_mode="HTML")
+        
+    key = context.args[0].strip()
+    
+    from core.llm_fallback import AIExecutionEngine
+    msg = await update.message.reply_text("🔄 Verifying global Support API key...", parse_mode="HTML")
+    is_valid = await AIExecutionEngine.check_key_validity(key)
+    
+    if not is_valid:
+        return await msg.edit_text("❌ <b>Invalid API Key</b>\n\nThe key you provided was rejected by Groq.", parse_mode="HTML")
+        
+    from zenith_support_bot.repository import SettingsRepo
+    await SettingsRepo.set_api_key(user_id, key)
+    await msg.edit_text("✅ <b>Global Support API Key Connected</b>\n\nThe Support AI auto-responder will now use this key for triage and FAQ answers.", parse_mode="HTML")
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     await SubscriptionRepo.register_user(user_id)
@@ -623,6 +645,7 @@ async def start_service():
     bot_app.add_handler(CommandHandler("faq", cmd_faq))
     bot_app.add_handler(CommandHandler("close", cmd_close))
     bot_app.add_handler(CommandHandler("activate", cmd_activate))
+    bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
 
     def with_tier(handler_func, pass_pro=True):
         async def wrapper(u: Update, c: ContextTypes.DEFAULT_TYPE):

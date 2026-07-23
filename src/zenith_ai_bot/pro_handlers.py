@@ -7,7 +7,7 @@ from core.animation import continuous_typing_action, edit_with_stages, send_typi
 from core.logger import setup_logger
 from zenith_ai_bot.llm_engine import process_code, process_imagine, process_research, process_summarize
 from zenith_ai_bot.prompts import PERSONAS
-from zenith_ai_bot.repository import ConversationRepo, UsageRepo
+from zenith_ai_bot.repository import ConversationRepo, UsageRepo, SettingsRepo
 from zenith_ai_bot.ui import (
     get_back_button,
     get_code_no_query,
@@ -98,8 +98,12 @@ async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         selected_model = await UsageRepo.get_selected_model(user_id)
+        api_key = await SettingsRepo.get_api_key(user_id)
+        if not api_key:
+            raise Exception("API Key Required. Please set it using /setkey")
+            
         async with continuous_typing_action(update, context):
-            result = await process_research(user_id, topic, preferred_model=selected_model)
+            result = await process_research(user_id, topic, preferred_model=selected_model, api_key=api_key)
         clean = sanitize_telegram_html(result)
 
         if len(clean) > 4000:
@@ -153,8 +157,12 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from zenith_ai_bot.utils import sanitize_telegram_html
 
     selected_model = await UsageRepo.get_selected_model(user_id)
+    api_key = await SettingsRepo.get_api_key(user_id)
+    if not api_key:
+        return await placeholder.edit_text("⚠️ <b>API Key Required</b>\nPlease set it using <code>/setkey</code>.", parse_mode="HTML")
+        
     async with continuous_typing_action(update, context):
-        result = await process_summarize(user_id, text, preferred_model=selected_model)
+        result = await process_summarize(user_id, text, preferred_model=selected_model, api_key=api_key)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -187,8 +195,12 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from zenith_ai_bot.utils import sanitize_telegram_html
 
     selected_model = await UsageRepo.get_selected_model(user_id)
+    api_key = await SettingsRepo.get_api_key(user_id)
+    if not api_key:
+        return await placeholder.edit_text("⚠️ <b>API Key Required</b>\nPlease set it using <code>/setkey</code>.", parse_mode="HTML")
+        
     async with continuous_typing_action(update, context):
-        result = await process_code(user_id, description, preferred_model=selected_model)
+        result = await process_code(user_id, description, preferred_model=selected_model, api_key=api_key)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"
@@ -237,8 +249,12 @@ async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from zenith_ai_bot.utils import sanitize_telegram_html
 
     selected_model = await UsageRepo.get_selected_model(user_id)
+    api_key = await SettingsRepo.get_api_key(user_id)
+    if not api_key:
+        return await placeholder.edit_text("⚠️ <b>API Key Required</b>\nPlease set it using <code>/setkey</code>.", parse_mode="HTML")
+        
     async with continuous_typing_action(update, context):
-        result = await process_imagine(user_id, description, preferred_model=selected_model)
+        result = await process_imagine(user_id, description, preferred_model=selected_model, api_key=api_key)
     clean = sanitize_telegram_html(result)
     if len(clean) > 4000:
         clean = clean[:4000] + "\n\n[Truncated]"

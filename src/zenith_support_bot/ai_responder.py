@@ -1,7 +1,9 @@
 from core.llm_fallback import AIExecutionEngine
 from core.logger import setup_logger
-from core.secrets import get_groq_api_key
+from core.logger import setup_logger
 from zenith_ai_bot.utils import sanitize_telegram_html
+from core.config import ADMIN_USER_ID
+from zenith_support_bot.repository import SettingsRepo
 
 logger = setup_logger("SUPPORT_AI")
 
@@ -26,7 +28,7 @@ async def triage_support_ticket(
     subject: str, description: str, preferred_model: str = "llama-3.3-70b-versatile"
 ) -> tuple[str, str, str]:
     """Analyze incoming ticket to determine category, priority, and draft resolution."""
-    api_key = get_groq_api_key(prefer_support=True)
+    api_key = await SettingsRepo.get_api_key(ADMIN_USER_ID)
     if not api_key:
         return "general", "normal", "Thank you for your ticket! Our support team will review it shortly."
 
@@ -79,7 +81,7 @@ Output strictly raw valid JSON without markdown fences."""
 
 
 async def generate_ai_response(subject: str, description: str, preferred_model: str = "llama-3.3-70b-versatile") -> str:
-    api_key = get_groq_api_key(prefer_support=True)
+    api_key = await SettingsRepo.get_api_key(ADMIN_USER_ID)
     if not api_key:
         return "Thank you for your ticket! Our support team will review it shortly."
 
@@ -112,7 +114,7 @@ Please provide a helpful, step-by-step solution to address this support inquiry.
 async def generate_faq_answer(
     question: str, faq_context: str = None, preferred_model: str = "llama-3.3-70b-versatile"
 ) -> str:
-    api_key = get_groq_api_key(prefer_support=True)
+    api_key = await SettingsRepo.get_api_key(ADMIN_USER_ID)
     if not api_key:
         return None
 

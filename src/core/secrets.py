@@ -62,8 +62,6 @@ SECRET_DEFINITIONS: list[SecretDefinition] = [
     SecretDefinition("SUPPORT_BOT_TOKEN", SecretLevel.REQUIRED, "Support bot token", "support"),
     SecretDefinition("ADMIN_BOT_TOKEN", SecretLevel.REQUIRED, "Admin bot token", "admin"),
     # External services — features degrade without these
-    SecretDefinition("GROQ_API_KEY", SecretLevel.OPTIONAL, "Groq LLM API key (main)", "ai"),
-    SecretDefinition("SUPPORT_GROQ_API_KEY", SecretLevel.OPTIONAL, "Groq API key for support AI", "support"),
     SecretDefinition("SERPER_API_KEY", SecretLevel.OPTIONAL, "Serper web search API key", "ai"),
     SecretDefinition("ETH_RPC_URL", SecretLevel.OPTIONAL, "Ethereum RPC endpoint", "crypto"),
     SecretDefinition("SOLANA_RPC_URL", SecretLevel.OPTIONAL, "Solana RPC endpoint", "crypto"),
@@ -152,28 +150,3 @@ def is_service_configured(service_name: str) -> bool:
     return True
 
 
-_SERVER_GROQ_KEY: str | None = None
-
-
-def get_groq_api_key(prefer_support: bool = False) -> str | None:
-    """
-    Get the best available Groq API key.
-
-    For the support bot, prefers SUPPORT_GROQ_API_KEY, falls back to GROQ_API_KEY.
-    For other services, uses GROQ_API_KEY.
-    """
-    if prefer_support:
-        support_key = os.getenv("SUPPORT_GROQ_API_KEY", "").strip()
-        if support_key:
-            return support_key
-
-    main_key = os.getenv("GROQ_API_KEY", "").strip()
-    return main_key if main_key else None
-
-
-def get_cached_groq_key() -> str | None:
-    """Get the server Groq API key with module-level caching."""
-    global _SERVER_GROQ_KEY
-    if _SERVER_GROQ_KEY is None:
-        _SERVER_GROQ_KEY = get_groq_api_key()
-    return _SERVER_GROQ_KEY

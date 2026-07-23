@@ -59,3 +59,11 @@ class CannedResponse(Base):
     created_by = Column(BigInteger, nullable=True)
     usage_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=utc_now)
+
+
+class SupportSettings(Base):
+    __tablename__ = "zenith_support_settings"
+    admin_id = Column(BigInteger, primary_key=True)
+    groq_api_key = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)

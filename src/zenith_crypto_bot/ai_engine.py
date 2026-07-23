@@ -1,7 +1,7 @@
 from core.llm_fallback import AIExecutionEngine
 from core.logger import setup_logger
-from core.secrets import get_cached_groq_key
-from zenith_ai_bot.repository import UsageRepo
+from core.logger import setup_logger
+from zenith_ai_bot.repository import UsageRepo, SettingsRepo
 from zenith_ai_bot.search import perform_web_search
 from zenith_ai_bot.utils import sanitize_telegram_html
 from zenith_crypto_bot.repository import SubscriptionRepo
@@ -61,7 +61,7 @@ async def call_crypto_ai(
     temperature: float = 0.5,
     preferred_model: str = None,
 ) -> tuple[str | None, str | None]:
-    api_key = get_cached_groq_key()
+    api_key = await SettingsRepo.get_api_key(user_id)
     if not api_key:
         return None, "server_error"
 

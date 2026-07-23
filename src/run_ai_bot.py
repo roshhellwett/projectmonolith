@@ -23,7 +23,7 @@ from core.webhook_router import register_bot_webhook
 from zenith_ai_bot.llm_engine import process_ai_query
 from zenith_ai_bot.pro_handlers import cmd_code, cmd_history, cmd_imagine, cmd_persona, cmd_research, cmd_summarize
 from zenith_ai_bot.prompts import PERSONAS
-from zenith_ai_bot.repository import ConversationRepo, UsageRepo
+from zenith_ai_bot.repository import ConversationRepo, UsageRepo, SettingsRepo
 from zenith_ai_bot.search import close_http_client
 from zenith_ai_bot.ui import (
     get_activate_help,
@@ -80,6 +80,18 @@ async def ai_worker():
 
                 max_tokens = 4096 if is_pro else 1024
                 selected_model = await UsageRepo.get_selected_model(user_id)
+                api_key = await SettingsRepo.get_api_key(user_id)
+                if not api_key:
+                    with contextlib.suppress(Exception):
+                        await context.bot.edit_message_text(
+                            chat_id=placeholder_msg.chat_id,
+                            message_id=placeholder_msg.message_id,
+                            text="⚠️ <b>API Key Required</b>\n\nPlease set your personal Groq API key using <code>/setkey [your_key]</code>.",
+                            parse_mode="HTML",
+                        )
+                    task_queue.task_done()
+                    continue
+
                 async with continuous_typing_action(update, context):
                     ai_response = await process_ai_query(
                         user_id,
@@ -89,6 +101,7 @@ async def ai_worker():
                         max_tokens=max_tokens,
                         history=history,
                         preferred_model=selected_model,
+                        api_key=api_key,
                     )
                 clean_html = sanitize_telegram_html(ai_response)
 
@@ -224,15 +237,22 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "⚡ <b>Server-Managed AI</b>\n\n"
-        "Zenith now uses its own AI engine — no personal API key needed!\n\n"
-        "You have a daily token quota based on your subscription tier:\n"
-        "• <b>Free:</b> 10,000 tokens/day\n"
-        "• <b>Pro:</b> 500,000 tokens/day\n\n"
-        "Just use <code>/zenith</code> to start chatting!",
-        parse_mode="HTML",
-    )
+    if not context.args:
+        return await update.message.reply_text(
+            "⚠️ <b>Usage:</b>\n<code>/setkey [your_groq_api_key]</code>\n\nGet your free key at <a href='https://console.groq.com'>console.groq.com</a>",
+            parse_mode="HTML"
+        )
+    key = context.args[0].strip()
+    
+    from core.llm_fallback import AIExecutionEngine
+    msg = await update.message.reply_text("🔄 Verifying API key...", parse_mode="HTML")
+    is_valid = await AIExecutionEngine.check_key_validity(key)
+    
+    if not is_valid:
+        return await msg.edit_text("❌ <b>Invalid API Key</b>\n\nThe key you provided was rejected by Groq.", parse_mode="HTML")
+        
+    await SettingsRepo.set_api_key(update.effective_user.id, key)
+    await msg.edit_text("✅ <b>API Key Connected</b>\n\nYour personal Groq API key has been securely saved. You can now use <code>/zenith</code>!", parse_mode="HTML")
 
 
 async def cmd_mykey(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -247,10 +267,9 @@ async def cmd_mykey(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_delkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await SettingsRepo.set_api_key(update.effective_user.id, None)
     await update.message.reply_text(
-        "⚡ <b>No Key to Delete</b>\n\n"
-        "Zenith uses server-managed AI — your account is automatically configured.\n"
-        "Use <code>/zenith</code> to start asking questions!",
+        "🗑️ <b>API Key Removed</b>\n\nYour personal Groq API key has been securely deleted from our database.",
         parse_mode="HTML",
     )
 

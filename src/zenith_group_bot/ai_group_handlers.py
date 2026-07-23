@@ -130,6 +130,10 @@ async def cmd_group_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(get_ai_ask_help(), parse_mode="HTML")
         return
 
+    if not getattr(settings, "groq_api_key", None):
+        await update.message.reply_text("⚠️ The group admin has not configured the AI API key yet. They must DM me with /setkey to activate AI features.", parse_mode="HTML")
+        return
+
     loading = await send_loading_message(update, context, "Thinking...")
 
     try:
@@ -137,10 +141,18 @@ async def cmd_group_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         preferred_model = await UsageRepo.get_selected_model(user_id)
         max_tokens = PRO_MAX_TOKENS if is_pro else FREE_MAX_TOKENS
-        response = await process_ai_query(
-            text, "", persona="default", max_tokens=max_tokens, preferred_model=preferred_model
+        
+        resp = await AIExecutionEngine.execute(
+            messages=[
+                {"role": "system", "content": "You are a helpful AI assistant in a Telegram group chat. Be concise and helpful."},
+                {"role": "user", "content": text}
+            ],
+            api_key=settings.groq_api_key,
+            preferred_model=preferred_model,
+            temperature=0.7,
+            max_tokens=max_tokens,
         )
-        clean = sanitize_telegram_html(response)
+        clean = sanitize_telegram_html(resp.get_formatted_content())
 
         if len(clean) > FREE_MAX_RESPONSE_LENGTH and not is_pro:
             clean = clean[:FREE_MAX_RESPONSE_LENGTH] + get_ai_truncation_notice(is_pro=is_pro)

@@ -559,3 +559,29 @@ class CannedRepo:
     async def count_canned() -> int:
         async with AsyncSessionLocal() as session:
             return (await session.execute(select(func.count()).select_from(CannedResponse))).scalar() or 0
+
+
+class SettingsRepo:
+    @staticmethod
+    @db_retry
+    async def get_api_key(admin_id: int) -> str | None:
+        async with AsyncSessionLocal() as session:
+            from zenith_support_bot.models import SupportSettings
+            stmt = select(SupportSettings).where(SupportSettings.admin_id == admin_id)
+            row = (await session.execute(stmt)).scalar_one_or_none()
+            return row.groq_api_key if row else None
+
+    @staticmethod
+    @db_retry
+    async def set_api_key(admin_id: int, api_key: str | None):
+        async with AsyncSessionLocal() as session:
+            from zenith_support_bot.models import SupportSettings
+            stmt = select(SupportSettings).where(SupportSettings.admin_id == admin_id)
+            row = (await session.execute(stmt)).scalar_one_or_none()
+            if not row:
+                row = SupportSettings(admin_id=admin_id, groq_api_key=api_key)
+                session.add(row)
+            else:
+                row.groq_api_key = api_key
+            await session.commit()
+

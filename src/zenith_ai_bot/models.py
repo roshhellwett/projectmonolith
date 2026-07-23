@@ -25,3 +25,11 @@ class AIUsageLog(AIBase):
     tokens_used = Column(Integer, default=0)
     persona = Column(String(20), default="default")
     selected_model = Column(String(50), default="llama-3.3-70b-versatile")
+
+
+class AIUserSettings(AIBase):
+    __tablename__ = "zenith_ai_user_settings"
+    user_id = Column(BigInteger, primary_key=True)
+    groq_api_key = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
