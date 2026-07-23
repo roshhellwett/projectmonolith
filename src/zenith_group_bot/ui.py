@@ -25,6 +25,9 @@ def get_admin_dashboard(is_pro: bool, groups: list, usage: dict = None) -> Inlin
             InlineKeyboardButton("🚀 Features", callback_data="grp_features"),
             InlineKeyboardButton("❓ Help & Commands", callback_data="grp_help"),
         ],
+        [
+            InlineKeyboardButton("🔑 Groq API Key", callback_data="ai_show_key_setup"),
+        ],
     ]
 
     if is_pro:

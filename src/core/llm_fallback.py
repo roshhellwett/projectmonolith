@@ -66,6 +66,7 @@ class AIResponse:
     model_used: str
     was_fallback: bool
     error: str | None = None
+    tool_calls: list | None = None
 
     @property
     def is_error(self) -> bool:
@@ -115,6 +116,7 @@ class AIExecutionEngine:
         temperature: float = 0.5,
         max_tokens: int = 2048,
         timeout: float = 30.0,
+        tools: list = None,
     ) -> AIResponse:
         if not api_key:
             return AIResponse(
@@ -143,13 +145,19 @@ class AIExecutionEngine:
                 m_info = AVAILABLE_MODELS.get(model_id, {})
                 adjusted_max_tokens = min(max_tokens, m_info.get("max_tokens", 4096))
 
-                response = await client.chat.completions.create(
-                    messages=messages,
-                    model=model_id,
-                    temperature=temperature,
-                    max_tokens=adjusted_max_tokens,
-                )
+                kwargs = {
+                    "messages": messages,
+                    "model": model_id,
+                    "temperature": temperature,
+                    "max_tokens": adjusted_max_tokens,
+                }
+                if tools:
+                    kwargs["tools"] = tools
+                    kwargs["tool_choice"] = "auto"
+                
+                response = await client.chat.completions.create(**kwargs)
                 raw_content = response.choices[0].message.content or ""
+                t_calls = response.choices[0].message.tool_calls
                 breaker.record_success()
 
                 was_fb = idx > 0
@@ -161,6 +169,7 @@ class AIExecutionEngine:
                     model_used=model_id,
                     was_fallback=was_fb,
                     error=None,
+                    tool_calls=t_calls,
                 )
 
             except Exception as e:
@@ -205,3 +214,17 @@ class AIExecutionEngine:
             was_fallback=False,
             error=last_error,
         )
+
+    @classmethod
+    async def transcribe_audio(cls, api_key: str, file_path: str) -> str:
+        if not api_key:
+            raise Exception("API Key missing.")
+        
+        client = AsyncGroq(api_key=api_key, max_retries=1)
+        with open(file_path, "rb") as file:
+            transcription = await client.audio.transcriptions.create(
+                file=(file_path, file.read()),
+                model="whisper-large-v3",
+                response_format="text",
+            )
+        return transcription

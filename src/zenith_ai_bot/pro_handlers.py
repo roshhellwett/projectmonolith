@@ -40,8 +40,7 @@ async def cmd_persona(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = get_persona_help()
         current_info = PERSONAS.get(current, PERSONAS["default"])
         return await update.message.reply_text(
-            f"<b>Current:</b> {current_info['icon']} {current_info['name']}\n\n{text}"
-            + (get_persona_locked() if not is_pro else ""),
+            f"<b>Current:</b> {current_info['icon']} {current_info['name']}\n\n{text}",
             parse_mode="HTML",
         )
 
@@ -50,10 +49,6 @@ async def cmd_persona(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if target not in PERSONAS:
         valid = ", ".join(PERSONAS.keys())
         return await update.message.reply_text(get_persona_unknown(valid), parse_mode="HTML")
-
-    if target != "default" and not is_pro:
-        msg, kb = get_pro_feature_msg("AI Personas")
-        return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
     current = await UsageRepo.get_persona(user_id)
     if target == current:
@@ -68,10 +63,6 @@ async def cmd_persona(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     is_pro = await SubscriptionRepo.is_pro(user_id)
-
-    if not is_pro:
-        msg, kb = get_pro_feature_msg("Deep Research")
-        return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
     quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
     if not quota_allowed:
@@ -141,15 +132,8 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await msg_obj.reply_text(get_summarize_help(), parse_mode="HTML")
 
     word_count = len(text.split())
-    if not is_pro:
-        usage = await UsageRepo.get_today_usage(user_id)
-        if usage["summarizes"] >= 1:
-            return await msg_obj.reply_text(get_summarize_limit_reached(), parse_mode="HTML")
-        if word_count > 500:
-            text = " ".join(text.split()[:500])
-    else:
-        if word_count > 4000:
-            text = " ".join(text.split()[:4000])
+    if word_count > 4000:
+        text = " ".join(text.split()[:4000])
 
     await UsageRepo.increment_summarize(user_id)
     placeholder = await msg_obj.reply_text("Summarizing...", parse_mode="HTML")
@@ -179,10 +163,6 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     is_pro = await SubscriptionRepo.is_pro(user_id)
-
-    if not is_pro:
-        msg, kb = get_pro_feature_msg("Code Generator")
-        return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
     description = " ".join(context.args) if context.args else ""
     description = sanitize_user_input(description)
@@ -218,10 +198,6 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     is_pro = await SubscriptionRepo.is_pro(user_id)
 
-    if not is_pro:
-        msg, kb = get_pro_feature_msg("Chat History")
-        return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
-
     history = await ConversationRepo.get_history(user_id, limit=10)
     text = get_history_list_msg(history)
     kb = get_history_keyboard() if history else get_back_button()
@@ -231,10 +207,6 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     is_pro = await SubscriptionRepo.is_pro(user_id)
-
-    if not is_pro:
-        msg, kb = get_pro_feature_msg("Image Prompt Crafter")
-        return await update.message.reply_text(msg, reply_markup=kb, parse_mode="HTML")
 
     description = " ".join(context.args) if context.args else ""
     description = sanitize_user_input(description)

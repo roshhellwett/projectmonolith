@@ -107,11 +107,11 @@ class UsageRepo:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
             tier = get_user_tier(user_id)
-            daily_limit = 50000 if tier in ("pro", "owner") else 10000
+            daily_limit = 999_999_999
             return {
                 "tokens_used": row.tokens_used or 0,
                 "daily_limit": daily_limit,
-                "remaining": max(0, daily_limit - (row.tokens_used or 0)),
+                "remaining": daily_limit,
                 "tier": tier,
             }
 
@@ -121,20 +121,20 @@ class UsageRepo:
         async with AsyncSessionLocal() as session:
             row = await UsageRepo._get_or_create(session, user_id)
             row.tokens_used = (row.tokens_used or 0) + tokens
+            
+            from zenith_ai_bot.models import AIUserSettings
+            from sqlalchemy import select
+            stmt = select(AIUserSettings).where(AIUserSettings.user_id == user_id)
+            user_settings = (await session.execute(stmt)).scalar_one_or_none()
+            if user_settings:
+                user_settings.groq_tokens_used = (user_settings.groq_tokens_used or 0) + tokens
+            
             await session.commit()
 
     @staticmethod
     @db_retry
     async def check_quota(user_id: int) -> tuple[bool, str]:
         """Check if user has token quota remaining. Returns (allowed, message)."""
-        quota = await UsageRepo.get_token_quota(user_id)
-        if quota["remaining"] <= 0:
-            return False, (
-                f"⛔ <b>Daily Token Limit Reached</b>\n\n"
-                f"You've used <b>{quota['tokens_used']:,}</b> of <b>{quota['daily_limit']:,}</b> tokens today.\n\n"
-                f"Your quota resets at midnight UTC.\n"
-                f"💎 Upgrade to Pro for <b>500K tokens/day</b>."
-            )
         return True, ""
 
     @staticmethod
@@ -145,7 +145,7 @@ class UsageRepo:
             from core.config import get_user_tier
 
             tier = get_user_tier(user_id)
-            daily_limit = 50000 if tier in ("pro", "owner") else 10000
+            daily_limit = 999_999_999
             return {
                 "queries": row.query_count,
                 "summarizes": row.summarize_count,
@@ -204,9 +204,22 @@ class SettingsRepo:
             stmt = select(AIUserSettings).where(AIUserSettings.user_id == user_id)
             row = (await session.execute(stmt)).scalar_one_or_none()
             if not row:
-                row = AIUserSettings(user_id=user_id, groq_api_key=api_key)
+                row = AIUserSettings(user_id=user_id, groq_api_key=api_key, groq_tokens_used=0)
                 session.add(row)
             else:
+                if row.groq_api_key != api_key:
+                    row.groq_tokens_used = 0
                 row.groq_api_key = api_key
             await session.commit()
+
+    @staticmethod
+    @db_retry
+    async def get_key_and_tokens(user_id: int) -> tuple[str | None, int]:
+        async with AsyncSessionLocal() as session:
+            from zenith_ai_bot.models import AIUserSettings
+            stmt = select(AIUserSettings).where(AIUserSettings.user_id == user_id)
+            row = (await session.execute(stmt)).scalar_one_or_none()
+            if row:
+                return row.groq_api_key, row.groq_tokens_used or 0
+            return None, 0
 

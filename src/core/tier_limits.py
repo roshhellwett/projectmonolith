@@ -37,7 +37,6 @@ CRYPTO_SAVED_AUDITS = TierLimit(free=10, pro=10)
 # ==========================================================
 AI_QUERIES_PER_DAY = TierLimit(free=10, pro=100)
 AI_RATE_PER_HOUR = TierLimit(free=10, pro=60)
-AI_MAX_TOKENS = TierLimit(free=1024, pro=4096)
 AI_HISTORY_MESSAGES = TierLimit(free=0, pro=10)  # free = locked
 
 # ==========================================================

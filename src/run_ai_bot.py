@@ -9,6 +9,8 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     InlineQueryHandler,
+    MessageHandler,
+    filters,
 )
 
 from core.config import ADMIN_USER_ID, AI_BOT_TOKEN
@@ -78,7 +80,6 @@ async def ai_worker():
                     task_queue.task_done()
                     continue
 
-                max_tokens = 4096 if is_pro else 1024
                 selected_model = await UsageRepo.get_selected_model(user_id)
                 api_key = await SettingsRepo.get_api_key(user_id)
                 if not api_key:
@@ -92,25 +93,55 @@ async def ai_worker():
                     task_queue.task_done()
                     continue
 
+                msg = update.message
+                image_base64 = None
+                
+                if msg.voice:
+                    import tempfile, os
+                    from core.llm_fallback import AIExecutionEngine
+                    try:
+                        voice_file = await msg.voice.get_file()
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as temp_audio:
+                            temp_audio_path = temp_audio.name
+                        await voice_file.download_to_drive(temp_audio_path)
+                        transcript = await AIExecutionEngine.transcribe_audio(api_key, temp_audio_path)
+                        text = (f"[Voice Note Transcription]: {transcript}\n\n" + text).strip()
+                        os.remove(temp_audio_path)
+                    except Exception as e:
+                        logger.error(f"Voice error: {e}")
+                
+                if msg.photo:
+                    import tempfile, os, base64
+                    try:
+                        photo_file = await msg.photo[-1].get_file()
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_photo:
+                            temp_photo_path = temp_photo.name
+                        await photo_file.download_to_drive(temp_photo_path)
+                        with open(temp_photo_path, "rb") as f:
+                            image_base64 = base64.b64encode(f.read()).decode("utf-8")
+                        os.remove(temp_photo_path)
+                    except Exception as e:
+                        logger.error(f"Photo error: {e}")
+
                 async with continuous_typing_action(update, context):
                     ai_response = await process_ai_query(
                         user_id,
                         text,
                         history_text,
                         persona=persona,
-                        max_tokens=max_tokens,
+                        max_tokens=4096,
                         history=history,
                         preferred_model=selected_model,
                         api_key=api_key,
+                        image_base64=image_base64,
                     )
                 clean_html = sanitize_telegram_html(ai_response)
 
                 if len(clean_html) > 4000:
                     clean_html = clean_html[:4000] + "\n\n[Truncated due to Telegram limits]"
 
-                if is_pro:
-                    await ConversationRepo.add_message(update.effective_user.id, "user", text)
-                    await ConversationRepo.add_message(update.effective_user.id, "assistant", ai_response[:2000])
+                await ConversationRepo.add_message(update.effective_user.id, "user", text)
+                await ConversationRepo.add_message(update.effective_user.id, "assistant", ai_response[:2000])
 
                 try:
                     await context.bot.edit_message_text(
@@ -197,20 +228,25 @@ async def cmd_zenith(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not allowed:
         return await msg.reply_text(reason, parse_mode="HTML")
 
-    text = " ".join(context.args) if context.args else ""
+    text = ""
+    if context.args:
+        text = " ".join(context.args)
+    elif msg.text and not msg.text.startswith('/'):
+        text = msg.text
+
     if not text and msg.caption:
         text = msg.caption.replace("/zenith", "").strip()
 
     history_text = (msg.reply_to_message.text or msg.reply_to_message.caption) if msg.reply_to_message else None
 
-    if not text and not history_text:
+    if not text and not history_text and not msg.photo and not msg.voice:
         return await msg.reply_text(get_zenith_no_query_msg())
     if not text and history_text:
         text = f"Please analyze this: {history_text}"
         history_text = None
 
-    persona = await UsageRepo.get_persona(user_id) if is_pro else "default"
-    conversation_history = await ConversationRepo.get_history(user_id, limit=10) if is_pro else None
+    persona = await UsageRepo.get_persona(user_id)
+    conversation_history = await ConversationRepo.get_history(user_id, limit=10)
 
     p = PERSONAS.get(persona, PERSONAS["default"])
     try:
@@ -305,48 +341,49 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
         elif query.data == "ai_show_key_setup":
-            quota = await UsageRepo.get_token_quota(user_id)
+            from zenith_ai_bot.repository import SettingsRepo
+            from zenith_ai_bot.ui import get_api_key_status_msg
+            
+            api_key, tokens_used = await SettingsRepo.get_key_and_tokens(user_id)
             await query.edit_message_text(
-                f"⚡ <b>AI Engine Status</b>\n\n"
-                f"Mode: <b>Server-Managed</b> (no personal key needed)\n"
-                f"Today: <b>{quota['tokens_used']:,}</b> / <b>{quota['daily_limit']:,}</b> tokens\n\n"
-                f"Models available: Groq Llama 3.3 70B, DeepSeek R1, Mixtral, and more.\n"
-                f"Use <code>/zenith your question</code> to start!",
+                get_api_key_status_msg(api_key, tokens_used),
+                reply_markup=get_back_button(),
                 parse_mode="HTML",
             )
 
-        elif query.data == "ai_personas":
-            if not is_pro:
-                text = get_personas_locked_msg()
-                await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
-            else:
-                current = await UsageRepo.get_persona(user_id)
-                from zenith_ai_bot.ui import get_persona_keyboard
+        elif query.data == "ai_features_menu":
+            from zenith_ai_bot.ui import get_ai_features_msg, get_ai_features_keyboard
+            await query.edit_message_text(
+                get_ai_features_msg(), reply_markup=get_ai_features_keyboard(), parse_mode="HTML"
+            )
 
-                await query.edit_message_text(
-                    get_personas_select_msg(),
-                    reply_markup=get_persona_keyboard(current, is_pro=True),
-                    parse_mode="HTML",
-                )
+        elif query.data == "ai_help_menu":
+            from zenith_ai_bot.ui import get_help_msg, get_ai_help_keyboard
+            await query.edit_message_text(
+                get_help_msg(is_pro=is_pro), reply_markup=get_ai_help_keyboard(), parse_mode="HTML"
+            )
+
+        elif query.data == "ai_personas":
+            current = await UsageRepo.get_persona(user_id)
+            from zenith_ai_bot.ui import get_persona_keyboard
+
+            await query.edit_message_text(
+                get_personas_select_msg(),
+                reply_markup=get_persona_keyboard(current, is_pro=True),
+                parse_mode="HTML",
+            )
 
         elif query.data.startswith("ai_persona_") or query.data.startswith("ai_switch_persona_"):
             persona_key = query.data.replace("ai_persona_", "").replace("ai_switch_persona_", "")
-            if not is_pro:
-                text = get_personas_locked_msg()
-                await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
-            elif persona_key in PERSONAS:
+            if persona_key in PERSONAS:
                 await UsageRepo.set_persona(user_id, persona_key)
                 text = get_persona_switched_msg(persona_key)
                 await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
 
         elif query.data == "ai_history":
-            if not is_pro:
-                text = get_history_locked_msg()
-                await query.edit_message_text(text, reply_markup=get_back_button(), parse_mode="HTML")
-            else:
-                history = await ConversationRepo.get_history(user_id, limit=10)
-                text = get_history_empty_msg() if not history else get_history_list_msg(history)
-                await query.edit_message_text(text, reply_markup=get_history_keyboard(), parse_mode="HTML")
+            history = await ConversationRepo.get_history(user_id, limit=10)
+            text = get_history_empty_msg() if not history else get_history_list_msg(history)
+            await query.edit_message_text(text, reply_markup=get_history_keyboard(), parse_mode="HTML")
 
         elif query.data == "ai_clear_history_confirm":
             text = get_confirm_clear_history_msg()
@@ -391,100 +428,86 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data.startswith("ai_set_model_"):
             model_id = query.data.replace("ai_set_model_", "")
             from core.llm_fallback import AVAILABLE_MODELS
-            from zenith_ai_bot.ui import get_model_selector_keyboard, get_model_selector_msg, get_pro_feature_msg
+            from zenith_ai_bot.ui import get_model_selector_keyboard, get_model_selector_msg
 
             if model_id in AVAILABLE_MODELS:
-                if AVAILABLE_MODELS[model_id]["tier"] == "pro" and not is_pro:
-                    msg, kb = get_pro_feature_msg(f"Model: {AVAILABLE_MODELS[model_id]['name']}")
-                    await query.edit_message_text(msg, reply_markup=kb, parse_mode="HTML")
-                else:
-                    await UsageRepo.set_selected_model(user_id, model_id)
-                    text = (
-                        f"✅ <b>Active Engine Switched!</b>\nNow using: <b>{AVAILABLE_MODELS[model_id]['icon']} {AVAILABLE_MODELS[model_id]['name']}</b>\n\n"
-                        + get_model_selector_msg(model_id)
-                    )
-                    await query.edit_message_text(
-                        text, reply_markup=get_model_selector_keyboard(model_id, is_pro=is_pro), parse_mode="HTML"
-                    )
+                await UsageRepo.set_selected_model(user_id, model_id)
+                text = (
+                    f"✅ <b>Active Engine Switched!</b>\nNow using: <b>{AVAILABLE_MODELS[model_id]['icon']} {AVAILABLE_MODELS[model_id]['name']}</b>\n\n"
+                    + get_model_selector_msg(model_id)
+                )
+                await query.edit_message_text(
+                    text, reply_markup=get_model_selector_keyboard(model_id, is_pro=True), parse_mode="HTML"
+                )
 
         elif query.data.startswith("ai_quick_"):
-            if (
-                query.data.startswith("ai_quick_res_")
-                or query.data.startswith("ai_quick_code_")
-                or query.data.startswith("ai_quick_img_")
-            ) and not is_pro:
-                from zenith_ai_bot.ui import get_pro_feature_msg
-
-                msg, kb = get_pro_feature_msg("Pro Interactive Quick-Action")
-                await query.edit_message_text(msg, reply_markup=kb, parse_mode="HTML")
+            quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
+            if not quota_allowed:
+                await query.edit_message_text(quota_msg, parse_mode="HTML")
             else:
-                quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
-                if not quota_allowed:
-                    await query.edit_message_text(quota_msg, parse_mode="HTML")
-                else:
-                    selected_model = await UsageRepo.get_selected_model(user_id)
-                    from zenith_ai_bot.llm_engine import (
-                        process_code,
-                        process_imagine,
-                        process_research,
-                        process_summarize,
+                selected_model = await UsageRepo.get_selected_model(user_id)
+                from zenith_ai_bot.llm_engine import (
+                    process_code,
+                    process_imagine,
+                    process_research,
+                    process_summarize,
+                )
+                from zenith_ai_bot.utils import sanitize_telegram_html
+
+                if query.data.startswith("ai_quick_res_"):
+                    topics = {
+                        "ai_quick_res_aitrends": "Artificial Intelligence breakthroughs and agentic workflows 2026",
+                        "ai_quick_res_quantum": "Quantum computing commercial progress and breakthroughs",
+                        "ai_quick_res_defi": "DeFi security moats and smart contract vulnerability mitigation",
+                    }
+                    topic = topics.get(query.data, "Artificial Intelligence trends")
+                    await query.edit_message_text(
+                        f"🔬 <i>Executing deep research: {topic}...</i>", parse_mode="HTML"
                     )
-                    from zenith_ai_bot.utils import sanitize_telegram_html
+                    res = await process_research(user_id, topic, preferred_model=selected_model)
+                    clean = sanitize_telegram_html(res)[:4000]
+                    await query.edit_message_text(
+                        clean, reply_markup=get_back_button(), parse_mode="HTML", disable_web_page_preview=True
+                    )
 
-                    if query.data.startswith("ai_quick_res_"):
-                        topics = {
-                            "ai_quick_res_aitrends": "Artificial Intelligence breakthroughs and agentic workflows 2026",
-                            "ai_quick_res_quantum": "Quantum computing commercial progress and breakthroughs",
-                            "ai_quick_res_defi": "DeFi security moats and smart contract vulnerability mitigation",
-                        }
-                        topic = topics.get(query.data, "Artificial Intelligence trends")
-                        await query.edit_message_text(
-                            f"🔬 <i>Executing deep research: {topic}...</i>", parse_mode="HTML"
-                        )
-                        res = await process_research(user_id, topic, preferred_model=selected_model)
-                        clean = sanitize_telegram_html(res)[:4000]
-                        await query.edit_message_text(
-                            clean, reply_markup=get_back_button(), parse_mode="HTML", disable_web_page_preview=True
-                        )
+                elif query.data.startswith("ai_quick_sum_"):
+                    samples = {
+                        "ai_quick_sum_whitepaper": "Autonomous Agentic Systems Whitepaper Summary: Modern AI architectures rely on multi-tier fallback mechanisms, dynamic context pruning, and subagent orchestration. By integrating real-time web verification with specialized tool execution, next-generation LLM agents achieve near-zero hallucination rates in production engineering environments.",
+                        "ai_quick_sum_earnings": "Quarterly Earnings High-Density Review: Tech sector revenues surged 24% year-over-year, driven primarily by enterprise adoption of autonomous developer tools and decentralized compute infrastructure. Operating margins expanded by 340 bps due to AI-driven efficiency workflows across customer support and core infrastructure.",
+                    }
+                    sample = samples.get(query.data, "Summary sample text.")
+                    await query.edit_message_text("📝 <i>Summarizing sample document...</i>", parse_mode="HTML")
+                    res = await process_summarize(user_id, sample, preferred_model=selected_model)
+                    clean = sanitize_telegram_html(res)[:4000]
+                    await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
 
-                    elif query.data.startswith("ai_quick_sum_"):
-                        samples = {
-                            "ai_quick_sum_whitepaper": "Autonomous Agentic Systems Whitepaper Summary: Modern AI architectures rely on multi-tier fallback mechanisms, dynamic context pruning, and subagent orchestration. By integrating real-time web verification with specialized tool execution, next-generation LLM agents achieve near-zero hallucination rates in production engineering environments.",
-                            "ai_quick_sum_earnings": "Quarterly Earnings High-Density Review: Tech sector revenues surged 24% year-over-year, driven primarily by enterprise adoption of autonomous developer tools and decentralized compute infrastructure. Operating margins expanded by 340 bps due to AI-driven efficiency workflows across customer support and core infrastructure.",
-                        }
-                        sample = samples.get(query.data, "Summary sample text.")
-                        await query.edit_message_text("📝 <i>Summarizing sample document...</i>", parse_mode="HTML")
-                        res = await process_summarize(user_id, sample, preferred_model=selected_model)
-                        clean = sanitize_telegram_html(res)[:4000]
-                        await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
+                elif query.data.startswith("ai_quick_code_"):
+                    prompts = {
+                        "ai_quick_code_fastapi": "Create a Python FastAPI REST API endpoint with JWT authentication, dependency injection, and Pydantic schema validation for user registration.",
+                        "ai_quick_code_react": "Write a clean React TypeScript component featuring a sortable, paginated data table with search filtering and modern styling.",
+                        "ai_quick_code_tgbot": "Write a Python Telegram bot handler using python-telegram-bot v20+ with inline keyboard pagination and robust error handling.",
+                    }
+                    prompt = prompts.get(query.data, "Write a Python function.")
+                    await query.edit_message_text(
+                        "💻 <i>Generating production code architecture...</i>", parse_mode="HTML"
+                    )
+                    res = await process_code(user_id, prompt, preferred_model=selected_model)
+                    clean = sanitize_telegram_html(res)[:4000]
+                    await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
 
-                    elif query.data.startswith("ai_quick_code_"):
-                        prompts = {
-                            "ai_quick_code_fastapi": "Create a Python FastAPI REST API endpoint with JWT authentication, dependency injection, and Pydantic schema validation for user registration.",
-                            "ai_quick_code_react": "Write a clean React TypeScript component featuring a sortable, paginated data table with search filtering and modern styling.",
-                            "ai_quick_code_tgbot": "Write a Python Telegram bot handler using python-telegram-bot v20+ with inline keyboard pagination and robust error handling.",
-                        }
-                        prompt = prompts.get(query.data, "Write a Python function.")
-                        await query.edit_message_text(
-                            "💻 <i>Generating production code architecture...</i>", parse_mode="HTML"
-                        )
-                        res = await process_code(user_id, prompt, preferred_model=selected_model)
-                        clean = sanitize_telegram_html(res)[:4000]
-                        await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
-
-                    elif query.data.startswith("ai_quick_img_"):
-                        prompts = {
-                            "ai_quick_img_cyberpunk": "A breathtaking cyberpunk Neo-Tokyo street at twilight with neon rain reflections and towering holographic advertisements.",
-                            "ai_quick_img_nebula": "A vivid deep space colorful nebula horizon with a lone exploratory starship approaching a hyper-luminous pulsar.",
-                            "ai_quick_img_watch": "A minimalist luxury mechanical wristwatch suspended in mid-air with dramatically lit gears and matte black titanium casing.",
-                        }
-                        prompt = prompts.get(query.data, "Visual prompt sample.")
-                        await query.edit_message_text(
-                            "🎨 <i>Crafting multi-platform visual prompts...</i>", parse_mode="HTML"
-                        )
-                        res = await process_imagine(user_id, prompt, preferred_model=selected_model)
-                        clean = sanitize_telegram_html(res)[:4000]
-                        await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
+                elif query.data.startswith("ai_quick_img_"):
+                    prompts = {
+                        "ai_quick_img_cyberpunk": "A breathtaking cyberpunk Neo-Tokyo street at twilight with neon rain reflections and towering holographic advertisements.",
+                        "ai_quick_img_nebula": "A vivid deep space colorful nebula horizon with a lone exploratory starship approaching a hyper-luminous pulsar.",
+                        "ai_quick_img_watch": "A minimalist luxury mechanical wristwatch suspended in mid-air with dramatically lit gears and matte black titanium casing.",
+                    }
+                    prompt = prompts.get(query.data, "Visual prompt sample.")
+                    await query.edit_message_text(
+                        "🎨 <i>Crafting multi-platform visual prompts...</i>", parse_mode="HTML"
+                    )
+                    res = await process_imagine(user_id, prompt, preferred_model=selected_model)
+                    clean = sanitize_telegram_html(res)[:4000]
+                    await query.edit_message_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
 
     except Exception as e:
         if "not modified" not in str(e).lower():
@@ -518,6 +541,7 @@ async def start_service():
     bot_app.add_handler(CommandHandler("start", cmd_start))
     bot_app.add_handler(CommandHandler("help", cmd_help))
     bot_app.add_handler(CommandHandler("zenith", cmd_zenith))
+    bot_app.add_handler(MessageHandler((filters.TEXT | filters.VOICE | filters.PHOTO) & ~filters.COMMAND, cmd_zenith))
     bot_app.add_handler(CommandHandler("persona", cmd_persona))
     bot_app.add_handler(CommandHandler("research", cmd_research))
     bot_app.add_handler(CommandHandler("summarize", cmd_summarize))
@@ -526,6 +550,7 @@ async def start_service():
     bot_app.add_handler(CommandHandler("imagine", cmd_imagine))
     bot_app.add_handler(CommandHandler("activate", cmd_activate))
     bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
+    bot_app.add_handler(CommandHandler("rotate", cmd_setkey))
     bot_app.add_handler(CommandHandler("mykey", cmd_mykey))
     bot_app.add_handler(CommandHandler("delkey", cmd_delkey))
     bot_app.add_handler(CommandHandler("referral", cmd_referral))

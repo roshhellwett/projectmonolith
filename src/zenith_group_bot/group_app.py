@@ -123,7 +123,10 @@ async def _background_ai_scan(msg, chat_id, user_id, username, text, settings, b
         return
     try:
         from zenith_group_bot.ai_group_handlers import scan_ai_spam_shield
-        is_scam, reason, risk = await scan_ai_spam_shield(text, settings.groq_api_key, settings.group_name or str(chat_id))
+        is_scam, reason, risk, token_est = await scan_ai_spam_shield(text, settings.groq_api_key, settings.group_name or str(chat_id))
+        if token_est > 0:
+            from zenith_group_bot.repository import SettingsRepo
+            await SettingsRepo.record_tokens(chat_id, token_est)
         if is_scam and risk >= 70 and await _try_delete(msg, chat_id):
             strikes = await GroupRepo.process_violation(user_id, chat_id)
             await AuditLogRepo.log_action(

@@ -35,14 +35,9 @@ def get_ai_dashboard(
             InlineKeyboardButton(f"🧠 Persona: {persona_label}", callback_data="ai_personas"),
             InlineKeyboardButton(f"⚙️ Engine: {model_label}", callback_data="ai_models"),
         ],
-        [InlineKeyboardButton(f"📊 Daily Usage: {message_bar}", callback_data="ai_usage")],
         [
-            InlineKeyboardButton("🔬 Deep Research", callback_data="ai_research_help"),
-            InlineKeyboardButton("📝 Summarize Text", callback_data="ai_summarize_help"),
-        ],
-        [
-            InlineKeyboardButton("💻 Code Architect", callback_data="ai_code_help"),
-            InlineKeyboardButton("🎨 Imagine UI/Art", callback_data="ai_imagine_help"),
+            InlineKeyboardButton("✨ AI Features", callback_data="ai_features_menu"),
+            InlineKeyboardButton("📚 Commands Guide", callback_data="ai_help_menu"),
         ],
         [
             InlineKeyboardButton("💬 Chat Memory", callback_data="ai_history"),
@@ -148,77 +143,78 @@ def get_confirm_clear_history_msg() -> str:
 
 
 def get_usage_card(usage: dict, is_pro: bool = False) -> str:
-    q_limit = 60 if is_pro else 5
-    s_limit = "Unlimited" if is_pro else "1"
     items = [
-        f"Neural Queries: <code>{usage['queries']} / {q_limit}</code>",
-        f"Document Summaries: <code>{usage['summarizes']} / {s_limit}</code>",
+        f"Neural Queries: <code>{usage['queries']}</code>",
+        f"Document Summaries: <code>{usage['summarizes']}</code>",
         f"Active Persona: <b>{usage['persona'].capitalize()}</b>",
     ]
     return (
         f"{format_header('Daily Telemetry', 'Quotas & Neural Usage', 'USAGE')}\n"
         f"{format_card('Current Consumption', items, '📊')}\n\n"
-        f"<i>⚡ Quotas reset daily at 00:00 UTC.</i>"
+        f"<i>⚡ Using your personal API key (Unlimited)</i>"
     )
 
 
 def get_welcome_msg(is_pro: bool, days_left: int, usage: dict, persona: str) -> str:
     p = PERSONAS.get(persona, PERSONAS["default"])
     status_badge = f"PRO ACTIVE ({days_left}d)" if is_pro else "FREE TIER"
-    q_limit = 60 if is_pro else 5
     items = [
         f"Active Persona: <b>{p['icon']} {p['name']}</b>",
-        f"Queries Today: <code>{usage['queries']} / {q_limit}</code>",
-        f"Response Window: <b>{'4,096 tokens (Extended)' if is_pro else '1,024 tokens (Standard)'}</b>",
-    ]
-    commands = [
-        "<code>/zenith [question]</code> — Ask AI anything with fallback protection",
-        "<code>/persona [name]</code> — Switch specialized AI personality",
-        "<code>/research [topic]</code> — Deep multi-pass investigative research",
-        "<code>/summarize [text]</code> — Condense documents & YouTube links",
-        "<code>/code [desc]</code> — Principal software architecture generator",
-        "<code>/imagine [desc]</code> — Craft high-precision image prompts",
-        "<code>/history</code> — Inspect or clear context memory",
-        "<code>/setkey [key]</code> — Connect private Groq API key",
+        f"Response Window: <b>4,096 tokens (Extended)</b>",
     ]
     text = (
         f"{format_header('Zenith AI Terminal', 'Autonomous Neural Intelligence Engine', status_badge)}\n"
-        f"{format_card('System Status', items, '⚡')}\n\n"
-        f"{format_card('Quick Command Registry', commands, '🚀')}"
+        f"{format_card('System Status', items, '⚡')}"
     )
     if not is_pro:
-        text += "\n\n<i>💎 Tip: Upgrade to Pro for deep research, full code architecture, and unlimited queries.</i>"
+        text += "\n\n<i>💎 Tip: Upgrade to Pro for deep research and full code architecture.</i>"
     return text
 
 
 def get_status_msg(is_pro: bool, days: int) -> str:
     if is_pro:
         items = [
-            "60 neural queries/hour (12x Free)",
-            "4,096 max token response depth",
             "Full access to all 6 AI Personas",
             "Multi-pass Deep Research Engine",
             "Principal Code Architect generator",
             "Visual Prompt Crafter for AI art",
             "Context memory (10 message rolling window)",
-            "Unlimited document & link summarization",
         ]
         return (
             f"{format_header('Subscription Status', 'Zenith Pro Membership', 'ACTIVE')}\n"
             f"{format_kv('Days Remaining', f'{days} days', '🗓️')}\n"
-            f"{format_kv('System Tier', 'Pro Unlimited Bundle', '💎')}\n\n"
+            f"{format_kv('System Tier', 'Pro Suite', '💎')}\n\n"
             f"{format_card('Unlocked Pro Capabilities', items, '✨')}"
         )
     items = [
-        "5 neural queries/hour limit",
-        "1,024 max token response depth",
         "Default assistant persona only",
-        "1 document summary per day",
+        "No Context memory",
     ]
     return (
         f"{format_header('Subscription Status', 'Standard Tier Access', 'FREE')}\n"
         f"{format_card('Current Tier Limitations', items, '🔒')}\n\n"
         f"⚡ <i>Unlock the full potential of Zenith AI with our Pro Bundle. Contact @roshhellwett or use <code>/activate YOUR-KEY</code>.</i>"
+    )
+
+def get_api_key_status_msg(api_key: str | None, tokens_used: int) -> str:
+    if not api_key:
+        return (
+            "🔑 <b>Groq API Key Required</b>\n\n"
+            "You are using Zenith in <b>BYOK (Bring Your Own Key)</b> mode. This allows for unlimited usage without daily limits!\n\n"
+            "<b>Status:</b> ❌ Not configured\n\n"
+            "To unlock all AI features, please set your Groq API key using:\n"
+            "<code>/setkey [your_key]</code>"
+        )
+    
+    masked_key = f"{api_key[:8]}•••••••••••••••••••••••••••••{api_key[-4:]}" if len(api_key) > 12 else "••••••••"
+    return (
+        "🔑 <b>Groq API Key Active</b>\n\n"
+        "You are using Zenith in <b>BYOK (Bring Your Own Key)</b> mode. This allows for unlimited usage without daily limits!\n\n"
+        f"<b>Status:</b> ✅ Active\n"
+        f"<b>Key:</b> <code>{masked_key}</code>\n"
+        f"<b>Total Tokens Used:</b> <code>{tokens_used:,}</code>\n\n"
+        "<i>To rotate or reset your key, use the following command:</i>\n"
+        "<code>/rotate [new_key]</code> (This will also reset your token count)"
     )
 
 
@@ -315,6 +311,30 @@ def get_help_msg(is_pro: bool) -> str:
     if not is_pro:
         text += "\n\n<i>Need assistance? Contact @roshhellwett for license activation.</i>"
     return text
+
+def get_ai_features_msg() -> str:
+    return (
+        f"{format_header('AI Features', 'Specialized Neural Tools', 'FEATURES')}\n"
+        f"Explore Zenith's powerful multi-modal capabilities."
+    )
+
+def get_ai_features_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🔬 Deep Research", callback_data="ai_research_help"),
+            InlineKeyboardButton("📝 Summarize Text", callback_data="ai_summarize_help"),
+        ],
+        [
+            InlineKeyboardButton("💻 Code Architect", callback_data="ai_code_help"),
+            InlineKeyboardButton("🎨 Imagine UI/Art", callback_data="ai_imagine_help"),
+        ],
+        [InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")]
+    ])
+
+def get_ai_help_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")]
+    ])
 
 
 def get_activate_help() -> str:
@@ -440,7 +460,7 @@ def get_feature_help_msg(feature: str, is_pro: bool = False) -> tuple:
             f"Extracts core takeaways, executive summaries, and action items from lengthy texts or YouTube videos.\n\n"
             f"<b>Command Syntax:</b>\n<code>/summarize [TEXT]</code> (or reply to any message)\n\n"
             f"Or test with our pre-loaded samples right now:\n"
-            + (f"\n<i>⚡ Daily Allowance: {'Unlimited (Pro)' if is_pro else '1/day (Free Tier)'}</i>")
+            + (f"\n<i>⚡ Daily Allowance: Unlimited (BYOK)</i>")
         ),
         "code": (
             f"{format_header('Code Architect', 'Principal Software Generation & Debugging', 'PRO' if is_pro else 'LOCKED')}\n"

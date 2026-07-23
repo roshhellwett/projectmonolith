@@ -8,6 +8,52 @@ from zenith_ai_bot.youtube import get_youtube_transcript
 
 logger = setup_logger("LLM_ENGINE")
 
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Searches the live internet for recent news, facts, or data.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_code_architecture",
+            "description": "Generates complete, production-ready code architecture for a complex prompt.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string", "description": "The coding task description"}
+                },
+                "required": ["description"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_image_prompt",
+            "description": "Crafts a high-quality visual prompt for image generation models like Midjourney.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string", "description": "What to visualize"}
+                },
+                "required": ["description"]
+            }
+        }
+    }
+]
+
+
 
 async def _check_and_record(user_id: int, query_text: str, response_text: str) -> tuple[bool, str]:
     """Check quota and record token usage. Returns (allowed, message)."""
@@ -28,16 +74,25 @@ async def process_ai_query(
     history: list = None,
     preferred_model: str = "llama-3.3-70b-versatile",
     api_key: str = None,
+    image_base64: str = None,
 ) -> str:
     if not api_key:
         return "⚠️ AI service is not configured. Please use /setkey to connect your personal Groq API key."
 
+    import re
+    from zenith_ai_bot.search import scrape_url
+    
     external_context = ""
+    urls = re.findall(r'https?://[^\s<>"]+', user_text)
 
     if "youtube.com/watch" in user_text or "youtu.be/" in user_text:
         transcript = await get_youtube_transcript(user_text)
         if transcript:
             external_context = f"\n\n[YOUTUBE TRANSCRIPT]\n{transcript}"
+    elif urls:
+        scraped_text = await scrape_url(urls[0])
+        if scraped_text:
+            external_context = f"\n\n[WEBSITE CONTENT: {urls[0]}]\n{scraped_text}"
     elif any(kw in user_text.lower() for kw in AI_SEARCH_TRIGGERS):
         search_results = await perform_web_search(user_text)
         if search_results:
@@ -57,7 +112,17 @@ async def process_ai_query(
         for msg in history[-10:]:
             messages.append({"role": msg.role, "content": msg.content[:1000]})
 
-    messages.append({"role": "user", "content": final_prompt})
+    if image_base64:
+        messages.append({
+            "role": "user", 
+            "content": [
+                {"type": "text", "text": final_prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+            ]
+        })
+        preferred_model = "llama-3.2-11b-vision-preview"
+    else:
+        messages.append({"role": "user", "content": final_prompt})
 
     resp = await AIExecutionEngine.execute(
         messages=messages,
@@ -65,7 +130,48 @@ async def process_ai_query(
         preferred_model=preferred_model,
         temperature=0.5,
         max_tokens=max_tokens,
+        tools=TOOLS,
     )
+
+    if resp.tool_calls:
+        assistant_msg = {
+            "role": "assistant",
+            "content": resp.content,
+            "tool_calls": [{"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}} for tc in resp.tool_calls]
+        }
+        messages.append(assistant_msg)
+        
+        import json
+        for tc in resp.tool_calls:
+            fn_name = tc.function.name
+            try:
+                args = json.loads(tc.function.arguments)
+            except:
+                args = {}
+                
+            if fn_name == "search_web":
+                res = await perform_web_search(args.get("query", ""))
+            elif fn_name == "generate_code_architecture":
+                res = await process_code(user_id, args.get("description", ""), preferred_model, api_key)
+            elif fn_name == "generate_image_prompt":
+                res = await process_imagine(user_id, args.get("description", ""), preferred_model, api_key)
+            else:
+                res = "Tool not found."
+            
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "name": fn_name,
+                "content": res,
+            })
+        
+        resp = await AIExecutionEngine.execute(
+            messages=messages,
+            api_key=api_key,
+            preferred_model=preferred_model,
+            temperature=0.5,
+            max_tokens=max_tokens,
+        )
 
     result = resp.get_formatted_content()
     await UsageRepo.record_tokens(user_id, len(user_text) // 4 + len(result) // 4)

@@ -160,9 +160,18 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif data == "grp_features":
             await query.edit_message_text(
-                get_features_card(is_pro),
+                get_features_card(is_pro), reply_markup=get_back_button(), parse_mode="HTML"
+            )
+
+        elif data == "ai_show_key_setup":
+            from zenith_ai_bot.repository import SettingsRepo as AISettingsRepo
+            from zenith_ai_bot.ui import get_api_key_status_msg
+            
+            api_key, tokens_used = await AISettingsRepo.get_key_and_tokens(user_id)
+            await query.edit_message_text(
+                get_api_key_status_msg(api_key, tokens_used),
                 reply_markup=get_back_button(),
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
 
         elif data == "grp_help":
@@ -370,6 +379,7 @@ async def start_service():
     bot_app.add_handler(CommandHandler("rep", cmd_rep))
     bot_app.add_handler(CommandHandler("train", cmd_train))
     bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
+    bot_app.add_handler(CommandHandler("rotate", cmd_setkey))
 
     set_group_ai_bot(bot_app)
     register_group_ai_handlers(bot_app)

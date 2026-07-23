@@ -19,6 +19,7 @@ class GroupSettings(Base):
     setup_date = Column(DateTime, default=utc_now)
     faq_knowledge = Column(Text, nullable=True)
     groq_api_key = Column(String(255), nullable=True)
+    groq_tokens_used = Column(Integer, default=0)
 
 
 class GroupStrike(Base):

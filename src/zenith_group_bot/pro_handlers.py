@@ -275,7 +275,10 @@ async def cmd_setkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text(f"❌ Invalid or Rate-Limited API Key: {resp.error_type}")
         
     await SettingsRepo.upsert_settings(chat_id, user_id, group_name=owned_groups[0].group_name, groq_api_key=key)
-    await update.message.reply_text("✅ Groq API Key verified and securely saved!")
+    from zenith_ai_bot.repository import SettingsRepo as AISettingsRepo
+    await AISettingsRepo.set_api_key(user_id, key)
+    
+    await update.message.reply_text("✅ Groq API Key verified and securely saved globally for all your bots!")
 
 
 async def cmd_addword(update: Update, context: ContextTypes.DEFAULT_TYPE):

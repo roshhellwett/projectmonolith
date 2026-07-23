@@ -108,9 +108,8 @@ async def cmd_mykey(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quota = await UsageRepo.get_token_quota(update.effective_user.id)
     await update.message.reply_text(
         f"⚡ <b>AI Token Usage</b>\n\n"
-        f"Today's usage: <b>{quota['tokens_used']:,}</b> / <b>{quota['daily_limit']:,}</b> tokens\n"
-        f"Remaining: <b>{quota['remaining']:,}</b> tokens\n\n"
-        f"Quota resets at midnight UTC.",
+        f"Tokens Used: <b>{quota['tokens_used']:,}</b>\n\n"
+        f"You are using your own API key, so there are no usage limits.",
         parse_mode="HTML",
     )
 
@@ -139,9 +138,8 @@ async def handle_ai_followup(update: Update, context: ContextTypes.DEFAULT_TYPE)
         quota = await UsageRepo.get_token_quota(user_id)
         text = (
             "<b>Crypto AI</b>\n\n"
-            "Zenith uses a server-managed AI engine — no personal API key needed!\n\n"
-            f"Today's usage: <b>{quota['tokens_used']:,}</b> / <b>{quota['daily_limit']:,}</b> tokens\n"
-            f"Remaining: <b>{quota['remaining']:,}</b> tokens"
+            "This bot connects to your personal Groq API key for completely unlimited access.\n\n"
+            f"Tokens Used: <b>{quota['tokens_used']:,}</b>"
         )
         await query.edit_message_text(text, parse_mode="HTML")
         return

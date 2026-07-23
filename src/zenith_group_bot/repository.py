@@ -71,6 +71,8 @@ class SettingsRepo:
         ai_enabled: bool = None,
         crypto_enabled: bool = None,
         faq_knowledge: str = None,
+        groq_api_key: str = None,
+        groq_tokens_used: int = None,
     ):
         async with AsyncSessionLocal() as session:
             stmt = pg_insert(GroupSettings).values(
@@ -96,6 +98,15 @@ class SettingsRepo:
                 update_dict["crypto_enabled"] = crypto_enabled
             if faq_knowledge is not None:
                 update_dict["faq_knowledge"] = faq_knowledge
+            if groq_api_key is not None:
+                update_dict["groq_api_key"] = groq_api_key
+                # Reset tokens if the key changes
+                existing_settings = await session.execute(select(GroupSettings).where(GroupSettings.chat_id == chat_id))
+                existing_row = existing_settings.scalar_one_or_none()
+                if existing_row and existing_row.groq_api_key != groq_api_key:
+                    update_dict["groq_tokens_used"] = 0
+            if groq_tokens_used is not None:
+                update_dict["groq_tokens_used"] = groq_tokens_used
 
             if update_dict:
                 stmt = stmt.on_conflict_do_update(index_elements=["chat_id"], set_=update_dict)
@@ -109,6 +120,17 @@ class SettingsRepo:
             record = res.scalar_one()
             settings_cache[chat_id] = record
             return record
+
+    @staticmethod
+    @db_retry
+    async def record_tokens(chat_id: int, tokens: int):
+        async with AsyncSessionLocal() as session:
+            stmt = select(GroupSettings).where(GroupSettings.chat_id == chat_id)
+            record = (await session.execute(stmt)).scalar_one_or_none()
+            if record:
+                record.groq_tokens_used = (record.groq_tokens_used or 0) + tokens
+                await session.commit()
+                settings_cache[chat_id] = record
 
     @staticmethod
     @db_retry

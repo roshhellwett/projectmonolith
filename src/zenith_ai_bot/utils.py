@@ -62,25 +62,11 @@ async def check_user_ban_status(user_id: int) -> bool:
 
 
 async def check_ai_rate_limit(user_id: int, is_pro: bool = False) -> tuple[bool, str]:
-    if await check_user_ban_status(user_id):
-        return False, "🚫 You are globally banned from Zenith services due to group violations."
-
-    if is_pro:
-        current = _rate_pro.get(user_id, 0)
-        if current >= 60:
-            return False, "⏳ Pro rate limit reached (60/hour). Please wait a moment."
-        _rate_pro[user_id] = current + 1
-    else:
-        current = _rate_free.get(user_id, 0)
-        if current >= 10:
-            return False, (
-                "⏳ <b>Free tier limit reached</b> (10/day).\n\n"
-                "💎 Upgrade to <b>Zenith Pro</b> for <b>60 queries/hour</b>, "
-                "AI personas, deep research, code generation, and more.\n\n"
-                "<code>/activate [YOUR_KEY]</code>"
-            )
-        _rate_free[user_id] = current + 1
-
+    """
+    Check if the user has hit any AI usage limits.
+    Since the platform now uses Bring Your Own Key (BYOK), we no longer enforce
+    artificial token or query limits on users.
+    """
     return True, ""
 
 

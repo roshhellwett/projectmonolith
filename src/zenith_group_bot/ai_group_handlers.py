@@ -25,12 +25,11 @@ from zenith_group_bot.ui import (
 logger = setup_logger("GROUP_AI")
 
 # Limits
-FREE_MAX_TOKENS = 512
-PRO_MAX_TOKENS = 1024
+MAX_TOKENS = 4096
 from core.llm_fallback import AIExecutionEngine
 import json
 
-FREE_MAX_RESPONSE_LENGTH = 1500
+MAX_RESPONSE_LENGTH = 4000
 
 bot_app = None
 
@@ -65,6 +64,9 @@ Output strictly raw valid JSON with two keys:
             temperature=0.1,
             max_tokens=256,
         )
+
+        # Removed bad track tokens here, handled via return value
+
         if not resp.is_error and resp.content:
             raw = resp.content.strip()
             if raw.startswith("```json"):
@@ -77,10 +79,13 @@ Output strictly raw valid JSON with two keys:
             is_scam = bool(data.get("is_scam", False))
             reason = str(data.get("reason", "Zero-day scam drop"))
             risk = int(data.get("risk_score", 0))
-            return is_scam, reason, risk
+            
+            # Simple token estimation
+            token_est = len(prompt) // 4 + len(raw) // 4
+            return is_scam, reason, risk, token_est
     except Exception as e:
         logger.debug(f"AI Spam Shield scan error: {e}")
-    return False, "", 0
+    return False, "", 0, 0
 
 
 async def cmd_group_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -139,7 +144,6 @@ async def cmd_group_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from zenith_ai_bot.repository import UsageRepo
 
         preferred_model = await UsageRepo.get_selected_model(user_id)
-        max_tokens = PRO_MAX_TOKENS if is_pro else FREE_MAX_TOKENS
         
         resp = await AIExecutionEngine.execute(
             messages=[
@@ -149,12 +153,13 @@ async def cmd_group_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
             api_key=settings.groq_api_key,
             preferred_model=preferred_model,
             temperature=0.7,
-            max_tokens=max_tokens,
+            max_tokens=MAX_TOKENS,
         )
         clean = sanitize_telegram_html(resp.get_formatted_content())
-
-        if len(clean) > FREE_MAX_RESPONSE_LENGTH and not is_pro:
-            clean = clean[:FREE_MAX_RESPONSE_LENGTH] + get_ai_truncation_notice(is_pro=is_pro)
+        
+        if not resp.is_error and resp.content:
+            tokens = len(text) // 4 + len(resp.content) // 4
+            await SettingsRepo.record_tokens(chat_id, tokens)
 
         try:
             if loading:

@@ -151,3 +151,22 @@ async def close_http_client():
     if _http_client:
         await _http_client.aclose()
         _http_client = None
+
+async def scrape_url(url: str) -> str:
+    client = get_http_client()
+    try:
+        resp = await client.get(url, follow_redirects=True, timeout=15.0)
+        resp.raise_for_status()
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        # Kill all script and style elements
+        for script in soup(["script", "style", "noscript", "header", "footer", "nav"]):
+            script.decompose()
+
+        text = soup.get_text(separator=' ', strip=True)
+        # return the first 10,000 characters to prevent context bloat
+        return text[:10000]
+    except Exception as e:
+        logger.error(f"Failed to scrape URL {url}: {e}")
+        return ""

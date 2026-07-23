@@ -390,12 +390,13 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_new_pairs(query.message, is_pro)
 
         elif query.data == "ai_show_key_setup":
-            quota = await UsageRepo.get_token_quota(user_id)
+            from zenith_ai_bot.repository import SettingsRepo as AISettingsRepo
+            from zenith_ai_bot.ui import get_api_key_status_msg
+            
+            api_key, tokens_used = await AISettingsRepo.get_key_and_tokens(user_id)
             await query.edit_message_text(
-                f"⚡ <b>AI Token Usage</b>\n\n"
-                f"Today's usage: <b>{quota['tokens_used']:,}</b> / <b>{quota['daily_limit']:,}</b> tokens\n"
-                f"Remaining: <b>{quota['remaining']:,}</b> tokens\n\n"
-                f"Quota resets at midnight UTC.",
+                get_api_key_status_msg(api_key, tokens_used),
+                reply_markup=crypto_ui.get_back_button(),
                 parse_mode="HTML",
             )
 
@@ -755,6 +756,7 @@ async def start_service():
     bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
     bot_app.add_handler(CommandHandler("mykey", cmd_mykey))
     bot_app.add_handler(CommandHandler("delkey", cmd_delkey))
+    bot_app.add_handler(CommandHandler("rotate", cmd_setkey))
     bot_app.add_handler(CommandHandler("referral", cmd_referral))
     bot_app.add_handler(CommandHandler("feedback", cmd_feedback))
     bot_app.add_handler(CommandHandler("changelog", cmd_changelog))

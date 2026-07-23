@@ -31,5 +31,6 @@ class AIUserSettings(AIBase):
     __tablename__ = "zenith_ai_user_settings"
     user_id = Column(BigInteger, primary_key=True)
     groq_api_key = Column(String(255), nullable=True)
+    groq_tokens_used = Column(Integer, default=0)
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
