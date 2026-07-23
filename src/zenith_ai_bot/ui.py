@@ -155,19 +155,16 @@ def get_usage_card(usage: dict, is_pro: bool = False) -> str:
     )
 
 
-def get_welcome_msg(is_pro: bool, days_left: int, usage: dict, persona: str) -> str:
+def get_welcome_msg(usage: dict, persona: str) -> str:
     p = PERSONAS.get(persona, PERSONAS["default"])
-    status_badge = f"PRO ACTIVE ({days_left}d)" if is_pro else "FREE TIER"
     items = [
         f"Active Persona: <b>{p['icon']} {p['name']}</b>",
-        f"Response Window: <b>4,096 tokens (Extended)</b>",
+        f"Usage Mode: <b>BYOK (Unlimited)</b>",
     ]
     text = (
-        f"{format_header('Zenith AI Terminal', 'Autonomous Neural Intelligence Engine', status_badge)}\n"
+        f"{format_header('Zenith AI Terminal', 'Autonomous Neural Intelligence Engine')}\n"
         f"{format_card('System Status', items, '⚡')}"
     )
-    if not is_pro:
-        text += "\n\n<i>💎 Tip: Upgrade to Pro for deep research and full code architecture.</i>"
     return text
 
 
@@ -288,28 +285,25 @@ def get_history_cleared_msg(deleted: int) -> str:
     )
 
 
-def get_help_msg(is_pro: bool) -> str:
-    main_cmds = [
+def get_help_msg() -> str:
+    cmds = [
         "<code>/zenith [question]</code> — Query autonomous intelligence",
+        "<code>/persona [name]</code> — Switch specialized AI personality",
+        "<code>/research [topic]</code> — Deep multi-source investigative reports",
+        "<code>/summarize [text/url]</code> — Condense documents & YouTube links",
+        "<code>/code [desc]</code> — Principal code generator & refactoring",
+        "<code>/imagine [desc]</code> — Visual prompt crafter for AI image models",
+        "<code>/history</code> — Inspect or wipe active memory buffer",
         "<code>/setkey [key]</code> — Connect personal Groq API key",
         "<code>/mykey</code> — Inspect API key verification status",
         "<code>/delkey</code> — Remove personal API key",
         "<code>/help</code> — Display comprehensive terminal guide",
     ]
-    pro_cmds = [
-        "<code>/research [topic]</code> — Deep multi-source investigative reports",
-        "<code>/code [desc]</code> — Principal code generator & refactoring",
-        "<code>/imagine [desc]</code> — Visual prompt crafter for AI image models",
-        "<code>/history</code> — Inspect or wipe active memory buffer",
-    ]
     text = (
-        f"{format_header('Terminal Documentation', 'Zenith AI Codex Guide', 'PRO' if is_pro else 'FREE')}\n"
-        f"{format_card('Core Commands', main_cmds, '⚡')}\n\n"
-        f"{format_card('Pro Features & Tools', pro_cmds, '💎')}\n\n"
+        f"{format_header('Terminal Documentation', 'Zenith AI Codex Guide', 'GUIDE')}\n"
+        f"{format_card('Quick Command Registry', cmds, '⚡')}\n\n"
         f"<b>🤖 Group Intelligence:</b> Add Zenith to any group and use <code>/ask [question]</code> for instant collaborative AI answers."
     )
-    if not is_pro:
-        text += "\n\n<i>Need assistance? Contact @roshhellwett for license activation.</i>"
     return text
 
 def get_ai_features_msg() -> str:

@@ -195,7 +195,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     persona = usage.get("persona", "default")
     days_left = await SubscriptionRepo.get_days_left(user_id)
     is_pro = days_left > 0
-    text = get_welcome_msg(is_pro, days_left, usage, persona)
+    text = get_welcome_msg(usage, persona)
     selected_model = usage.get("selected_model", "llama-3.3-70b-versatile")
     await update.message.reply_text(
         text, reply_markup=get_ai_dashboard(is_pro, persona, usage, selected_model), parse_mode="HTML"
@@ -334,7 +334,7 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             persona = usage.get("persona", "default")
             selected_model = usage.get("selected_model", "llama-3.3-70b-versatile")
             days_left = await SubscriptionRepo.get_days_left(user_id)
-            text = get_welcome_msg(is_pro, days_left, usage, persona)
+            text = get_welcome_msg(usage, persona)
             await query.edit_message_text(
                 text, reply_markup=get_ai_dashboard(is_pro, persona, usage, selected_model), parse_mode="HTML"
             )
@@ -369,8 +369,17 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == "ai_help_menu":
             from zenith_ai_bot.ui import get_help_msg, get_ai_help_keyboard
             await query.edit_message_text(
-                get_help_msg(is_pro=is_pro), reply_markup=get_ai_help_keyboard(), parse_mode="HTML"
+                get_help_msg(), reply_markup=get_ai_help_keyboard(), parse_mode="HTML"
             )
+
+        elif query.data == "ai_research_help":
+            await query.answer("Use /research [topic] to run a multi-pass deep research.", show_alert=True)
+        elif query.data == "ai_summarize_help":
+            await query.answer("Use /summarize [text/url] to summarize content.", show_alert=True)
+        elif query.data == "ai_code_help":
+            await query.answer("Use /code [desc] to generate software architecture.", show_alert=True)
+        elif query.data == "ai_imagine_help":
+            await query.answer("Use /imagine [desc] to craft image prompts.", show_alert=True)
 
         elif query.data == "ai_personas":
             current = await UsageRepo.get_persona(user_id)
