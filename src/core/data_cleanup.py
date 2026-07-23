@@ -10,7 +10,6 @@ from core.logger import setup_logger
 from zenith_admin_bot.models import AdminAuditLog
 from zenith_ai_bot.models import AIConversation, AIUsageLog
 from zenith_group_bot.models import ModerationLog
-from zenith_support_bot.models import SupportTicket
 
 logger = setup_logger("DATA_CLEANUP")
 
@@ -52,13 +51,7 @@ async def run_cleanup() -> dict[str, int]:
             (now_naive - datetime.timedelta(days=90)).date(),
         )
 
-        results["zenith_support_tickets"] = await _do_delete(
-            session,
-            SupportTicket,
-            SupportTicket.created_at,
-            now_naive - datetime.timedelta(days=30),
-            extra_where=[SupportTicket.status.in_(["resolved", "closed"])],
-        )
+
 
         await session.commit()
 

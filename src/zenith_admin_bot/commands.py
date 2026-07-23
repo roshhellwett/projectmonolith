@@ -8,8 +8,6 @@ from zenith_admin_bot import ui as admin_ui
 from zenith_admin_bot.common import admin_only, rate_limit_admin
 from zenith_admin_bot.repository import AdminRepo, BotRegistryRepo, MonitoringRepo
 from zenith_crypto_bot.repository import SubscriptionRepo
-from zenith_support_bot.notifications import notify_user_on_admin_reply
-from zenith_support_bot.repository import CannedRepo, FAQRepo, TicketRepo
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):

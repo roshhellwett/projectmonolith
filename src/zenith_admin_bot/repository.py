@@ -164,13 +164,7 @@ class MonitoringRepo:
     @staticmethod
     @db_retry
     async def get_ticket_stats() -> dict:
-        from zenith_support_bot.repository import TicketRepo
-
-        try:
-            return await TicketRepo.get_ticket_stats()
-        except Exception as e:
-            logger.error(f"Failed to get ticket stats: {e}")
-            return {"total": 0, "open": 0, "in_progress": 0, "resolved": 0, "closed": 0}
+        return {"total": 0, "open": 0, "in_progress": 0, "resolved": 0, "closed": 0}
 
     @staticmethod
     @db_retry
@@ -219,110 +213,6 @@ class MonitoringRepo:
                 "expires_at": sub.expires_at,
             }
 
-    @staticmethod
-    @db_retry
-    async def get_all_tickets_admin(status: str = None, limit: int = 50, offset: int = 0) -> list:
-        from sqlalchemy import desc
-
-        from zenith_support_bot.models import SupportTicket
-
-        async with AsyncSessionLocal() as session:
-            stmt = select(SupportTicket).order_by(desc(SupportTicket.created_at))
-            if status:
-                stmt = stmt.where(SupportTicket.status == status)
-            stmt = stmt.limit(limit).offset(offset)
-            return (await session.execute(stmt)).scalars().all()
-
-    @staticmethod
-    @db_retry
-    async def get_ticket_by_id(ticket_id: int):
-        from zenith_support_bot.models import SupportTicket
-
-        async with AsyncSessionLocal() as session:
-            stmt = select(SupportTicket).where(SupportTicket.id == ticket_id)
-            return (await session.execute(stmt)).scalar_one_or_none()
-
-    @staticmethod
-    @db_retry
-    async def get_stale_tickets(days: int = 2) -> list:
-        from utils.time_util import utc_now
-        from zenith_support_bot.models import SupportTicket
-
-        cutoff = utc_now() - timedelta(days=days)
-        async with AsyncSessionLocal() as session:
-            stmt = (
-                select(SupportTicket)
-                .where(
-                    SupportTicket.status.in_(["open", "in_progress"]),
-                    SupportTicket.updated_at < cutoff,
-                )
-                .order_by(SupportTicket.created_at)
-            )
-            return (await session.execute(stmt)).scalars().all()
-
-    @staticmethod
-    @db_retry
-    async def get_ticket_metrics() -> dict:
-        from sqlalchemy import func
-
-        from utils.time_util import utc_now
-        from zenith_support_bot.models import SupportTicket
-
-        async with AsyncSessionLocal() as session:
-            total = (await session.execute(select(func.count()).select_from(SupportTicket))).scalar() or 0
-
-            open_cnt = (
-                await session.execute(
-                    select(func.count()).select_from(SupportTicket).where(SupportTicket.status == "open")
-                )
-            ).scalar() or 0
-            in_progress = (
-                await session.execute(
-                    select(func.count()).select_from(SupportTicket).where(SupportTicket.status == "in_progress")
-                )
-            ).scalar() or 0
-            resolved = (
-                await session.execute(
-                    select(func.count()).select_from(SupportTicket).where(SupportTicket.status == "resolved")
-                )
-            ).scalar() or 0
-            closed = (
-                await session.execute(
-                    select(func.count()).select_from(SupportTicket).where(SupportTicket.status == "closed")
-                )
-            ).scalar() or 0
-
-            cutoff_2d = utc_now() - timedelta(days=2)
-            stale = (
-                await session.execute(
-                    select(func.count())
-                    .select_from(SupportTicket)
-                    .where(SupportTicket.status.in_(["open", "in_progress"]), SupportTicket.updated_at < cutoff_2d)
-                )
-            ).scalar() or 0
-
-            cutoff_7d = utc_now() - timedelta(days=7)
-            resolved_7d = (
-                await session.execute(
-                    select(func.count())
-                    .select_from(SupportTicket)
-                    .where(SupportTicket.status == "resolved", SupportTicket.resolved_at >= cutoff_7d)
-                )
-            ).scalar() or 0
-
-            avg_rating_stmt = select(func.avg(SupportTicket.rating)).where(SupportTicket.rating.isnot(None))
-            avg_rating = (await session.execute(avg_rating_stmt)).scalar() or 0
-
-            return {
-                "total": total,
-                "open": open_cnt,
-                "in_progress": in_progress,
-                "resolved": resolved,
-                "closed": closed,
-                "stale": stale,
-                "resolved_7d": resolved_7d,
-                "avg_rating": round(avg_rating, 2) if avg_rating else 0,
-            }
 
     @staticmethod
     @db_retry
@@ -429,25 +319,6 @@ class MonitoringRepo:
             )
             return (await session.execute(stmt)).scalars().all()
 
-    @staticmethod
-    @db_retry
-    async def get_faq_count() -> int:
-        from sqlalchemy import func
-
-        from zenith_support_bot.models import FAQEntry
-
-        async with AsyncSessionLocal() as session:
-            return (await session.execute(select(func.count()).select_from(FAQEntry))).scalar() or 0
-
-    @staticmethod
-    @db_retry
-    async def get_canned_count() -> int:
-        from sqlalchemy import func
-
-        from zenith_support_bot.models import CannedResponse
-
-        async with AsyncSessionLocal() as session:
-            return (await session.execute(select(func.count()).select_from(CannedResponse))).scalar() or 0
 
     @staticmethod
     @db_retry
@@ -456,7 +327,6 @@ class MonitoringRepo:
 
         from zenith_crypto_bot.models import ActivationKey, CryptoUser, Subscription
         from zenith_group_bot.models import GroupSettings, ModerationLog
-        from zenith_support_bot.models import CannedResponse, FAQEntry, SupportTicket
 
         async with AsyncSessionLocal() as session:
             stats = {}
@@ -467,13 +337,6 @@ class MonitoringRepo:
             ).scalar() or 0
             stats["activation_keys"] = (
                 await session.execute(select(func.count()).select_from(ActivationKey))
-            ).scalar() or 0
-            stats["support_tickets"] = (
-                await session.execute(select(func.count()).select_from(SupportTicket))
-            ).scalar() or 0
-            stats["faqs"] = (await session.execute(select(func.count()).select_from(FAQEntry))).scalar() or 0
-            stats["canned_responses"] = (
-                await session.execute(select(func.count()).select_from(CannedResponse))
             ).scalar() or 0
             stats["groups"] = (await session.execute(select(func.count()).select_from(GroupSettings))).scalar() or 0
             stats["moderation_logs"] = (

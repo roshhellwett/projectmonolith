@@ -158,7 +158,6 @@ async def init_db():
         import zenith_ai_bot.models  # noqa: F401
         import zenith_crypto_bot.models  # noqa: F401
         import zenith_group_bot.models  # noqa: F401
-        import zenith_support_bot.models  # noqa: F401
 
         engine = get_engine()
         async with engine.begin() as conn:

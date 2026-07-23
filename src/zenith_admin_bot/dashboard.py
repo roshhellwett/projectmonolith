@@ -7,7 +7,6 @@ from core.config import ADMIN_USER_ID
 from zenith_admin_bot import ui as admin_ui
 from zenith_admin_bot.common import logger
 from zenith_admin_bot.repository import AdminRepo, BotRegistryRepo, MonitoringRepo
-from zenith_support_bot.repository import CannedRepo, FAQRepo
 
 
 async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
