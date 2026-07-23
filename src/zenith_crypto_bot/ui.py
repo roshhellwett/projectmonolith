@@ -9,6 +9,7 @@ from core.formatters import (
     format_kv,
 )
 from core.llm_fallback import AVAILABLE_MODELS
+from zenith_crypto_bot.smart_money import identify_wallet
 
 
 def get_main_dashboard(
@@ -729,13 +730,21 @@ def get_audit_free_report(token_name: str, token_symbol: str, contract: str, saf
     )
 
 
-def get_portfolio_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Add Position", callback_data="ui_add_token_help")],
-            [InlineKeyboardButton("Back", callback_data="ui_main_menu")],
-        ]
-    )
+def get_portfolio_keyboard(tokens=None):
+    keyboard = []
+    if tokens:
+        flex_row = []
+        for t in tokens[:6]:
+            flex_row.append(InlineKeyboardButton(f"📸 Flex {t.token_symbol}", callback_data=f"ui_flex_{t.token_id}"))
+            if len(flex_row) == 2:
+                keyboard.append(flex_row)
+                flex_row = []
+        if flex_row:
+            keyboard.append(flex_row)
+            
+    keyboard.append([InlineKeyboardButton("Add Position", callback_data="ui_add_token_help")])
+    keyboard.append([InlineKeyboardButton("Back", callback_data="ui_main_menu")])
+    return InlineKeyboardMarkup(keyboard)
 
 
 def get_activate_help() -> str:
@@ -800,14 +809,31 @@ def get_real_whale_alert(tx: dict, is_pro: bool = True) -> str:
     full_to = tx.get("to", "unknown")
     full_hash = tx.get("hash", "")
     
+    from_label = identify_wallet(full_from)
+    to_label = identify_wallet(full_to)
+    
     if is_pro:
         from_addr = f"<code>{full_from}</code>"
+        if from_label:
+            from_addr += f" <b>({from_label})</b>"
+        
         to_addr = f"<code>{full_to}</code>"
+        if to_label:
+            to_addr += f" <b>({to_label})</b>"
+            
         tx_hash = f"<code>{full_hash}</code>"
         footer = f"🔗 <a href='https://etherscan.io/tx/{full_hash}'>Verify Transaction on Etherscan</a>"
     else:
-        from_addr = f"<code>{full_from[:6]}...</code> [PRO Required]"
-        to_addr = f"<code>{full_to[:6]}...</code> [PRO Required]"
+        from_addr = f"<code>{full_from[:6]}...</code>"
+        if from_label:
+            from_addr += f" <b>({from_label})</b>"
+        from_addr += " [PRO Required]"
+        
+        to_addr = f"<code>{full_to[:6]}...</code>"
+        if to_label:
+            to_addr += f" <b>({to_label})</b>"
+        to_addr += " [PRO Required]"
+        
         tx_hash = f"<code>{full_hash[:6]}...</code> [PRO Required]"
         footer = "⭐ <b>Upgrade to PRO (/pro) to view full on-chain wallets and track this whale!</b>"
 

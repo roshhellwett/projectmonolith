@@ -213,7 +213,7 @@ async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prices = await get_prices(token_ids)
     text = crypto_ui.get_portfolio_card(tokens, prices)
     try:
-        await msg.edit_text(text, reply_markup=crypto_ui.get_portfolio_keyboard(), parse_mode="HTML")
+        await msg.edit_text(text, reply_markup=crypto_ui.get_portfolio_keyboard(tokens), parse_mode="HTML")
     except Exception:
         await msg.edit_text(text, parse_mode="HTML")
 

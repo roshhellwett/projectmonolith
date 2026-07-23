@@ -450,6 +450,35 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=crypto_ui.get_back_button(),
                 parse_mode="HTML",
             )
+            
+        elif query.data.startswith("ui_flex_"):
+            token_id = query.data.replace("ui_flex_", "")
+            tokens = await WatchlistRepo.get_watchlist(user_id)
+            token = next((t for t in tokens if t.token_id == token_id), None)
+            if not token:
+                await query.answer("Token not found in portfolio.")
+            else:
+                from zenith_crypto_bot.market_service import get_prices
+                from zenith_crypto_bot.pnl_card import generate_pnl_card
+                
+                prices = await get_prices([token_id])
+                cp = prices.get(token_id, {}).get("usd", 0)
+                if cp == 0:
+                    await query.answer("Price data unavailable right now.")
+                else:
+                    invested = token.entry_price * token.quantity
+                    cur = cp * token.quantity
+                    pnl_pct = ((cp - token.entry_price) / token.entry_price * 100) if token.entry_price > 0 else 0
+                    pnl_usd = cur - invested
+                    
+                    bio = generate_pnl_card(token.token_symbol, pnl_pct, pnl_usd)
+                    await query.answer()
+                    await context.bot.send_photo(
+                        chat_id=update.effective_chat.id,
+                        photo=bio,
+                        caption=f"📈 <b>{token.token_symbol.upper()} Position</b>\n\nShow them what you're made of. Share this card anywhere!",
+                        parse_mode="HTML"
+                    )
 
         elif query.data.startswith("ui_alert_") and not query.data.startswith("ui_del_alert_"):
             aid = int(query.data.split("_")[-1])
