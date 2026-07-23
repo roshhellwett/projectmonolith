@@ -801,10 +801,10 @@ def get_real_whale_alert(tx: dict, is_pro: bool = True) -> str:
     full_hash = tx.get("hash", "")
     
     if is_pro:
-        from_addr = f"<a href='https://etherscan.io/address/{full_from}'><code>{full_from[:10]}...{full_from[-4:]}</code></a>"
-        to_addr = f"<a href='https://etherscan.io/address/{full_to}'><code>{full_to[:10]}...{full_to[-4:]}</code></a>"
-        tx_hash = f"<a href='https://etherscan.io/tx/{full_hash}'><code>{full_hash[:10]}...</code></a>"
-        footer = "<i>Verified on-chain via Etherscan</i>"
+        from_addr = f"<code>{full_from}</code>"
+        to_addr = f"<code>{full_to}</code>"
+        tx_hash = f"<code>{full_hash}</code>"
+        footer = f"🔗 <a href='https://etherscan.io/tx/{full_hash}'>Verify Transaction on Etherscan</a>"
     else:
         from_addr = f"<code>{full_from[:6]}...</code> [PRO Required]"
         to_addr = f"<code>{full_to[:6]}...</code> [PRO Required]"
