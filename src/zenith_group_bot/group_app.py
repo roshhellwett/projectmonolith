@@ -6,8 +6,8 @@ from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from core.logger import setup_logger
-from core.permissions import _is_admin_cached, resolve_tier
-from core.settings import EXPERIMENTAL_FEATURES
+from core.permissions import resolve_tier
+
 from zenith_group_bot.gamification import add_xp_sync
 from zenith_group_bot.filters import scan_for_abuse, scan_for_spam
 from zenith_group_bot.flood_control import is_flooding, get_flood_action, add_warning
