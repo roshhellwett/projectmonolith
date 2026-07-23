@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import re
+import html
 
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram.ext import (

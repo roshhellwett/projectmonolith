@@ -65,7 +65,7 @@ ERROR_MESSAGES = {
     ErrorCategory.INTERNAL_ERROR: (
         "❌ <b>Something Went Wrong</b>\n\n"
         "An unexpected error occurred. Our team has been notified. "
-        "Please try again or contact support if the issue persists."
+        "Please try again or contact support if the issue persists at zenithprojects@icloud.com or Telegram @roshhellwett."
     ),
 }
 
