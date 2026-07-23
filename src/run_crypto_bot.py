@@ -79,7 +79,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     days_left = await SubscriptionRepo.get_days_left(user_id)
     is_pro = days_left > 0
     await update.message.reply_text(
-        crypto_ui.get_welcome_msg(first_name, is_pro, days_left),
+        crypto_ui.get_welcome_msg(first_name, user_id, is_pro, days_left),
         reply_markup=crypto_ui.get_main_dashboard(is_pro),
         parse_mode="HTML",
     )

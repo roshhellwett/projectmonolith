@@ -215,29 +215,24 @@ def get_pro_feature_msg(feature: str):
     return msg, kb
 
 
-def get_welcome_msg(name: str, is_pro: bool = False, days_left: int = 0):
+def get_welcome_msg(name: str, user_id: int, is_pro: bool = False, days_left: int = 0):
     status_badge = f"PRO ACTIVE ({days_left}d)" if is_pro else "FREE TIER"
     items = [
         f"Operator: <b>{name}</b>",
+        f"User ID: <code>{user_id}</code>",
         f"System Tier: <b>{'💎 Pro Unlimited Suite' if is_pro else '⚪ Standard Public Tier'}</b>",
         f"Data Feed: <b>{'Real-Time Unredacted Nodes' if is_pro else 'Delayed Surface Feed'}</b>",
     ]
-    modules = [
-        "📊 <b>Market Intelligence</b> — Live macro indices, Fear & Greed, top movers",
-        "🛡️ <b>Token Scanner</b> — Deep bytecode safety verification & GoPlus audits",
-        "💼 <b>Portfolio P/L</b> — Live valuation, multi-token tracking & profit telemetry",
-        "🔔 <b>Price Alerts</b> — Instant cross-threshold notification engine",
-        "🐋 <b>Wallet Tracker</b> — Copy-trade & monitor institutional whale wallets",
-        "🔥 <b>New Pairs</b> — Real-time liquidity pool emergence radar",
-        "⛽ <b>Gas Optimizer</b> — Gwei timing forecasts & execution optimization",
-    ]
+    if is_pro:
+        items.append(f"Pro Access Remaining: <b>{days_left} Days</b>")
+        
     text = (
         f"{format_header('Zenith Crypto Terminal', 'On-Chain Intelligence & Security Suite', status_badge)}\n"
         f"{format_card('Session Telemetry', items, '⚡')}\n\n"
-        f"{format_card('Integrated Modules', modules, '🚀')}"
+        "<i>Use the dashboard below to navigate the terminal.</i>"
     )
     if not is_pro:
-        text += "\n\n<i>💎 Tip: Upgrade to Pro for real-time orderflow, whale wallet trackers, and deep security breakdown.</i>"
+        text += "\n\n<i>💎 Tip: Upgrade to Pro (/pro) to unlock the full institutional suite.</i>"
     return text
 
 
