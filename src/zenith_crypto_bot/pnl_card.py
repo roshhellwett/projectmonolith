@@ -58,5 +58,6 @@ def generate_pnl_card(token_symbol: str, pnl_pct: float, pnl_usd: float) -> io.B
     # Export to bytes
     bio = io.BytesIO()
     img.save(bio, format="PNG")
+    img.close()
     bio.seek(0)
     return bio

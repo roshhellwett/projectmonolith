@@ -639,7 +639,9 @@ def get_new_pairs_card(pairs: list, is_pro: bool) -> str:
                 f"Pair: {t0} / {t1}\n"
                 f"Pool: <code>{p['pair']}</code>\n"
                 f"Block: {p['block']:,}\n"
-                f"<a href='https://etherscan.io/tx/{p['tx_hash']}'>View Tx</a>"
+                f"🔗 <a href='https://etherscan.io/tx/{p['tx_hash']}'>Verify on Etherscan</a>\n"
+                f"⚡ <a href='https://t.me/BananaGunSniper_bot?start=snipe_{p['pair']}'>Snipe on Banana Gun</a>\n"
+                "━━━━━━━━━━━━━━━━"
             )
         else:
             lines.append(f"Pair: {t0} / {t1}\nPool: [Pro Required]\nBlock: {p['block']:,}\n")

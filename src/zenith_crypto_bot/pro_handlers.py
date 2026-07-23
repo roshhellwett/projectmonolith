@@ -20,6 +20,7 @@ from zenith_crypto_bot.market_service import (
     get_prices,
     get_token_security,
     get_top_movers,
+    get_upcoming_unlocks,
     resolve_token_id,
     search_token,
 )
@@ -27,6 +28,16 @@ from zenith_crypto_bot.repository import PriceAlertRepo, SubscriptionRepo, Walle
 
 logger = setup_logger("PRO_HANDLERS")
 
+async def cmd_unlocks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    is_pro = await SubscriptionRepo.is_pro(user_id)
+    
+    msg = await send_loading_message(update, context, "Scanning blockchain for upcoming token unlocks...")
+    
+    unlocks = await get_upcoming_unlocks()
+    text = crypto_ui.get_unlocks_card(unlocks, is_pro)
+    
+    await msg.edit_text(text, parse_mode="HTML")
 
 async def cmd_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id

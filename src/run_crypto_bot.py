@@ -23,6 +23,7 @@ from zenith_crypto_bot.market_service import (
     get_prices,
     get_wallet_recent_txns,
 )
+from zenith_crypto_bot.pnl_card import generate_pnl_card
 from zenith_crypto_bot.pro_handlers import (
     cmd_addtoken,
     cmd_alert,
@@ -35,6 +36,7 @@ from zenith_crypto_bot.pro_handlers import (
     cmd_portfolio,
     cmd_removetoken,
     cmd_track,
+    cmd_unlocks,
     cmd_untrack,
     cmd_wallets,
     cmd_watchlist,
@@ -458,9 +460,6 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not token:
                 await query.answer("Token not found in portfolio.")
             else:
-                from zenith_crypto_bot.market_service import get_prices
-                from zenith_crypto_bot.pnl_card import generate_pnl_card
-                
                 prices = await get_prices([token_id])
                 cp = prices.get(token_id, {}).get("usd", 0)
                 if cp == 0:
@@ -469,9 +468,9 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     invested = token.entry_price * token.quantity
                     cur = cp * token.quantity
                     pnl_pct = ((cp - token.entry_price) / token.entry_price * 100) if token.entry_price > 0 else 0
-                    pnl_usd = cur - invested
-                    
-                    bio = generate_pnl_card(token.token_symbol, pnl_pct, pnl_usd)
+                    pnl_usd = (cp - token.entry_price) * token.quantity
+                    bio = await asyncio.to_thread(generate_pnl_card, token.token_symbol, pnl_pct, pnl_usd)
+                    bio.seek(0)
                     await query.answer()
                     await context.bot.send_photo(
                         chat_id=update.effective_chat.id,
@@ -637,6 +636,44 @@ async def real_whale_watcher():
         except Exception as e:
             logger.debug(f"Whale watcher cycle error (non-critical): {e}")
 
+async def unlocks_watcher():
+    """Background task to notify PRO users of imminent token unlocks."""
+    from zenith_crypto_bot.market_service import get_upcoming_unlocks
+    
+    seen_unlocks = set()
+    first_run = True
+    while True:
+        await asyncio.sleep(20 if first_run else 3600)  # Check hourly
+        first_run = False
+        try:
+            _, pro_users = await SubscriptionRepo.get_alert_subscribers()
+            if not pro_users:
+                continue
+                
+            unlocks = await get_upcoming_unlocks()
+            for u in unlocks:
+                # We alert if the date says 'In 2 days' or 'In 1 days'
+                if "In 2 days" in u["date"] or "In 1 day" in u["date"]:
+                    if u["token"] not in seen_unlocks:
+                        seen_unlocks.add(u["token"])
+                        
+                        for user_id in pro_users:
+                            text = (
+                                f"🚨 <b>WARNING: IMMINENT VC DUMP</b> 🚨\n\n"
+                                f"Token: <b>{u['token']}</b>\n"
+                                f"Amount: {u['amount']} ({u['pct_supply']}% of supply)\n"
+                                f"Value: ${u['usd_value']:,.0f}\n"
+                                f"Recipient: <b>{u['recipient']}</b>\n\n"
+                                f"<i>This is a PRO exclusive early warning. Expect massive volatility.</i>"
+                            )
+                            with contextlib.suppress(asyncio.QueueFull):
+                                alert_queue.put_nowait((user_id, text))
+                                
+            if len(seen_unlocks) > 1000:
+                seen_unlocks.clear()
+        except Exception as e:
+            logger.debug(f"Unlocks watcher cycle error: {e}")
+
 
 async def subscription_monitor():
     notified_warning = set()
@@ -697,6 +734,7 @@ async def start_service():
     bot_app.add_handler(CommandHandler("gainers", cmd_gainers))
     bot_app.add_handler(CommandHandler("losers", cmd_losers))
     bot_app.add_handler(CommandHandler("removetoken", cmd_removetoken))
+    bot_app.add_handler(CommandHandler("unlocks", cmd_unlocks))
     bot_app.add_handler(CommandHandler("market", cmd_market))
     bot_app.add_handler(CommandHandler("gas", cmd_gas))
     bot_app.add_handler(CommandHandler("ai", cmd_ai))
@@ -717,6 +755,7 @@ async def start_service():
 
     track_task(asyncio.create_task(safe_loop("dispatcher", alert_dispatcher)))
     track_task(asyncio.create_task(safe_loop("whale_watcher", real_whale_watcher)))
+    track_task(asyncio.create_task(safe_loop("unlocks_watcher", unlocks_watcher)))
     track_task(asyncio.create_task(safe_loop("price_alerts", price_alert_checker)))
     track_task(asyncio.create_task(safe_loop("wallet_watcher", wallet_watcher)))
     track_task(asyncio.create_task(safe_loop("sub_monitor", subscription_monitor)))
