@@ -558,3 +558,10 @@ def get_key_required_msg() -> str:
         "<code>/setkey [your_key]</code>\n\n"
         "<i>Get your free key at <a href='https://console.groq.com'>console.groq.com</a></i>"
     )
+
+def get_history_empty_msg() -> str:
+    return (
+        f"{format_header('Chat Memory', 'Active Neural Buffer', 'EMPTY')}\n"
+        f"Your AI context buffer is currently empty.\n\n"
+        f"<i>Start a conversation to build contextual memory!</i>"
+    )

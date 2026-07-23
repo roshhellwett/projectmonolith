@@ -29,23 +29,18 @@ from zenith_ai_bot.prompts import PERSONAS
 from zenith_ai_bot.repository import ConversationRepo, UsageRepo, SettingsRepo
 from zenith_ai_bot.search import close_http_client
 from zenith_ai_bot.ui import (
-    get_activate_help,
     get_ai_dashboard,
     get_back_button,
     get_confirm_clear_history,
     get_confirm_clear_history_msg,
-    get_feature_help_msg,
     get_help_msg,
     get_history_cleared_msg,
     get_history_empty_msg,
     get_history_keyboard,
     get_history_list_msg,
-    get_history_locked_msg,
     get_persona_switched_msg,
-    get_personas_locked_msg,
     get_personas_select_msg,
     get_queue_full_msg,
-    get_status_msg,
     get_usage_card,
     get_welcome_msg,
     get_worker_error_msg,
