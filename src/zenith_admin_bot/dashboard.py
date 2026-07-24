@@ -31,9 +31,8 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         elif query.data == "admin_overview":
             stats = await MonitoringRepo.get_subscription_stats()
-            ticket_stats = {"total": 0, "open": 0, "resolved": 0} # Dummy for now
             await query.edit_message_text(
-                admin_ui.format_system_overview(stats, ticket_stats),
+                admin_ui.format_system_overview(stats),
                 reply_markup=admin_ui.get_back_button(),
                 parse_mode="HTML",
             )
@@ -98,6 +97,46 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text += f"• <code>{user}</code> - {days} days left\n"
             if not subs: text += "No active subscriptions."
             await query.edit_message_text(text, reply_markup=admin_ui.get_back_button(), parse_mode="HTML")
+        elif query.data == "admin_users":
+            users = await AdminRepo.get_all_users(limit=20)
+            await query.edit_message_text(
+                admin_ui.format_user_list(users),
+                reply_markup=admin_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+        elif query.data == "admin_revenue":
+            report = await AdminRepo.get_revenue_report()
+            await query.edit_message_text(
+                admin_ui.format_revenue_analytics(report),
+                reply_markup=admin_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+        elif query.data == "admin_db_stats":
+            stats = await AdminRepo.get_db_stats()
+            await query.edit_message_text(
+                admin_ui.format_db_stats(stats),
+                reply_markup=admin_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+        elif query.data == "admin_audit":
+            logs = await AdminRepo.get_audit_trail(limit=15)
+            await query.edit_message_text(
+                admin_ui.format_audit_log(logs),
+                reply_markup=admin_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+        elif query.data == "admin_security":
+            await query.edit_message_text(
+                admin_ui.format_platform_metrics(),
+                reply_markup=admin_ui.get_back_button(),
+                parse_mode="HTML",
+            )
+        elif query.data == "admin_broadcast":
+            await query.edit_message_text(
+                "📡 <b>Broadcast System</b>\n\nTo send a broadcast to all users, use the command:\n<code>/broadcast [your message]</code>",
+                reply_markup=admin_ui.get_back_button(),
+                parse_mode="HTML",
+            )
         else:
             await query.answer("Feature in development or migrated.", show_alert=True)
     except Exception as e:

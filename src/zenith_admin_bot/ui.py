@@ -95,7 +95,7 @@ def get_admin_dashboard() -> str:
     )
 
 
-def format_system_overview(stats: dict, ticket_stats: dict) -> str:
+def format_system_overview(stats: dict) -> str:
     user_items = [
         f"Total Registered Users: <code>{stats.get('total_users', 0):,}</code>",
         f"Pro VIP Subscribers: <code>{stats.get('pro_users', 0):,}</code>",
@@ -103,16 +103,9 @@ def format_system_overview(stats: dict, ticket_stats: dict) -> str:
         f"Active Subscriptions: <code>{stats.get('active_subscriptions', 0):,}</code>",
         f"Expiring within 7 Days: <code>{stats.get('expiring_within_7_days', 0):,}</code>",
     ]
-    ticket_items = [
-        f"Total Inquiries: <code>{ticket_stats.get('total', 0)}</code>",
-        f"Open Queue: <code>{ticket_stats.get('open', 0)}</code>",
-        f"In Progress Triage: <code>{ticket_stats.get('in_progress', 0)}</code>",
-        f"Resolved & Closed: <code>{ticket_stats.get('resolved', 0)}</code>",
-    ]
     return (
-        f"{format_header('Global Overview', 'System Demographics & Ticket Telemetry', 'LIVE')}\n"
-        f"{format_card('User Registry Telemetry', user_items, '👥')}\n\n"
-        f"{format_card('Support Ticket Queue Matrix', ticket_items, '🎫')}"
+        f"{format_header('Global Overview', 'System Demographics Telemetry', 'LIVE')}\n"
+        f"{format_card('User Registry Telemetry', user_items, '👥')}"
     )
 
 
