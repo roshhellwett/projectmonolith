@@ -48,22 +48,29 @@ def _resolve_database_url(url: str) -> str:
 def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
-        resolved_url = _resolve_database_url(DATABASE_URL)
+        raw_url = DATABASE_URL or ""
+        use_pgbouncer = "pgbouncer=true" in raw_url.lower()
+        
+        resolved_url = _resolve_database_url(raw_url)
         if resolved_url.startswith("sqlite"):
             _engine = create_async_engine(resolved_url, echo=False)
         else:
+            # If using PgBouncer, statement caching must be 0. Otherwise, use defaults.
+            connect_args = {"statement_cache_size": 0} if use_pgbouncer else {}
+            execution_options = {"prepared_statement_cache_size": 0} if use_pgbouncer else {}
+            
             _engine = create_async_engine(
                 resolved_url,
-                pool_size=max(1, DB_POOL_SIZE),
-                max_overflow=max(2, DB_POOL_SIZE),
+                pool_size=max(5, DB_POOL_SIZE),
+                max_overflow=max(10, DB_POOL_SIZE * 2),
                 pool_pre_ping=True,
-                pool_recycle=1800,
-                pool_timeout=20,
+                pool_recycle=300,  # Refresh connections sooner (5 minutes) for cloud DBs
+                pool_timeout=30,
                 pool_use_lifo=True,
-                connect_args={"statement_cache_size": 0},
-                execution_options={"prepared_statement_cache_size": 0},
+                connect_args=connect_args,
+                execution_options=execution_options,
             )
-        logger.info("Database engine created")
+        logger.info("Database engine created (PgBouncer=%s)", use_pgbouncer)
     return _engine
 
 

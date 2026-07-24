@@ -11,7 +11,7 @@ class GroupSettings(Base):
     group_name = Column(String, nullable=True)
     features = Column(String, default="both")
     strength = Column(String, default="medium")
-    is_active = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=False, index=True)
     ai_enabled = Column(Boolean, default=False)
     crypto_enabled = Column(Boolean, default=False)
     raid_mode = Column(Boolean, default=False)
@@ -100,7 +100,7 @@ class GroupMemberStats(Base):
 class GroupSubscription(Base):
     __tablename__ = "group_subscriptions"
     user_id = Column(BigInteger, primary_key=True)
-    expires_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
 

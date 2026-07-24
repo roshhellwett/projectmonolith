@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 
 from core.database import AsyncSessionLocal, db_retry
+from core.cache import async_ttl_cache
 from core.logger import setup_logger
 from zenith_admin_bot.models import ActionType, AdminAuditLog, BotRegistry, BotStatus
 
@@ -125,6 +126,7 @@ class BotRegistryRepo:
 
 class MonitoringRepo:
     @staticmethod
+    @async_ttl_cache(ttl=60)
     @db_retry
     async def get_subscription_stats() -> dict:
         async with AsyncSessionLocal() as session:
@@ -321,6 +323,7 @@ class MonitoringRepo:
 
 
     @staticmethod
+    @async_ttl_cache(ttl=60)
     @db_retry
     async def get_db_stats() -> dict:
         from sqlalchemy import func
@@ -346,6 +349,7 @@ class MonitoringRepo:
             return stats
 
     @staticmethod
+    @async_ttl_cache(ttl=120)
     @db_retry
     async def get_revenue_report() -> dict:
         from sqlalchemy import func

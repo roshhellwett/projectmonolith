@@ -11,13 +11,13 @@ class CryptoUser(CryptoBase):
     __tablename__ = "crypto_users"
     user_id = Column(BigInteger, primary_key=True)
     alerts_enabled = Column(Boolean, default=False)
-    joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)
 
 
 class Subscription(CryptoBase):
     __tablename__ = "crypto_subscriptions"
     user_id = Column(BigInteger, primary_key=True)
-    expires_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
