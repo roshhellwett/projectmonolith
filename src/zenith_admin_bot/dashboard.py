@@ -98,21 +98,21 @@ async def handle_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not subs: text += "No active subscriptions."
             await query.edit_message_text(text, reply_markup=admin_ui.get_back_button(), parse_mode="HTML")
         elif query.data == "admin_users":
-            users = await AdminRepo.get_all_users(limit=20)
+            users = await MonitoringRepo.get_all_users(limit=20)
             await query.edit_message_text(
                 admin_ui.format_user_list(users),
                 reply_markup=admin_ui.get_back_button(),
                 parse_mode="HTML",
             )
         elif query.data == "admin_revenue":
-            report = await AdminRepo.get_revenue_report()
+            report = await MonitoringRepo.get_revenue_report()
             await query.edit_message_text(
                 admin_ui.format_revenue_analytics(report),
                 reply_markup=admin_ui.get_back_button(),
                 parse_mode="HTML",
             )
         elif query.data == "admin_db_stats":
-            stats = await AdminRepo.get_db_stats()
+            stats = await MonitoringRepo.get_db_stats()
             await query.edit_message_text(
                 admin_ui.format_db_stats(stats),
                 reply_markup=admin_ui.get_back_button(),
