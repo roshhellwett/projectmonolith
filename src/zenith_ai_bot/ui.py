@@ -540,25 +540,6 @@ def get_persona_already_using(name: str) -> str:
     )
 
 
-def get_code_no_query() -> str:
-    return get_code_help()
-
-
-def get_imagine_no_query() -> str:
-    return get_imagine_help()
-
-
-def get_key_required_msg() -> str:
-    return (
-        "🔐 <b>Groq API Key Required</b>\n\n"
-        "You are using Zenith in <b>BYOK (Bring Your Own Key)</b> mode. "
-        "This allows for unlimited usage without daily limits!\n\n"
-        "Status: ❌ <b>Not configured</b>\n\n"
-            [InlineKeyboardButton("💎 Unlock Pro Membership", url=f"tg://user?id={ADMIN_USER_ID}")],
-            [InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")],
-        ]
-    )
-
 
 # Feature help messages with interactive quick-action triggers
 def get_feature_help_msg(feature: str, is_pro: bool = False) -> tuple:
@@ -716,8 +697,8 @@ def get_persona_help() -> str:
 def get_persona_locked() -> str:
     return format_alert(
         "Persona Restricted",
-        "Switching away from the Default assistant requires a Pro subscription.\nUse <code>/activate YOUR-KEY</code> to unlock all 6 personas.",
-        "PRO",
+"Switching away from the Default assistant requires a Pro subscription.\nUse <code>/activate YOUR-KEY</code> to unlock all 6 personas.",
+"PRO",
     )
 
 
