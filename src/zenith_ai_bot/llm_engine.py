@@ -258,3 +258,63 @@ async def process_imagine(user_id: int, description: str, preferred_model: str =
     result = resp.get_formatted_content()
     await UsageRepo.record_tokens(user_id, len(description) // 4 + len(result) // 4)
     return result
+
+async def process_contract_audit(user_id: int, address: str, preferred_model: str = "llama-3.3-70b-versatile", api_key: str = None) -> str:
+    if not api_key:
+        return "⚠️ AI service is not configured. Please use /setkey to connect your personal Groq API key."
+    
+    search_query = f"smart contract {address} audit vulnerability rugpull honeypot"
+    search_data = await perform_web_search(search_query, num_results=3)
+
+    system_prompt = (
+        "You are an expert Smart Contract Auditor and Web3 Security Analyst.\n"
+        "Analyze the provided search results regarding the smart contract address. "
+        "Summarize any known vulnerabilities, exploits, honeypots, or rug pulls. "
+        "If the contract appears clean in the news, state that but add a disclaimer that lack of news doesn't mean it is 100% safe. "
+        "Format your response beautifully with Markdown."
+    )
+
+    resp = await AIExecutionEngine.execute(
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Address: {address}\n\nSearch Context:\n{search_data}"},
+        ],
+        api_key=api_key,
+        preferred_model=preferred_model,
+        temperature=0.2,
+        max_tokens=2048,
+    )
+    result = resp.get_formatted_content()
+    await UsageRepo.record_tokens(user_id, len(address) // 4 + len(result) // 4)
+    return result
+
+async def process_sentiment_analysis(user_id: int, coin: str, preferred_model: str = "llama-3.3-70b-versatile", api_key: str = None) -> str:
+    if not api_key:
+        return "⚠️ AI service is not configured. Please use /setkey to connect your personal Groq API key."
+    
+    search_query = f"{coin} crypto news price prediction sentiment today"
+    search_data = await perform_web_search(search_query, num_results=5)
+
+    system_prompt = (
+        "You are an expert Crypto Market Sentiment Analyst.\n"
+        "Based on the provided live news search data, calculate a Fear & Greed index score (1-100) for this specific cryptocurrency. "
+        "Provide a concise summary of the bullish and bearish cases right now. "
+        "Output format:\n"
+        "🪙 **Token**: [Token Name]\n"
+        "🌡️ **Sentiment Score**: [1-100] ([Fear/Neutral/Greed])\n"
+        "\n**Bullish Catalyst**:\n- ...\n\n**Bearish Risk**:\n- ..."
+    )
+
+    resp = await AIExecutionEngine.execute(
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Token: {coin}\n\nSearch Context:\n{search_data}"},
+        ],
+        api_key=api_key,
+        preferred_model=preferred_model,
+        temperature=0.5,
+        max_tokens=2048,
+    )
+    result = resp.get_formatted_content()
+    await UsageRepo.record_tokens(user_id, len(coin) // 4 + len(result) // 4)
+    return result

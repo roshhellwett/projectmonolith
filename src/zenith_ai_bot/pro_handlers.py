@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes
 
 from core.animation import continuous_typing_action, edit_with_stages, send_typing_action
 from core.logger import setup_logger
-from zenith_ai_bot.llm_engine import process_code, process_imagine, process_research, process_summarize
+from zenith_ai_bot.llm_engine import process_code, process_imagine, process_research, process_summarize, process_contract_audit, process_sentiment_analysis
 from zenith_ai_bot.prompts import PERSONAS
 from zenith_ai_bot.repository import ConversationRepo, UsageRepo, SettingsRepo
 from zenith_ai_bot.ui import (
@@ -238,3 +238,55 @@ async def cmd_imagine(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         plain = re.sub(r"<[^>]+>", "", clean)
         await placeholder.edit_text(plain)
+
+async def cmd_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
+    if not quota_allowed:
+        return await update.message.reply_text(quota_msg, parse_mode="HTML")
+
+    if not context.args:
+        return await update.message.reply_text("<b>Format:</b> <code>/audit [contract_address]</code>\nAnalyzes a smart contract for known rugs/honeypots.", parse_mode="HTML")
+
+    address = context.args[0]
+    stages = ["Extracting bytecode hash", "Cross-referencing security databases", "Generating audit report"]
+    
+    selected_model = await UsageRepo.get_selected_model(user_id)
+    api_key = await SettingsRepo.get_api_key(user_id)
+    if not api_key:
+        return await update.message.reply_text("⚠️ <b>API Key Required</b>\nPlease set it using <code>/setkey</code>.", parse_mode="HTML")
+
+    await edit_with_stages(update, context, stages=stages, final_text="Audit complete! Parsing risk matrix...", delay=0.8)
+    
+    async with continuous_typing_action(update, context):
+        result = await process_contract_audit(user_id, address, preferred_model=selected_model, api_key=api_key)
+        
+    from zenith_ai_bot.utils import sanitize_telegram_html
+    clean = sanitize_telegram_html(result)
+    await update.message.reply_text(clean, reply_markup=get_back_button(), parse_mode="HTML")
+
+async def cmd_sentiment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    quota_allowed, quota_msg = await UsageRepo.check_quota(user_id)
+    if not quota_allowed:
+        return await update.message.reply_text(quota_msg, parse_mode="HTML")
+
+    if not context.args:
+        return await update.message.reply_text("<b>Format:</b> <code>/sentiment [coin]</code>\nAnalyzes real-time fear/greed of a token.", parse_mode="HTML")
+
+    coin = " ".join(context.args)
+    stages = ["Scraping real-time market news", "Calculating Fear/Greed Index", "Formatting sentiment summary"]
+    
+    selected_model = await UsageRepo.get_selected_model(user_id)
+    api_key = await SettingsRepo.get_api_key(user_id)
+    if not api_key:
+        return await update.message.reply_text("⚠️ <b>API Key Required</b>\nPlease set it using <code>/setkey</code>.", parse_mode="HTML")
+
+    await edit_with_stages(update, context, stages=stages, final_text="Analysis complete! Printing score...", delay=0.8)
+    
+    async with continuous_typing_action(update, context):
+        result = await process_sentiment_analysis(user_id, coin, preferred_model=selected_model, api_key=api_key)
+        
+    from zenith_ai_bot.utils import sanitize_telegram_html
+    clean = sanitize_telegram_html(result)
+    await update.message.reply_text(clean, reply_markup=get_back_button(), parse_mode="HTML")

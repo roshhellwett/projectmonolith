@@ -24,7 +24,7 @@ from core.logger import setup_logger
 from core.permissions import resolve_tier
 from core.webhook_router import register_bot_webhook
 from zenith_ai_bot.llm_engine import process_ai_query
-from zenith_ai_bot.pro_handlers import cmd_code, cmd_history, cmd_imagine, cmd_persona, cmd_research, cmd_summarize
+from zenith_ai_bot.pro_handlers import cmd_code, cmd_history, cmd_imagine, cmd_persona, cmd_research, cmd_summarize, cmd_audit, cmd_sentiment
 from zenith_ai_bot.prompts import PERSONAS
 from zenith_ai_bot.repository import ConversationRepo, UsageRepo, SettingsRepo
 from zenith_ai_bot.search import close_http_client
@@ -505,6 +505,8 @@ async def start_service():
     bot_app.add_handler(CommandHandler("code", cmd_code))
     bot_app.add_handler(CommandHandler("history", cmd_history))
     bot_app.add_handler(CommandHandler("imagine", cmd_imagine))
+    bot_app.add_handler(CommandHandler("audit", cmd_audit))
+    bot_app.add_handler(CommandHandler("sentiment", cmd_sentiment))
     bot_app.add_handler(CommandHandler("setkey", cmd_setkey))
     bot_app.add_handler(CommandHandler("rotate", cmd_setkey))
     bot_app.add_handler(CommandHandler("mykey", cmd_mykey))

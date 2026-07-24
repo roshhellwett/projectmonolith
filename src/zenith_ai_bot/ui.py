@@ -554,6 +554,201 @@ def get_key_required_msg() -> str:
         "You are using Zenith in <b>BYOK (Bring Your Own Key)</b> mode. "
         "This allows for unlimited usage without daily limits!\n\n"
         "Status: ❌ <b>Not configured</b>\n\n"
+            [InlineKeyboardButton("💎 Unlock Pro Membership", url=f"tg://user?id={ADMIN_USER_ID}")],
+            [InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")],
+        ]
+    )
+
+
+# Feature help messages with interactive quick-action triggers
+def get_feature_help_msg(feature: str, is_pro: bool = False) -> tuple:
+    messages = {
+        "research": (
+            f"{format_header('Deep Research Engine', 'Multi-Source Investigative Synthesis', 'PRO' if is_pro else 'LOCKED')}\n"
+            f"Performs comprehensive multi-pass web sweeps and synthesizes authoritative reports.\n\n"
+            f"<b>Command Syntax:</b>\n<code>/research [TOPIC]</code>\n\n"
+            f"Or select an interactive sample below to execute immediately:\n"
+            + (
+                "\n<i>⚡ Pro Active — Full investigative pipeline unlocked.</i>"
+                if is_pro
+                else "\n<i>🔒 Pro Membership required to run deep research.</i>"
+            )
+        ),
+        "summarize": (
+            f"{format_header('Precision Summarizer', 'Condense Documents & Links', 'ACTIVE')}\n"
+            f"Extracts core takeaways, executive summaries, and action items from lengthy texts or YouTube videos.\n\n"
+            f"<b>Command Syntax:</b>\n<code>/summarize [TEXT]</code> (or reply to any message)\n\n"
+            f"Or test with our pre-loaded samples right now:\n"
+            + (f"\n<i>⚡ Daily Allowance: Unlimited (BYOK)</i>")
+        ),
+        "code": (
+            f"{format_header('Code Architect', 'Principal Software Generation & Debugging', 'PRO' if is_pro else 'LOCKED')}\n"
+            f"Generates production-grade, modular, clean code in any language with detailed architecture notes.\n\n"
+            f"<b>Command Syntax:</b>\n<code>/code [DESCRIPTION]</code>\n\n"
+            f"Or trigger an instant architectural build below:\n"
+            + (
+                "\n<i>⚡ Pro Active — Full code generation unlocked.</i>"
+                if is_pro
+                else "\n<i>🔒 Pro Membership required to run code architect.</i>"
+            )
+        ),
+        "imagine": (
+            f"{format_header('Visual Prompt Crafter', 'Optimized AI Art Engineering', 'PRO' if is_pro else 'LOCKED')}\n"
+            f"Designs rich, lighting-aware, high-precision prompts for Midjourney v6, DALL-E 3, and Stable Diffusion.\n\n"
+            f"<b>Command Syntax:</b>\n<code>/imagine [DESCRIPTION]</code>\n\n"
+            f"Or test with our visual concept templates below:\n"
+            + (
+                "\n<i>⚡ Pro Active — Full visual engineering unlocked.</i>"
+                if is_pro
+                else "\n<i>🔒 Pro Membership required to run visual prompt crafter.</i>"
+            )
+        ),
+    }
+    message = messages.get(feature, "Feature documentation unavailable.")
+
+    rows = []
+    if feature == "research":
+        rows = [
+            [InlineKeyboardButton("💡 Quick Run: AI Trends 2026", callback_data="ai_quick_res_aitrends")],
+            [InlineKeyboardButton("💡 Quick Run: Quantum Computing Moats", callback_data="ai_quick_res_quantum")],
+            [InlineKeyboardButton("💡 Quick Run: DeFi Security Auditing", callback_data="ai_quick_res_defi")],
+        ]
+    elif feature == "summarize":
+        rows = [
+            [InlineKeyboardButton("💡 Quick Run: Technical Whitepaper", callback_data="ai_quick_sum_whitepaper")],
+            [InlineKeyboardButton("💡 Quick Run: Earnings Call Summary", callback_data="ai_quick_sum_earnings")],
+        ]
+    elif feature == "code":
+        rows = [
+            [InlineKeyboardButton("💡 Quick Run: FastAPI Auth with JWT", callback_data="ai_quick_code_fastapi")],
+            [InlineKeyboardButton("💡 Quick Run: React Data Table Hooks", callback_data="ai_quick_code_react")],
+            [InlineKeyboardButton("💡 Quick Run: Telegram Bot Architecture", callback_data="ai_quick_code_tgbot")],
+        ]
+    elif feature == "imagine":
+        rows = [
+            [InlineKeyboardButton("💡 Quick Run: Cyberpunk Neo-Tokyo Rain", callback_data="ai_quick_img_cyberpunk")],
+            [InlineKeyboardButton("💡 Quick Run: Deep Space Nebula Horizon", callback_data="ai_quick_img_nebula")],
+            [InlineKeyboardButton("💡 Quick Run: Minimalist Luxury Watch UI", callback_data="ai_quick_img_watch")],
+        ]
+
+    rows.append([InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")])
+    return message, InlineKeyboardMarkup(rows)
+
+
+def get_pro_feature_msg(feature: str) -> tuple:
+    message = pro_feature_locked_msg(feature)
+    keyboard = pro_upgrade_keyboard(back_data="ai_main_menu")
+    return message, keyboard
+
+
+def get_limit_reached_msg(feature: str, current: int, limit: int) -> str:
+    return format_alert(
+        f"Limit Exceeded: {feature}",
+        f"You have utilized <code>{current} / {limit}</code> requests for today.\nQuotas refresh automatically at midnight UTC.\n\nUpgrade to Zenith Pro for 12x higher limits and unlimited access.",
+        "WARNING",
+    )
+
+
+def get_research_help() -> str:
+    return (
+        f"{format_header('Research Command', 'Syntax & Examples', 'HELP')}\n"
+        f"<b>Format:</b> <code>/research [TOPIC]</code>\n\n"
+        f"<b>Examples:</b>\n"
+        f"  ▫️ <code>/research AI regulation frameworks in Europe 2026</code>\n"
+        f"  ▫️ <code>/research high-frequency trading latency optimization</code>\n"
+        f"  ▫️ <code>/research solid-state battery commercialization timeline</code>\n\n"
+        f"<i>Tip: Provide clear constraints for deeper investigative synthesis.</i>"
+    )
+
+
+def get_code_help() -> str:
+    return (
+        f"{format_header('Code Generator Command', 'Syntax & Examples', 'HELP')}\n"
+        f"<b>Format:</b> <code>/code [DESCRIPTION]</code>\n\n"
+        f"<b>Examples:</b>\n"
+        f"  ▫️ <code>/code Python FastAPI REST endpoint with rate limiting</code>\n"
+        f"  ▫️ <code>/code React hook for WebSocket reconnection handling</code>\n"
+        f"  ▫️ <code>/code Bash script to automate Docker container backups</code>\n\n"
+        f"<i>Tip: Specify language, framework, and edge cases needed.</i>"
+    )
+
+
+def get_summarize_help() -> str:
+    return (
+        f"{format_header('Summarize Command', 'Syntax & Usage', 'HELP')}\n"
+        f"<b>Two convenient ways to use:</b>\n"
+        f"  1. Direct text: <code>/summarize [long article text here]</code>\n"
+        f"  2. Reply to any message or document with: <code>/summarize</code>\n\n"
+        f"<i>Condenses complex material into scannable executive bullet points.</i>"
+    )
+
+
+def get_imagine_help() -> str:
+    return (
+        f"{format_header('Imagine Command', 'Visual Prompt Engineering', 'HELP')}\n"
+        f"<b>Format:</b> <code>/imagine [DESCRIPTION]</code>\n\n"
+        f"<b>Examples:</b>\n"
+        f"  ▫️ <code>/imagine cyberpunk street at twilight, neon reflections, 8k</code>\n"
+        f"  ▫️ <code>/imagine minimalist architectural villa overlooking ocean, golden hour</code>\n"
+        f"  ▫️ <code>/imagine geometric luxury brand emblem for AI robotics firm</code>\n\n"
+        f"<i>Generates studio-grade prompts optimized for Midjourney v6 and DALL-E 3.</i>"
+    )
+
+
+def get_summarize_limit_reached() -> str:
+    return format_alert(
+        "Daily Limit Reached",
+        "You have utilized your 1 free summary for today.\n\nUpgrade to Zenith Pro for unlimited summarization of long documents, articles, and video transcripts.\nUse <code>/activate YOUR-KEY</code> to upgrade.",
+        "PRO",
+    )
+
+
+def get_persona_help() -> str:
+    items = [f"<b>{v['icon']} {k}</b> — {v['name']}" for k, v in PERSONAS.items()]
+    return (
+        f"{format_header('AI Personas Registry', 'Available Neural Profiles', 'COMMAND')}\n"
+        f"{format_card('Supported Profiles', items, '🎭')}\n\n"
+        f"<b>Usage:</b> <code>/persona [name]</code>\n"
+        f"<b>Example:</b> <code>/persona coder</code>"
+    )
+
+
+def get_persona_locked() -> str:
+    return format_alert(
+        "Persona Restricted",
+        "Switching away from the Default assistant requires a Pro subscription.\nUse <code>/activate YOUR-KEY</code> to unlock all 6 personas.",
+        "PRO",
+    )
+
+
+def get_persona_unknown(valid: str) -> str:
+    return format_alert(
+        "Invalid Persona Identifier",
+        f"The requested persona does not exist.\n\n<b>Valid profiles:</b> <code>{valid}</code>\n\nExample: <code>/persona coder</code>",
+        "WARNING",
+    )
+
+
+def get_persona_already_using(name: str) -> str:
+    return format_alert(
+        "Already Active", f"Your neural assistant is currently operating with the <b>{name}</b> profile.", "INFO"
+    )
+
+
+def get_code_no_query() -> str:
+    return get_code_help()
+
+
+def get_imagine_no_query() -> str:
+    return get_imagine_help()
+
+
+def get_key_required_msg() -> str:
+    return (
+        "🔐 <b>Groq API Key Required</b>\n\n"
+        "You are using Zenith in <b>BYOK (Bring Your Own Key)</b> mode. "
+        "This allows for unlimited usage without daily limits!\n\n"
+        "Status: ❌ <b>Not configured</b>\n\n"
         "To unlock all features, please set your personal Groq API key using:\n"
         "<code>/setkey [your_key]</code>\n\n"
         "<i>Get your free key at <a href='https://console.groq.com'>console.groq.com</a></i>"
@@ -564,4 +759,53 @@ def get_history_empty_msg() -> str:
         f"{format_header('Chat Memory', 'Active Neural Buffer', 'EMPTY')}\n"
         f"Your AI context buffer is currently empty.\n\n"
         f"<i>Start a conversation to build contextual memory!</i>"
+    )
+
+def get_ai_features_msg() -> str:
+    return (
+        f"{format_header('AI Neural Features', 'Premium Web3 Intelligence', 'FEATURES')}\n"
+        f"<b>Available Capabilities:</b>\n\n"
+        f"🛡️ <b>Smart Contract Auditor:</b> Scan contracts for rugs & exploits.\n"
+        f"📈 <b>Crypto Sentiment:</b> Analyze real-time fear/greed of any token.\n"
+        f"🔍 <b>Deep Research:</b> Multi-pass internet scraping for deep dives.\n"
+        f"📝 <b>Summarization:</b> Distill long articles & youtube videos.\n"
+        f"💻 <b>Code Generation:</b> Architect scalable code solutions.\n"
+        f"🎨 <b>Image Prompting:</b> Craft Midjourney v6 visual prompts."
+    )
+
+def get_ai_features_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")]
+        ]
+    )
+
+def get_help_msg() -> str:
+    return (
+        f"{format_header('Commands Guide', 'AI Bot Instruction Manual', 'HELP')}\n"
+        f"<b>Core Commands:</b>\n"
+        f"<code>/audit [address]</code> - Security scan a smart contract\n"
+        f"<code>/sentiment [coin]</code> - Real-time market sentiment\n"
+        f"<code>/research [topic]</code> - Deep web research\n"
+        f"<code>/summarize [text/url]</code> - Summarize content\n"
+        f"<code>/code [prompt]</code> - Generate architecture\n"
+        f"<code>/imagine [prompt]</code> - Generate visual prompts\n"
+        f"<code>/persona [name]</code> - Change AI personality\n"
+        f"<code>/history</code> - View or clear memory\n"
+        f"<code>/setkey [key]</code> - Set personal API key\n"
+    )
+
+def get_ai_help_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Research", callback_data="ai_research_help"),
+                InlineKeyboardButton("Summarize", callback_data="ai_summarize_help"),
+            ],
+            [
+                InlineKeyboardButton("Code Gen", callback_data="ai_code_help"),
+                InlineKeyboardButton("Imagine", callback_data="ai_imagine_help"),
+            ],
+            [InlineKeyboardButton("« Back to Dashboard", callback_data="ai_main_menu")],
+        ]
     )
