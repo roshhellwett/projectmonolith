@@ -34,7 +34,7 @@ async def start_service():
     await bot_app.start()
 
     logger.info("Starting monitoring loops...")
-    task = asyncio.create_task(start_monitoring())
+    task = asyncio.create_task(start_monitoring(bot_app))
     background_tasks.add(task)
     task.add_done_callback(background_tasks.discard)
     logger.info("Admin Bot setup complete.")
