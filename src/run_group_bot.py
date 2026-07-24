@@ -22,6 +22,7 @@ from core.webhook_router import register_bot_webhook
 from zenith_group_bot.repository import GroupSubscriptionRepo
 from zenith_group_bot.ai_group_handlers import register_group_ai_handlers, set_group_ai_bot
 from zenith_group_bot.crypto_group_handlers import register_group_crypto_handlers, set_group_crypto_bot
+from zenith_group_bot.gamification import cmd_me, cmd_top
 from zenith_group_bot.group_app import (
     cmd_forgive,
     cmd_forgive_confirm,
@@ -371,8 +372,11 @@ async def start_service():
     bot_app.add_handler(CommandHandler("reset", cmd_reset))
     bot_app.add_handler(CommandHandler("activate", cmd_activate))
 
-    bot_app.add_handler(CommandHandler("addword", cmd_addword))
+    bot_app.add_handler(CommandHandler("wordlist", cmd_wordlist))
     bot_app.add_handler(CommandHandler("delword", cmd_delword))
+    bot_app.add_handler(CommandHandler("me", cmd_me))
+    bot_app.add_handler(CommandHandler("top", cmd_top))
+    bot_app.add_handler(CommandHandler("leaderboard", cmd_top))
     bot_app.add_handler(CommandHandler("wordlist", cmd_wordlist))
     bot_app.add_handler(CommandHandler("schedule", cmd_schedule))
     bot_app.add_handler(CommandHandler("schedules", cmd_schedules))

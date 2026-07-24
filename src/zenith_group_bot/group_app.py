@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 from core.logger import setup_logger
 from core.permissions import resolve_tier
 
-from zenith_group_bot.gamification import add_xp_sync
+from zenith_group_bot.gamification import add_xp_sync, add_rep_sync, can_give_rep
 from zenith_group_bot.filters import scan_for_abuse, scan_for_spam
 from zenith_group_bot.flood_control import is_flooding, get_flood_action, add_warning
 from zenith_group_bot.repository import (
@@ -311,6 +311,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     # Gamification Tracking
     add_xp_sync(user_id, chat_id, 1)
+    
+    # Reputation Tracking
+    if msg.reply_to_message and text.strip() in ("+", "+rep", "👍", "-", "-rep", "👎"):
+        target_user = msg.reply_to_message.from_user
+        if target_user and not target_user.is_bot and target_user.id != user_id:
+            if can_give_rep(user_id, chat_id):
+                if text.strip() in ("+", "+rep", "👍"):
+                    add_rep_sync(target_user.id, chat_id, 1)
+                    with contextlib.suppress(Exception):
+                        await msg.reply_text(f"📈 {user.first_name} gave reputation to {target_user.first_name}!")
+                elif text.strip() in ("-", "-rep", "👎"):
+                    add_rep_sync(target_user.id, chat_id, -1)
+                    with contextlib.suppress(Exception):
+                        await msg.reply_text(f"📉 {user.first_name} removed reputation from {target_user.first_name}!")
+            else:
+                with contextlib.suppress(Exception):
+                    await msg.reply_text(f"⏳ {user.first_name}, you must wait before giving reputation again!")
 
     # AI FAQ Auto-Responder
     if getattr(settings, "faq_knowledge", None) and getattr(settings, "ai_enabled", False) and getattr(settings, "groq_api_key", None):
