@@ -419,9 +419,6 @@ def format_db_stats(stats: dict) -> str:
         f"Crypto Users: {stats.get('crypto_users', 0):,}\n"
         f"Subscriptions: {stats.get('subscriptions', 0):,}\n"
         f"Activation Keys: {stats.get('activation_keys', 0):,}\n"
-        f"Support Tickets: {stats.get('support_tickets', 0):,}\n"
-        f"FAQs: {stats.get('faqs', 0):,}\n"
-        f"Canned Responses: {stats.get('canned_responses', 0):,}\n"
         f"Groups: {stats.get('groups', 0):,}\n"
         f"Moderation Logs: {stats.get('moderation_logs', 0):,}"
     )

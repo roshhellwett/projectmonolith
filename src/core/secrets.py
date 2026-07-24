@@ -59,7 +59,6 @@ SECRET_DEFINITIONS: list[SecretDefinition] = [
     SecretDefinition("CRYPTO_BOT_TOKEN", SecretLevel.REQUIRED, "Crypto bot token", "crypto"),
     SecretDefinition("AI_BOT_TOKEN", SecretLevel.REQUIRED, "AI bot token", "ai"),
     SecretDefinition("GROUP_BOT_TOKEN", SecretLevel.REQUIRED, "Group bot token", "group"),
-    SecretDefinition("SUPPORT_BOT_TOKEN", SecretLevel.REQUIRED, "Support bot token", "support"),
     SecretDefinition("ADMIN_BOT_TOKEN", SecretLevel.REQUIRED, "Admin bot token", "admin"),
     # External services — features degrade without these
     SecretDefinition("SERPER_API_KEY", SecretLevel.OPTIONAL, "Serper web search API key", "ai"),

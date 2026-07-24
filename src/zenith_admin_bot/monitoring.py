@@ -15,7 +15,6 @@ bot_app_references = {
     "AI": None,
     "Crypto": None,
     "Group": None,
-    "Support": None,
     "Admin": None,
 }
 
@@ -174,7 +173,6 @@ async def start_monitoring(app):
     await BotRegistryRepo.register_bot("AI")
     await BotRegistryRepo.register_bot("Crypto")
     await BotRegistryRepo.register_bot("Group")
-    await BotRegistryRepo.register_bot("Support")
     await BotRegistryRepo.register_bot("Admin")
 
     track_task(asyncio.create_task(safe_loop("health_check", check_bot_health)))

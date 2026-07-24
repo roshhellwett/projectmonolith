@@ -47,12 +47,6 @@ GROUP_CUSTOM_WORDS = TierLimit(free=0, pro=200)  # free = locked
 GROUP_SCHEDULED_MESSAGES = TierLimit(free=0, pro=10)  # free = locked
 
 # ==========================================================
-# Support Bot Limits
-# ==========================================================
-SUPPORT_OPEN_TICKETS = TierLimit(free=3, pro=15, owner=999)
-SUPPORT_FAQ_VISIBLE = TierLimit(free=10, pro=50)
-
-# ==========================================================
 # Rate Limiting (per-user, applies across all bots)
 # ==========================================================
 COMMAND_COOLDOWN_SECONDS = TierLimit(free=15, pro=5)
@@ -86,12 +80,6 @@ PRO_ONLY_FEATURES = {
         "scheduled_messages",
         "custom_welcome",
         "audit_log",
-    ],
-    "support": [
-        "priority_support",
-        "canned_responses",
-        "ticket_stats",
-        "ai_auto_response",
     ],
 }
 

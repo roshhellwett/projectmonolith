@@ -30,17 +30,20 @@ async def start_service():
     bot_app.add_handler(CallbackQueryHandler(handle_dashboard, pattern="^admin_"))
 
     register_bot_webhook("admin", bot_app)
-    await setup_bot_webhook("admin", bot_app)
+    await bot_app.initialize()
     await bot_app.start()
 
     logger.info("Starting monitoring loops...")
     task = asyncio.create_task(start_monitoring())
     background_tasks.add(task)
     task.add_done_callback(background_tasks.discard)
-    attach_gateway("admin", {"health": "ok"})
     logger.info("Admin Bot setup complete.")
 
-async def stop_service():
+async def register_webhook():
+    if bot_app:
+        await setup_bot_webhook(bot_app, "admin")
+
+async def stop_service(dispose_db: bool = False):
     logger.info("Stopping Admin Bot...")
     await stop_monitoring()
     for task in background_tasks:
